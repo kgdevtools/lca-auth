@@ -2,12 +2,13 @@
 
 import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-
-  const callback = `${origin}/auth/callback`
+  const h = await headers()
+  const origin = h.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL!
+  const callback = new URL("/auth/callback", origin).toString()
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
