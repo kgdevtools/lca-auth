@@ -13,7 +13,7 @@ export default function FormsPage() {
     <div className="mx-auto max-w-2xl p-4">
       <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tighter text-center mb-4">Player Registration</h1>
       {success ? (
-        <Alert variant="default">Registration successful!</Alert>
+        <Alert>Registration successful!</Alert>
       ) : (
         <Card className="p-4">
           <PlayerRegistrationForm onSuccess={() => setSuccess(true)} />
