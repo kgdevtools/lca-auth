@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import Image from "next/image";
+import { LogoMark } from "@/components/logo-mark";
 import { createClient } from "@/utils/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { NavLink } from "@/components/nav-links";
-import { Castle, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,13 +40,15 @@ export default async function RootLayout({
         <header className="w-full border-b border-black/10">
           <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link href="/" className="font-semibold mr-2 inline-flex items-center gap-2">
-                <Castle className="h-5 w-5 text-blue-700" strokeWidth={2.5} aria-hidden />
-                LCA-Auth
+              <Link href="/" className="mr-2 inline-flex items-center gap-2" aria-label="Limpopo Chess Academy">
+                <LogoMark className="h-10 w-auto sm:h-12 md:h-14 lg:h-16" />
               </Link>
               {user ? <NavLink href="/private">Private</NavLink> : null}
+              <NavLink href="/forms">Forms</NavLink>
+              <NavLink href="/error">Error</NavLink>
             </div>
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               {user ? (
                 <form action={async () => {
                   'use server'

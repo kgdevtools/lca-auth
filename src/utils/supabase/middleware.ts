@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   // Skip auth handling on our own auth routes; the route handler will perform exchanges
-  if (request.nextUrl.pathname.startsWith('/auth')) {
+  // Also allow public access to forms so anyone can register a player
+  if (request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.startsWith('/forms')) {
     return NextResponse.next({ request })
   }
 

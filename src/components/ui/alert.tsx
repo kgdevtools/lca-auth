@@ -6,7 +6,7 @@ export function Alert({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     <div
       role="alert"
       className={clsx(
-        "rounded-md border bg-accent/30 text-secondary-foreground/90 border-accent/60 px-3 py-2 text-sm",
+        "rounded-md border px-3 py-2 text-sm bg-[color-mix(in_oklab,var(--accent),transparent_70%)] border-[var(--accent)] text-[var(--foreground)]",
         className
       )}
       {...props}

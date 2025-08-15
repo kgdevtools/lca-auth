@@ -10,12 +10,12 @@ const baseStyles =
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 
 const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  default: "bg-black text-white hover:opacity-90 focus-visible:ring-black",
+  default: "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 focus-visible:ring-[var(--ring)]",
   primary:
     "bg-[var(--primary)] text-[var(--primary-foreground)] hover:brightness-95 focus-visible:ring-[var(--ring)]",
   outline:
-    "border border-black/10 bg-white text-black hover:bg-neutral-50 focus-visible:ring-black",
-  ghost: "bg-transparent hover:bg-black/5",
+    "border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--card),black_5%)] focus-visible:ring-[var(--ring)]",
+  ghost: "bg-transparent hover:bg-[color-mix(in_oklab,var(--foreground),transparent_95%)]",
 }
 
 const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {

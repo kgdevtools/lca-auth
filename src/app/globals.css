@@ -46,23 +46,23 @@
 :root {
   --radius: 0.625rem;
   --background: #ffffff;
-  --foreground: #0f172a; /* secondary-900 */
+  --foreground: #3a3a3a; /* charcoal text */
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #3a3a3a;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #3b82f6; /* primary-500 */
+  --popover-foreground: #3a3a3a;
+  --primary: #274c77; /* royal blue */
   --primary-foreground: #ffffff;
-  --secondary: #e2e8f0; /* secondary-200 */
-  --secondary-foreground: #334155; /* secondary-700 */
-  --muted: #f1f5f9; /* secondary-100 */
-  --muted-foreground: #475569; /* secondary-600 */
-  --accent: #e0f2fe; /* sky-100 */
-  --accent-foreground: #0c4a6e; /* sky-900 */
+  --secondary: #e7ecef; /* light gray */
+  --secondary-foreground: #3a3a3a; /* charcoal */
+  --muted: #e7ecef; /* light gray */
+  --muted-foreground: #8b8c89; /* mid-gray */
+  --accent: #6092cb; /* bright blue */
+  --accent-foreground: #ffffff;
   --destructive: #ef4444;
-  --border: #e5e7eb; /* secondary-200 */
-  --input: #e5e7eb;
-  --ring: #2563eb; /* primary-600 */
+  --border: #c0c2c4; /* silver */
+  --input: #c0c2c4;
+  --ring: #6092cb; /* bright blue */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -79,24 +79,24 @@
 }
 
 .dark {
-  --background: #0f172a; /* secondary-900 */
-  --foreground: #f8fafc; /* secondary-50 */
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #60a5fa; /* primary-400 */
-  --primary-foreground: #0b1220;
-  --secondary: #1f2937; /* gray-800 */
-  --secondary-foreground: #e2e8f0;
-  --muted: #1f2937;
-  --muted-foreground: #94a3b8;
-  --accent: #78350f; /* accent-900 */
-  --accent-foreground: #fde68a; /* accent-200 */
+  --background: #23282e; /* charcoal */
+  --foreground: #e7ecef; /* light gray */
+  --card: #23282e;
+  --card-foreground: #e7ecef;
+  --popover: #23282e;
+  --popover-foreground: #e7ecef;
+  --primary: #274c77; /* royal blue */
+  --primary-foreground: #ffffff;
+  --secondary: #1f242a; /* deeper charcoal */
+  --secondary-foreground: #e7ecef;
+  --muted: #1f242a;
+  --muted-foreground: #8b8c89; /* mid-gray */
+  --accent: #6092cb; /* bright blue */
+  --accent-foreground: #0b1220;
   --destructive: #fca5a5;
   --border: rgba(255,255,255,0.12);
   --input: rgba(255,255,255,0.16);
-  --ring: #60a5fa;
+  --ring: #6092cb;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -118,5 +118,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  }
+  code, pre, kbd, samp {
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 }
