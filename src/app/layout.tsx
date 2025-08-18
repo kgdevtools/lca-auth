@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { NavLink } from "@/components/nav-links";
 import { LogIn } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/mobile-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,17 +39,19 @@ export default async function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <header className="w-full border-b border-black/10">
-          <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+          <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between relative">
             <div className="flex items-center gap-2">
               <Link href="/" className="mr-2 inline-flex items-center gap-2" aria-label="Limpopo Chess Academy">
                 <LogoMark className="h-10 w-auto sm:h-12 md:h-14 lg:h-16" />
               </Link>
-              {user ? <NavLink href="/private">Private</NavLink> : null}
-              <NavLink href="/forms">Forms</NavLink>
-              <NavLink href="/error">Error</NavLink>
+              <div className="hidden md:flex items-center gap-2">
+                {user ? <NavLink href="/private">Private</NavLink> : null}
+                <NavLink href="/forms">Forms</NavLink>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
+              <MobileNav isAuthenticated={Boolean(user)} />
               {user ? (
                 <form action={async () => {
                   'use server'
@@ -57,12 +60,12 @@ export default async function RootLayout({
                 }}>
                   <div className="flex items-center gap-3">
                     <Avatar name={user.email ?? 'User'} />
-                    <span className="text-sm text-neutral-700 hidden sm:inline">{user.email}</span>
-                    <button className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-offset-2" type="submit">Sign out</button>
+                    <span className="text-sm text-neutral-700 dark:text-neutral-200 hidden sm:inline">{user.email}</span>
+                    <button className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2" type="submit">Sign out</button>
                   </div>
                 </form>
               ) : (
-                <Link href="/login" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
+                <Link href="/login" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
                   <LogIn className="h-4 w-4" aria-hidden />
                   Login
                 </Link>
