@@ -46,6 +46,8 @@ export default async function RootLayout({
               </Link>
               <div className="hidden md:flex items-center gap-2">
                 {user ? <NavLink href="/private">Private</NavLink> : null}
+                {user ? <NavLink href="/admin">Admin</NavLink> : null}
+                <NavLink href="/tournaments">Tournaments</NavLink>
                 <NavLink href="/forms">Forms</NavLink>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { RegistrationsTable } from "@/components/registrations-table"
+import { formatDateTimeUTC } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -65,7 +66,7 @@ export default async function PrivatePage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[var(--muted-foreground)]">Created</span>
-                <span className="font-medium">{new Date(data.user.created_at).toLocaleString()}</span>
+                <span className="font-medium">{formatDateTimeUTC(data.user.created_at)}</span>
               </div>
             </div>
             <form className="mt-6" action={async () => {
@@ -120,7 +121,7 @@ export default async function PrivatePage() {
                         <tr key={u.id} className="border-t border-[var(--border)]">
                           <td className="py-2 pr-3">{u.email}</td>
                           <td className="py-2 pr-3 font-mono text-[12px]">{u.id}</td>
-                          <td className="py-2 pr-3">{new Date(u.created_at).toLocaleString()}</td>
+                          <td className="py-2 pr-3">{formatDateTimeUTC(u.created_at)}</td>
                         </tr>
                       ))}
                     </tbody>

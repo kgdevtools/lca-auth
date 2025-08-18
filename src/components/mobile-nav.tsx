@@ -59,6 +59,8 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
         >
           <div className="flex flex-col gap-1">
             {isAuthenticated ? <NavLink href="/private">Private</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/admin">Admin</NavLink> : null}
+            <NavLink href="/tournaments">Tournaments</NavLink>
             <NavLink href="/forms">Forms</NavLink>
           </div>
         </div>

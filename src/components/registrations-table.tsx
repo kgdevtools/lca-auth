@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { formatDateTimeUTC } from "@/lib/utils"
 
 type Registration = {
   id: string
@@ -50,7 +51,7 @@ export function RegistrationsTable({ registrations }: { registrations: Registrat
                     <td className="py-2 pr-3">{name || '—'}</td>
                     <td className="py-2 pr-3">{d.dob || '—'}</td>
                     <td className="py-2 pr-3 capitalize">{d.experience || '—'}</td>
-                    <td className="py-2 pr-3">{new Date(r.created_at).toLocaleString()}</td>
+                    <td className="py-2 pr-3">{formatDateTimeUTC(r.created_at)}</td>
                   </tr>
                 )
               })}
@@ -87,7 +88,7 @@ export function RegistrationsTable({ registrations }: { registrations: Registrat
               <div className="text-[var(--muted-foreground)]">ID</div>
               <div className="font-mono text-[12px] break-all">{selected.id}</div>
               <div className="text-[var(--muted-foreground)]">Created</div>
-              <div>{new Date(selected.created_at).toLocaleString()}</div>
+              <div>{formatDateTimeUTC(selected.created_at)}</div>
               {(() => {
                 const d = (selected.data_entry ?? {}) as Record<string, any>
                 const pairs: Array<[string, any]> = [
