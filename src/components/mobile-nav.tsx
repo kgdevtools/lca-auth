@@ -58,10 +58,10 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
           className="absolute right-0 mt-2 w-56 rounded-md border bg-white dark:bg-neutral-900 p-2 shadow-md z-50"
         >
           <div className="flex flex-col gap-1">
-            {isAuthenticated ? <NavLink href="/private">Private</NavLink> : null}
-            {isAuthenticated ? <NavLink href="/admin">Admin</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/private">Admin Dashboard</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/admin">Upload Tournament</NavLink> : null}
             <NavLink href="/tournaments">Tournaments</NavLink>
-            <NavLink href="/forms">Forms</NavLink>
+            <NavLink href="/forms">Join Academy</NavLink>
           </div>
         </div>
       ) : null}
