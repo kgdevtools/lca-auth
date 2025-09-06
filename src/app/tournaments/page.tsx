@@ -70,5 +70,3 @@ function Pagination({ currentPage, totalPages }: { currentPage: number; totalPag
     </div>
   )
 }
-
-
