@@ -1,7 +1,7 @@
 "use server"
 
 import { parseExcelToJson } from "@/services/parserService" // Original parser
-import { parseEnhancedExcelToJson } from "@/services/parserService-2" // New parser
+import { parseUnifiedExcelToJson } from "@/services/parserService-2" // New parser
 import { saveTournamentNormalized } from "@/repositories/tournamentRepo"
 
 export async function uploadTournamentAction(_prevState: any, formData: FormData) {
@@ -20,7 +20,7 @@ export async function uploadTournamentAction(_prevState: any, formData: FormData
     
     // Choose parser based on selection
     const parsed = parserType === "enhanced" 
-      ? parseEnhancedExcelToJson(buffer, file.name)
+      ? parseUnifiedExcelToJson(buffer, file.name)
       : parseExcelToJson(buffer, file.name)
 
 

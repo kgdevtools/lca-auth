@@ -1,14 +1,13 @@
-// src/app/admin/admin-dashboard/components/DashboardSidebar.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Users, 
-  Trophy, 
-  BarChart3, 
-  Settings, 
+import {
+  Users,
+  Trophy,
+  BarChart3,
+  Settings,
   Database,
   Shield,
   Home,
@@ -17,45 +16,53 @@ import {
 } from 'lucide-react'
 
 const sidebarItems = [
-  { 
-    title: 'Overview', 
-    href: '/admin/admin-dashboard', 
-    icon: Home 
+  {
+    title: 'Overview',
+    href: '/admin/admin-dashboard',
+    icon: Home,
+    active: true
   },
-  { 
-    title: 'Tournaments', 
-    href: '/admin/admin-dashboard/tournaments', 
-    icon: Trophy 
+  {
+    title: 'Tournaments',
+    href: '/admin/admin-dashboard/tournaments',
+    icon: Trophy,
+    active: true
   },
-  { 
-    title: 'Players', 
-    href: '/admin/admin-dashboard/players', 
-    icon: Users 
+  {
+    title: 'Players',
+    href: '/admin/admin-dashboard/players',
+    icon: Users,
+    active: true
   },
-  { 
-    title: 'Analytics', 
-    href: '/admin/admin-dashboard/analytics', 
-    icon: BarChart3 
+  {
+    title: 'Analytics',
+    href: '/admin/admin-dashboard/analytics',
+    icon: BarChart3,
+    active: false
   },
-  { 
-    title: 'User Management', 
-    href: '/admin/admin-dashboard/users', 
-    icon: UserCheck 
+  {
+    title: 'User Management',
+    href: '/admin/admin-dashboard/users',
+    icon: UserCheck,
+    active: false
   },
-  { 
-    title: 'Data Management', 
-    href: '/admin/admin-dashboard/data', 
-    icon: Database 
+  {
+    title: 'Data Management',
+    href: '/admin/admin-dashboard/data',
+    icon: Database,
+    active: false
   },
-  { 
-    title: 'Security', 
-    href: '/admin/admin-dashboard/security', 
-    icon: Shield 
+  {
+    title: 'Security',
+    href: '/admin/admin-dashboard/security',
+    icon: Shield,
+    active: false
   },
-  { 
-    title: 'Settings', 
-    href: '/admin/admin-dashboard/settings', 
-    icon: Settings 
+  {
+    title: 'Settings',
+    href: '/admin/admin-dashboard/settings',
+    icon: Settings,
+    active: false
   },
 ]
 
@@ -67,7 +74,7 @@ export default function DashboardSidebar() {
     <>
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -93,12 +100,29 @@ export default function DashboardSidebar() {
             <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
-        
+
         {/* Navigation */}
         <nav className="mt-6 px-3 pb-4">
           {sidebarItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
+            const isItemActive = item.active
+            
+            // For inactive items, render as disabled div instead of Link
+            if (!isItemActive) {
+              return (
+                <div
+                  key={item.href}
+                  className="flex items-center px-3 py-2.5 mt-1 rounded-lg text-sm font-medium
+                    text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
+                >
+                  <Icon className="w-5 h-5 mr-3" />
+                  {item.title}
+                </div>
+              )
+            }
+            
+            // For active items, render as Link
             return (
               <Link
                 key={item.href}
@@ -107,8 +131,8 @@ export default function DashboardSidebar() {
                 className={`
                   flex items-center px-3 py-2.5 mt-1 rounded-lg text-sm font-medium
                   transition-colors duration-200
-                  ${isActive 
-                    ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-r-2 border-blue-700 dark:border-blue-400' 
+                  ${isActive
+                    ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-r-2 border-blue-700 dark:border-blue-400'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                   }
                 `}
