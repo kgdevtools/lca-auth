@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { WarningBanner } from '@/components/warning-banner'
 import Image from 'next/image'
 
@@ -66,7 +65,7 @@ export default function SignupPage() {
               <Input id="password" type="password" required disabled />
             </div>
             <div className="flex items-start space-x-2">
-              <Checkbox id="dob-disclaimer" disabled />
+              {/* <Checkbox id="dob-disclaimer" disabled /> */}
               <div className="grid gap-1.5 leading-none">
                 <label
                   htmlFor="dob-disclaimer"

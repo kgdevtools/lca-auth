@@ -2,7 +2,7 @@
 
 import React, { useActionState, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { uploadTournamentAction } from "./server-actions"
+import { uploadTournamentAction } from "../../admin-dashboard/server-actions"
 
 type UploadState = { 
   ok: boolean; 
