@@ -2,35 +2,53 @@
 
 import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
+import { headers } from 'next/headers'
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  const h = await headers()
-  const origin = h.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL!
-  const callback = new URL("/auth/callback", origin).toString()
-
+  const origin = headers().get('origin')
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider: 'google',
     options: {
-      redirectTo: callback,
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
-      },
-      skipBrowserRedirect: true,
+      redirectTo: `${origin}/auth/callback`,
     },
+  })
+  if (error) {
+    redirect(`/login?message=${error.message}`)
+  }
+  redirect(data.url)
+}
+
+export async function signInWithEmail(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   })
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`)
+    redirect(`/login?message=${error.message}`)
   }
 
-  if (data?.url) {
-    redirect(data.url)
-  }
+  redirect('/')
+}
 
-  redirect("/login")
+export async function signInWithFacebook() {
+  const supabase = await createClient()
+  const origin = headers().get('origin')
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'facebook',
+    options: {
+      redirectTo: `${origin}/auth/callback`,
+    },
+  })
+  if (error) {
+    redirect(`/login?message=${error.message}`)
+  }
+  redirect(data.url)
 }
 
 

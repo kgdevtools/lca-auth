@@ -8,6 +8,7 @@ type Tournament = {
   tournament_name: string | null
   location: string | null
   date: string | null
+  chief_arbiter: string | null
 }
 
 export default async function TournamentsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[]>> }) {
@@ -21,7 +22,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
   const supabase = await createClient()
   const { data: tournaments, error, count } = await supabase
     .from("tournaments")
-    .select("id, tournament_name, location, date", { count: "exact" })
+    .select("id, tournament_name, location, date, chief_arbiter", { count: "exact" })
     .order("date", { ascending: false })
     .range(from, to)
 
@@ -38,15 +39,27 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
 
   return (
     <main className="min-h-dvh px-4 py-8 mx-auto max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-4">Tournaments</h1>
-      <ul className="divide-y border rounded-md">
-        {(tournaments as Tournament[] | null)?.map((t) => (
-          <li key={t.id} className="p-3">
-            <Link href={`/tournaments/${t.id}`} className="hover:underline">
-              <div className="font-medium">{t.tournament_name ?? "Untitled Tournament"}</div>
-              <div className="text-sm text-neutral-600 dark:text-neutral-300">
-                {t.location ?? "Unknown location"} • {t.date ?? "Unknown date"}
+      <h1 className="text-2xl font-semibold mb-4 text-foreground md:text-3xl lg:text-4xl">Tournaments</h1>
+      <div className="mb-4 text-sm text-muted-foreground">
+        Showing {tournaments?.length} of {total} tournaments.
+      </div>
+      <ul className="divide-y divide-border border border-border rounded-md bg-card shadow-sm">
+        {(tournaments as Tournament[] | null)?.map((t, index) => (
+          <li key={t.id} className="p-4 hover:bg-muted transition-colors duration-200">
+            <Link href={`/tournaments/${t.id}`} className="block">
+              <div className="flex items-center mb-1">
+                <span className="text-sm font-semibold text-muted-foreground mr-2">#{from + index + 1}</span>
+                <h2 className="font-bold text-lg text-primary md:text-xl lg:text-2xl tracking-tightest">{t.tournament_name ?? "Untitled Tournament"}</h2>
               </div>
+              <p className="text-base text-foreground mb-1">
+                <span className="font-semibold">Location:</span> {t.location ?? "Unknown location"}
+              </p>
+              <p className="text-sm text-muted-foreground mb-1">
+                <span className="font-semibold">Chief Arbiter:</span> {t.chief_arbiter ?? "N/A"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold">Date:</span> {t.date ?? "Unknown date"}
+              </p>
             </Link>
           </li>
         ))}

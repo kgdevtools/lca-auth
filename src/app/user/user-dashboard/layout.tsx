@@ -1,78 +1,39 @@
-// src/app/admin/admin-dashboard/layout.tsx
 'use client'
 
 import { ReactNode, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Users,
-  Trophy,
-Calculator,
-Download,
-RefreshCw,
-  BarChart3,
-  Settings,
-  Database,
-  Shield,
   Home,
-  UserCheck,
-  Menu,
-  X
+  Trophy,
+  User,
+  X,
+  Menu
 } from 'lucide-react'
 
-interface AdminDashboardLayoutProps {
+interface UserDashboardLayoutProps {
   children: ReactNode
 }
 
 const sidebarItems = [
   {
-    title: 'Overview',
-    href: '/admin/admin-dashboard',
+    title: 'Dashboard',
+    href: '/user/user-dashboard',
     icon: Home
   },
   {
-    title: 'Tournaments',
-    href: '/admin/admin-dashboard/tournaments',
+    title: 'My Tournaments',
+    href: '/user/user-dashboard/tournaments',
     icon: Trophy
   },
   {
-    title: 'Players',
-    href: '/admin/admin-dashboard/players',
-    icon: Users
-  },
-{
-  title: 'Performance Ratings',
-  href: '/admin/admin-dashboard/performance',
-  icon: BarChart3
-},
-  {
-    title: 'Analytics',
-    href: '/admin/admin-dashboard/analytics',
-    icon: BarChart3
-  },
-  {
-    title: 'User Management',
-    href: '/admin/admin-dashboard/users',
-    icon: UserCheck
-  },
-  {
-    title: 'Data Management',
-    href: '/admin/admin-dashboard/data',
-    icon: Database
-  },
-  {
-    title: 'Security',
-    href: '/admin/admin-dashboard/security',
-    icon: Shield
-  },
-  {
-    title: 'Settings',
-    href: '/admin/admin-dashboard/settings',
-    icon: Settings
+    title: 'Profile',
+    href: '/user/user-dashboard/profile',
+    icon: User
   },
 ]
 
-export default function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
+export default function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
@@ -96,7 +57,7 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h1 className="text-lg font-bold text-foreground">Chess Academy</h1>
-            <p className="text-sm text-muted-foreground">Admin Dashboard</p>
+            <p className="text-sm text-muted-foreground">User Dashboard</p>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -111,7 +72,6 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
           {sidebarItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
-            const isSpecialActive = ['/admin/admin-dashboard', '/admin/admin-dashboard/tournaments', '/admin/admin-dashboard/players'].includes(item.href) && isActive
             return (
               <Link
                 key={item.href}
@@ -120,15 +80,13 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
                 className={`
                   flex items-center px-3 py-2 mt-1 rounded-lg text-sm font-medium
                   transition-colors duration-200
-                  ${isSpecialActive
-                    ? 'bg-muted text-foreground'
-                    : isActive
+                  ${isActive
                     ? 'bg-accent text-accent-foreground border-r-2 border-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }
                 `}
               >
-                <Icon className={`w-4 h-4 mr-2 ${isSpecialActive ? 'text-foreground' : isActive ? 'text-primary' : ''}`} />
+                <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-primary' : ''}`} />
                 {item.title}
               </Link>
             )

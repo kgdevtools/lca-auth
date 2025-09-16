@@ -45,10 +45,12 @@ export default async function RootLayout({
                 <LogoMark className="h-10 w-auto sm:h-12 md:h-14 lg:h-16" />
               </Link>
               <div className="hidden md:flex items-center gap-2">
-                {user ? <NavLink href="/private">Private</NavLink> : null}
-                {user ? <NavLink href="/admin">Admin</NavLink> : null}
-                <NavLink href="/tournaments">Tournaments</NavLink>
-                <NavLink href="/forms">Forms</NavLink>
+                {user ? <NavLink href="/user/profile" color="primary">My Profile</NavLink> : null}
+                {user ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null}
+                {user ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard</NavLink> : null}
+                {user ? <NavLink href="/admin/upload-tournament" color="gray">Upload Tournament</NavLink> : null}
+                <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
+                <NavLink href="/forms" color="gray">Forms</NavLink>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -67,10 +69,15 @@ export default async function RootLayout({
                   </div>
                 </form>
               ) : (
-                <Link href="/login" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
-                  <LogIn className="h-4 w-4" aria-hidden />
-                  Login
-                </Link>
+                <>
+                  <Link href="/login" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
+                    <LogIn className="h-4 w-4" aria-hidden />
+                    Login
+                  </Link>
+                  <Link href="/signup" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
+                    Sign Up
+                  </Link>
+                </>
               )}
             </div>
           </nav>

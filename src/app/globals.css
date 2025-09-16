@@ -46,23 +46,23 @@
 :root {
   --radius: 0.625rem;
   --background: #ffffff;
-  --foreground: #3a3a3a; /* charcoal text */
+  --foreground: #1c1917; /* stone-900 */
   --card: #ffffff;
-  --card-foreground: #3a3a3a;
+  --card-foreground: #1c1917;
   --popover: #ffffff;
-  --popover-foreground: #3a3a3a;
-  --primary: #274c77; /* royal blue */
+  --popover-foreground: #1c1917;
+  --primary: #2563eb; /* blue-600 */
   --primary-foreground: #ffffff;
-  --secondary: #e7ecef; /* light gray */
-  --secondary-foreground: #3a3a3a; /* charcoal */
-  --muted: #e7ecef; /* light gray */
-  --muted-foreground: #8b8c89; /* mid-gray */
-  --accent: #6092cb; /* bright blue */
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --border: #c0c2c4; /* silver */
-  --input: #c0c2c4;
-  --ring: #6092cb; /* bright blue */
+  --secondary: #e5e7eb; /* gray-200 */
+  --secondary-foreground: #1c1917;
+  --muted: #f3f4f6; /* gray-100 */
+  --muted-foreground: #6b7280; /* gray-500 */
+  --accent: #eff6ff; /* blue-50 */
+  --accent-foreground: #1e40af; /* blue-800 */
+  --destructive: #dc2626; /* red-600 */
+  --border: #e2e8f0; /* gray-200 */
+  --input: #e2e8f0;
+  --ring: #93c5fd; /* blue-300 */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -79,24 +79,24 @@
 }
 
 .dark {
-  --background: #23282e; /* charcoal */
-  --foreground: #e7ecef; /* light gray */
-  --card: #23282e;
-  --card-foreground: #e7ecef;
-  --popover: #23282e;
-  --popover-foreground: #e7ecef;
-  --primary: #274c77; /* royal blue */
+  --background: #0c0a09; /* stone-950 */
+  --foreground: #e7e5e4; /* stone-200 */
+  --card: #1c1917; /* stone-900 */
+  --card-foreground: #e7e5e4;
+  --popover: #1c1917;
+  --popover-foreground: #e7e5e4;
+  --primary: #2563eb; /* blue-600 */
   --primary-foreground: #ffffff;
-  --secondary: #1f242a; /* deeper charcoal */
-  --secondary-foreground: #e7ecef;
-  --muted: #1f242a;
-  --muted-foreground: #8b8c89; /* mid-gray */
-  --accent: #6092cb; /* bright blue */
-  --accent-foreground: #0b1220;
-  --destructive: #fca5a5;
-  --border: rgba(255,255,255,0.12);
-  --input: rgba(255,255,255,0.16);
-  --ring: #6092cb;
+  --secondary: #292524; /* stone-800 */
+  --secondary-foreground: #e7e5e4;
+  --muted: #292524;
+  --muted-foreground: #a8a29e; /* stone-400 */
+  --accent: #334155; /* slate-700 */
+  --accent-foreground: #f8fafc; /* slate-50 */
+  --destructive: #ef4444; /* red-500 */
+  --border: #3f3f46; /* zinc-700 */
+  --input: #3f3f46;
+  --ring: #3b82f6; /* blue-500 */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);

@@ -215,7 +215,7 @@ export async function getTournaments(page: number = 1, itemsPerPage: number = 10
       success: true,
       tournaments: tournaments || [],
       count: count || 0,
-      totalPages
+      totalPages,
     }
   } catch (error) {
     console.error('Unexpected error in getTournaments:', error)

@@ -58,11 +58,13 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
           className="absolute right-0 mt-2 w-56 rounded-md border bg-white dark:bg-neutral-900 p-2 shadow-md z-50"
         >
           <div className="flex flex-col gap-1">
-            {isAuthenticated ? <NavLink href="/private">Admin Dashboard</NavLink> : null}
-            {isAuthenticated ? <NavLink href="/admin">Upload Tournament</NavLink> : null}
-   {isAuthenticated ? <NavLink href="/admin/admin-dashboard">Admin Dashboard Overview</NavLink> : null}
-<NavLink href="/tournaments">Tournaments</NavLink>
-            <NavLink href="/forms">Join Academy</NavLink>
+            {isAuthenticated ? <NavLink href="/user/profile" color="primary">My Profile</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/admin/upload-tournament" color="gray">Upload Tournament</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard Overview</NavLink> : null}
+            {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null}
+            <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
+            <NavLink href="/forms" color="gray">Join Academy</NavLink>
+            {!isAuthenticated && <NavLink href="/signup" color="gray">Sign Up</NavLink>}
           </div>
         </div>
       ) : null}
