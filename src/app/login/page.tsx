@@ -1,3 +1,5 @@
+'use client'
+
 import { signInWithGoogle, signInWithEmail, signInWithFacebook } from './server-actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,12 +11,11 @@ import { WarningBanner } from '@/components/warning-banner'
 import Image from 'next/image'
 import Link from "next/link"
 import { Facebook } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: { message: string };
-}) {
+export default function LoginPage() {
+  const searchParams = useSearchParams()
+  const message = searchParams.get('message')
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-sm md:max-w-md lg:max-w-lg">
@@ -25,9 +26,9 @@ export default function LoginPage({
         </CardHeader>
         <CardContent>
           <WarningBanner message="Still under development: Some services may not work." />
-          {searchParams?.message && (
+          {message && (
             <Alert className="mb-4 bg-red-100 border-red-400 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-200">
-              <AlertDescription>{searchParams.message}</AlertDescription>
+              <AlertDescription>{message}</AlertDescription>
             </Alert>
           )}
           <form action={signInWithEmail} className="space-y-4 mb-4">

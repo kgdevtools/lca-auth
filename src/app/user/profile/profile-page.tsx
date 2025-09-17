@@ -7,12 +7,17 @@ import { formatDateTimeUTC } from '@/lib/utils'
 import { User } from '@supabase/supabase-js' // Keep this for now, as `user.id` is still used.
 import { WarningBanner } from '@/components/warning-banner'
 import { LocalActivePlayer, Tournament, UserProfile } from '@/types/database'
-import { ProfilePageData } from './server-actions' // Import the new interface
+import { ProfilePageData } from './actions' // Import the new interface
+
+interface UserDisplay {
+  id: string;
+  email: string;
+  created_at: string;
+}
 
 interface ProfilePageProps extends ProfilePageData {}
 
 export default function ProfilePage({
-  user, // Keep this for now, it's needed for signOut and general auth
   profileData,
   registrations,
   registrationsError,
@@ -20,6 +25,7 @@ export default function ProfilePage({
   usersError,
   serviceKey,
   signOutAction,
+  user,
 }: ProfilePageProps) {
   return (
     <main className="min-h-dvh p-6">
@@ -68,7 +74,7 @@ export default function ProfilePage({
           </CardHeader>
           <CardContent>
             {registrationsError ? (
-              <p className="text-sm text-destructive">{registrationsError.message}</p>
+              <p className="text-sm text-destructive">{registrationsError}</p>
             ) : (
               <RegistrationsTable registrations={registrations ?? []} />
             )}
@@ -94,7 +100,7 @@ export default function ProfilePage({
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map(u => (
+                      {users.map((u: UserDisplay) => (
                         <tr key={u.id} className="border-t border-border">
                           <td className="py-2 pr-3">{u.email}</td>
                           <td className="py-2 pr-3 font-mono text-[12px]">{u.id}</td>

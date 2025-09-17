@@ -19,3 +19,4 @@ export function WarningBanner({ message }: WarningBannerProps) {
     </Alert>
   )
 }
+

@@ -6,7 +6,7 @@ import { headers } from 'next/headers'
 
 export async function signInWithGoogle() {
   const supabase = await createClient()
-  const origin = headers().get('origin')
+  const origin = (await headers()).get('origin')
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -38,7 +38,7 @@ export async function signInWithEmail(formData: FormData) {
 
 export async function signInWithFacebook() {
   const supabase = await createClient()
-  const origin = headers().get('origin')
+  const origin = (await headers()).get('origin')
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'facebook',
     options: {
@@ -50,5 +50,7 @@ export async function signInWithFacebook() {
   }
   redirect(data.url)
 }
+
+
 
 

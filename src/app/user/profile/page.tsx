@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import ProfilePage from "./profile-page"
-import { fetchProfilePageData } from './server-actions'
+import { fetchProfilePageData } from './actions'
 
 export const dynamic = "force-dynamic"
 
@@ -17,14 +17,7 @@ export default async function Page() {
 
   return (
     <ProfilePage
-      user={pageData.user}
-      profileData={pageData.profileData}
-      registrations={pageData.registrations}
-      registrationsError={pageData.registrationsError}
-      users={pageData.users}
-      usersError={pageData.usersError}
-      serviceKey={pageData.serviceKey}
-      signOutAction={pageData.signOutAction}
+      {...pageData}
     />
   )
 }
