@@ -63,6 +63,7 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             {isAuthenticated ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard Overview</NavLink> : null}
             {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null}
             <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
+            <NavLink href="/players" color="gray">Players</NavLink>
             <NavLink href="/forms" color="gray">Join Academy</NavLink>
             {!isAuthenticated && <NavLink href="/signup" color="gray">Sign Up</NavLink>}
           </div>

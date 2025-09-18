@@ -50,6 +50,7 @@ export default async function RootLayout({
                 {user ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard</NavLink> : null}
                 {user ? <NavLink href="/admin/upload-tournament" color="gray">Upload Tournament</NavLink> : null}
                 <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
+                <NavLink href="/players" color="gray">Players</NavLink>
                 <NavLink href="/forms" color="gray">Forms</NavLink>
               </div>
             </div>
