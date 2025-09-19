@@ -78,12 +78,28 @@ export default function PlayersTable({ players }: PlayersTableProps) {
     return { display: 'black', class: 'bg-black text-white' };
   };
 
+  // Helper function to get the performance rating TB key (e.g., TB3 or whichever contains performance)
+  const getPerfValue = (tie_breaks: Record<string, any>) => {
+    if (!tie_breaks || typeof tie_breaks !== 'object') return null;
+    // Look for a TB key that looks like performance (e.g., contains 'perf' or 'performance')
+    const perfKey = Object.keys(tie_breaks).find(
+      key => key.toLowerCase().includes('perf') || key.toLowerCase().includes('performance')
+    );
+    if (perfKey && tie_breaks[perfKey]) return tie_breaks[perfKey];
+    // Fallback: use the highest numeric TB value (regardless of value)
+    const tbValues = Object.entries(tie_breaks)
+      .filter(([key, val]) => key.startsWith('TB') && typeof val === 'number')
+      .sort((a, b) => b[1] - a[1]);
+    if (tbValues.length > 0) return tbValues[0][1];
+    return null;
+  };
+
   // Helper function to parse result with better type handling
   const parseResult = (result: any) => {
-    if (result === null || result === undefined) {
-      return { display: '½', symbol: '=', class: 'bg-yellow-100 text-yellow-800' };
+    if (result === null || result === undefined || result === '') {
+      // No result, no game played
+      return { display: '-', symbol: '', class: 'bg-gray-100 text-gray-400' };
     }
-
     const resultStr = String(result).toLowerCase();
 
     // Handle string results
@@ -95,8 +111,8 @@ export default function PlayersTable({ players }: PlayersTableProps) {
       return { display: '½', symbol: '=', class: 'bg-yellow-100 text-yellow-800' };
     }
 
-    // Default to draw if unclear
-    return { display: '½', symbol: '=', class: 'bg-yellow-100 text-yellow-800' };
+    // Default to dash if unclear
+    return { display: '-', symbol: '', class: 'bg-gray-100 text-gray-400' };
   };
 
   return (
@@ -107,7 +123,7 @@ export default function PlayersTable({ players }: PlayersTableProps) {
           <thead className="bg-muted">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Rank</th>
-              <th className="px-4 py-3 text-left font-semibold">Name</th>
+              <th className="px-4 py-3 text-left font-semibold text-base md:text-lg lg:text-xl font-bold">Name</th>
               <th className="px-4 py-3 text-left font-semibold">Fed</th>
               <th className="px-4 py-3 text-left font-semibold">Rating</th>
               <th className="px-4 py-3 text-left font-semibold">Pts</th>
@@ -125,7 +141,7 @@ export default function PlayersTable({ players }: PlayersTableProps) {
                   onClick={() => handlePlayerClick(player)}
                 >
                   <td className="px-4 py-2 border-b">{player.rank}</td>
-                  <td className="px-4 py-2 border-b font-medium">
+                  <td className="px-4 py-2 border-b font-bold text-base md:text-lg lg:text-xl leading-tight">
                     <div className="flex items-center">
                       <span className="mr-2">{player.name}</span>
                       <svg
@@ -145,11 +161,11 @@ export default function PlayersTable({ players }: PlayersTableProps) {
                   <td className="px-4 py-2 border-b font-bold">{player.points}</td>
                   {tbKeys.map(tbKey => (
                     <td key={tbKey} className="px-2 py-2 border-b text-xs bg-blue-50/50 dark:bg-blue-900/50">
-                      {player.tie_breaks?.[tbKey] || '-'}
+                      {player.tie_breaks?.[tbKey] ?? '-'}
                     </td>
                   ))}
-                  <td className="px-4 py-2 border-b bg-green-100 dark:bg-green-900">
-                    -
+                  <td className="px-4 py-2 border-b bg-green-100 dark:bg-green-900 font-semibold">
+                    {getPerfValue(player.tie_breaks) ?? '-'}
                   </td>
                 </tr>
 

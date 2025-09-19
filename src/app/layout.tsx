@@ -4,12 +4,12 @@ import "./globals.css";
 import Link from "next/link";
 import Image from "next/image";
 import { LogoMark } from "@/components/logo-mark";
-import { createClient } from "@/utils/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { NavLink } from "@/components/nav-links";
 import { LogIn } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNav } from "@/components/mobile-nav";
+import { createClient } from "@/utils/supabase/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

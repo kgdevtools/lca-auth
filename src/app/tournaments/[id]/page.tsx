@@ -125,21 +125,28 @@ export default async function TournamentPage(props: {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Tournament Header */}
-      <div className="rounded-2xl border border-border bg-card shadow-md p-6">
-        <h1 className="text-2xl font-bold">{tournament.tournament_name}</h1>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>Tournament ID: {tournament.id}</p>
-          {tournament.location && <p>Location: {tournament.location}</p>}
-          {tournament.date && <p>Date: {tournament.date}</p>}
-        </div>
-        <div className="mt-4 text-sm">
-          <strong>Total Players:</strong> {normalizedPlayers.length}
+      {/* Tournament Metadata Card - Enhanced */}
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 shadow-lg p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 dark:text-blue-100 leading-tight mb-2">{tournament.tournament_name}</h1>
+          <div className="flex flex-wrap gap-x-8 gap-y-1 text-base md:text-lg text-blue-800 dark:text-blue-200 font-medium mb-2">
+            <span className="inline-block"><span className="font-semibold text-blue-700 dark:text-blue-300">ID:</span> {tournament.id}</span>
+            {tournament.location && <span className="inline-block"><span className="font-semibold text-blue-700 dark:text-blue-300">Location:</span> {tournament.location}</span>}
+            {tournament.date && <span className="inline-block"><span className="font-semibold text-blue-700 dark:text-blue-300">Date:</span> {tournament.date}</span>}
+          </div>
+          <div className="flex flex-wrap gap-x-8 gap-y-1 text-sm md:text-base text-blue-700 dark:text-blue-300">
+            <span><strong>Players:</strong> {normalizedPlayers.length}</span>
+            <span><strong>Avg Top 10:</strong> {(() => {
+              const top10 = [...normalizedPlayers].sort((a, b) => b.rating - a.rating).slice(0, 10);
+              if (!top10.length) return '-';
+              const avg = Math.round(top10.reduce((acc, p) => acc + (p.rating || 0), 0) / top10.length);
+              return avg;
+            })()}</span>
+          </div>
         </div>
       </div>
-
       {/* Players Table */}
       <PlayersTable players={normalizedPlayers} />
     </div>
   )
-}	
+}

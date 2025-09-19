@@ -12,7 +12,8 @@ import {
   Shield,
   Home,
   UserCheck,
-  X
+  X,
+  UserPlus
 } from 'lucide-react'
 
 const sidebarItems = [
@@ -63,6 +64,12 @@ const sidebarItems = [
     href: '/admin/admin-dashboard/settings',
     icon: Settings,
     active: false
+  },
+  {
+    title: 'Reconcile',
+    href: '/admin/admin-dashboard/reconcile',
+    icon: UserPlus,
+    active: true
   },
 ]
 
