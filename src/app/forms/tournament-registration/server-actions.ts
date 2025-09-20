@@ -1,5 +1,55 @@
 "use server";
 import { createClient } from "@/utils/supabase/server";
+import { revalidatePath } from "next/cache";
+
+interface PlayerRegistration {
+  id: string;
+  surname: string;
+  names: string;
+  section: string;
+  chessa_id: string | null;
+  federation: string | null;
+  rating: number | null;
+  sex: string | null;
+  created_at: string;
+  phone: string;
+  dob: string;
+  emergency_name: string;
+  emergency_phone: string;
+  comments?: string;
+}
+
+export async function getAllPlayers(): Promise<PlayerRegistration[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lca_open_2025_registrations")
+    .select("*")
+    .order("section", { ascending: true })
+    .order("rating", { ascending: false, nullsFirst: false });
+    
+  if (error) {
+    console.error("[getAllPlayers] Fetch error:", error);
+    return [];
+  }
+  
+  return data || [];
+}
+
+export async function getSectionPlayers(section: string): Promise<PlayerRegistration[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lca_open_2025_registrations")
+    .select("*")
+    .eq("section", section)
+    .order("rating", { ascending: false, nullsFirst: false });
+    
+  if (error) {
+    console.error("[getSectionPlayers] Fetch error:", error);
+    return [];
+  }
+  
+  return data || [];
+}
 
 export async function registerLcaOpen2025(form: {
   surname: string;
@@ -30,31 +80,40 @@ export async function registerLcaOpen2025(form: {
     return { error: "A registration with this Surname and Name(s) already exists." };
   }
 
-  const { error, data } = await supabase
-    .from("lca_open_2025_registrations")
-    .insert([
-      {
-        surname: form.surname.trim(),
-        names: form.names.trim(),
-        phone: form.phone.trim(),
-        dob: form.dob,
-        chessa_id: form.chessaId?.trim() || null,
-        rating: form.rating ? parseInt(form.rating, 10) : null,
-        section: form.section,
-        emergency_name: form.emergencyName.trim(),
-        emergency_phone: form.emergencyPhone.trim(),
-        comments: form.comments?.trim() || null,
-      },
-    ])
-    .select();
-  if (error) {
-    console.error("[registerLcaOpen2025] Insert error:", error);
-    return { error: error.message };
+  try {
+    const { error, data } = await supabase
+      .from("lca_open_2025_registrations")
+      .insert([
+        {
+          surname: form.surname.trim(),
+          names: form.names.trim(),
+          phone: form.phone.trim(),
+          dob: form.dob,
+          chessa_id: form.chessaId?.trim() || null,
+          rating: form.rating ? parseInt(form.rating, 10) : null,
+          section: form.section,
+          emergency_name: form.emergencyName.trim(),
+          emergency_phone: form.emergencyPhone.trim(),
+          comments: form.comments?.trim() || null,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error("[registerLcaOpen2025] Insert error:", error);
+      return { error: error.message };
+    }
+    
+    if (!data || !data[0]) {
+      console.error("[registerLcaOpen2025] Insert returned no data:", data);
+      return { error: "Registration failed: no data returned." };
+    }
+
+    revalidatePath("/forms/tournament-registration");
+    return { success: true, player: data[0] as PlayerRegistration };
+    
+  } catch (error) {
+    console.error("[registerLcaOpen2025] Unexpected error:", error);
+    return { error: "An unexpected error occurred. Please try again." };
   }
-  if (!data || !data[0]) {
-    console.error("[registerLcaOpen2025] Insert returned no data:", data);
-    return { error: "Registration failed: no data returned." };
-  }
-  console.log("[registerLcaOpen2025] Registration success:", data[0]);
-  return { success: true, player: data[0] };
 }

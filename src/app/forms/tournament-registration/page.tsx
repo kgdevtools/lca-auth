@@ -1,4 +1,4 @@
-import TournamentRegistrationForm from "./components/TournamentRegistrationForm";
+import TournamentRegistrationForm from "./TournamentRegistrationForm";
 
 export default function TournamentRegistrationPage() {
   return <TournamentRegistrationForm />;
