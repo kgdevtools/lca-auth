@@ -20,7 +20,7 @@ export default function LoginPage() {
     <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-sm md:max-w-md lg:max-w-lg">
         <CardHeader className="flex flex-col items-center">
-          <Image src="/lca_mark.svg" alt="LCA Logo" className="mb-4 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40" />
+          <Image src="/lca_mark.svg" alt="LCA Logo" width={128} height={128} className="mb-4 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40" />
           <CardTitle className="text-2xl font-bold text-foreground lg:text-3xl">Sign in</CardTitle>
           <CardDescription className="text-muted-foreground text-center lg:text-base">Login to your account or create a new one</CardDescription>
         </CardHeader>
@@ -40,7 +40,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" name="password" required disabled />
             </div>
-            <Button type="submit" className="w-full" disabled>
+            <Button type="submit" className="w-full opacity-60 cursor-not-allowed" disabled>
               Sign In
             </Button>
           </form>
@@ -67,7 +67,7 @@ export default function LoginPage() {
               </Button>
             </form>
             <form action={signInWithFacebook} className="w-full">
-              <Button type="submit" className="w-full" size="md" disabled>
+              <Button type="submit" className="w-full opacity-60 cursor-not-allowed" size="md" disabled>
                 <Facebook className="h-5 w-5 mr-2" />
                 Continue with Facebook
               </Button>

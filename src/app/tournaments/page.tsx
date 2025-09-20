@@ -38,32 +38,56 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <main className="min-h-dvh px-4 py-8 mx-auto max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-4 text-foreground md:text-3xl lg:text-4xl">Tournaments</h1>
-      <div className="mb-4 text-sm text-muted-foreground">
-        Showing {tournaments?.length} of {total} tournaments.
+    <main className="min-h-dvh p-4 sm:p-6 lg:p-8 mx-auto max-w-[90rem]">
+      <div className="mb-6 sm:mb-8 lg:mb-10">
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl lg:text-4xl xl:text-5xl tracking-tight">
+          Tournaments
+        </h1>
+        <p className="mt-2 text-sm sm:text-base text-muted-foreground">
+          Showing {tournaments?.length} of {total} tournaments
+        </p>
       </div>
-      <ul className="divide-y divide-border border border-border rounded-md bg-card shadow-sm">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
         {(tournaments as Tournament[] | null)?.map((t, index) => (
-          <li key={t.id} className="p-4 hover:bg-muted transition-colors duration-200">
-            <Link href={`/tournaments/${t.id}`} className="block">
-              <div className="flex items-center mb-1">
-                <span className="text-sm font-semibold text-muted-foreground mr-2">#{from + index + 1}</span>
-                <h2 className="font-bold text-lg text-primary md:text-xl lg:text-2xl tracking-tightest">{t.tournament_name ?? "Untitled Tournament"}</h2>
+          <Link 
+            key={t.id}
+            href={`/tournaments/${t.id}`}
+            className="group relative flex flex-col h-full rounded-lg border border-border bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/50"
+          >
+            <div className="p-3 sm:p-4 flex flex-col h-full">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h2 className="font-bold tracking-tightest text-base sm:text-lg text-foreground group-hover:text-primary line-clamp-2 leading-tight">
+                  {t.tournament_name ?? "Untitled Tournament"}
+                </h2>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground px-2 py-1 rounded-full border border-border">
+                  #{from + index + 1}
+                </span>
               </div>
-              <p className="text-base text-foreground mb-1">
-                <span className="font-semibold">Location:</span> {t.location ?? "Unknown location"}
-              </p>
-              <p className="text-sm text-muted-foreground mb-1">
-                <span className="font-semibold">Chief Arbiter:</span> {t.chief_arbiter ?? "N/A"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold">Date:</span> {t.date ?? "Unknown date"}
-              </p>
-            </Link>
-          </li>
+
+              <div className="space-y-1 flex-grow">
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="shrink-0 w-16 text-xs font-medium text-foreground">Location</span>
+                  <span className="line-clamp-1">{t.location ?? "Unknown location"}</span>
+                </p>
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="shrink-0 w-16 text-xs font-medium text-foreground">Arbiter</span>
+                  <span className="line-clamp-1">{t.chief_arbiter ?? "N/A"}</span>
+                </p>
+                <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="shrink-0 w-16 text-xs font-medium text-foreground">Date</span>
+                  <span className="text-primary text-xs font-medium">{t.date ?? "Unknown date"}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="absolute inset-0 rounded-lg transition-opacity duration-200 opacity-0 group-hover:opacity-100 pointer-events-none">
+              <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              <div className="absolute inset-y-0 -right-px w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
+            </div>
+          </Link>
         ))}
-      </ul>
+      </div>
 
       <Pagination currentPage={page} totalPages={totalPages} />
     </main>
@@ -76,10 +100,30 @@ function Pagination({ currentPage, totalPages }: { currentPage: number; totalPag
   const hasPrev = currentPage > 1
   const hasNext = currentPage < totalPages
   return (
-    <div className="flex items-center justify-between mt-4">
-      <Link href={`/tournaments?page=${prev}`} className={`text-sm rounded-md border px-3 py-1.5 ${hasPrev ? "" : "pointer-events-none opacity-50"}`}>Prev</Link>
-      <span className="text-sm">Page {currentPage} of {totalPages}</span>
-      <Link href={`/tournaments?page=${next}`} className={`text-sm rounded-md border px-3 py-1.5 ${hasNext ? "" : "pointer-events-none opacity-50"}`}>Next</Link>
+    <div className="flex items-center justify-between mt-6 sm:mt-8 lg:mt-10">
+      <Link 
+        href={`/tournaments?page=${prev}`} 
+        className={`inline-flex items-center justify-center text-sm font-medium h-9 px-4 py-2 rounded-md border shadow-sm transition-colors
+          ${hasPrev 
+            ? "bg-card hover:bg-accent hover:text-accent-foreground" 
+            : "pointer-events-none opacity-50"
+          }`}
+      >
+        Previous
+      </Link>
+      <span className="text-sm font-medium text-muted-foreground">
+        Page {currentPage} of {totalPages}
+      </span>
+      <Link 
+        href={`/tournaments?page=${next}`} 
+        className={`inline-flex items-center justify-center text-sm font-medium h-9 px-4 py-2 rounded-md border shadow-sm transition-colors
+          ${hasNext 
+            ? "bg-card hover:bg-accent hover:text-accent-foreground" 
+            : "pointer-events-none opacity-50"
+          }`}
+      >
+        Next
+      </Link>
     </div>
   )
 }

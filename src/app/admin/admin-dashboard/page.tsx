@@ -1,7 +1,6 @@
 // src/app/admin/admin-dashboard/page.tsx
 import { Suspense } from 'react'
 import DashboardOverview from './components/DashboardOverview'
-import TournamentsChart from './components/TournamentsChart'
 
 export default function AdminDashboardPage() {
   return (
@@ -38,29 +37,7 @@ export default function AdminDashboardPage() {
               <DashboardOverview />
             </Suspense>
 
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-              <Suspense fallback={
-                <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4 animate-pulse"></div>
-                  <div className="h-64 bg-gray-50 dark:bg-gray-700 rounded animate-pulse"></div>
-                </div>
-              }>
-                <TournamentsChart />
-              </Suspense>
-              
-              {/* Placeholder for second chart */}
-              <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Player Performance</h3>
-                <div className="h-64 bg-gray-50 dark:bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-600">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-full mx-auto mb-3 animate-pulse"></div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">Coming soon...</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Player ratings & performance metrics</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>

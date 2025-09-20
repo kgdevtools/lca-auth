@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { ArrowLeft, User, Trophy, Calendar, MapPin, Users, BarChart3, Star, Award, TrendingUp } from 'lucide-react'
+import { ArrowLeft, User, Trophy, MapPin, Users, BarChart3, Star, Award, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,8 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { WarningBanner } from '@/components/warning-banner'
 import { getPlayerDetails, getPlayerTournaments } from '../server-actions'
 import PlayerTournamentsTable from './components/PlayerTournamentsTable'
-import PlayerPerformanceChart from './components/PlayerPerformanceChart'
-import PlayerStatsCards from './components/PlayerStatsCards'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -204,19 +202,6 @@ export default async function PlayerDetailPage({ params }: Props) {
               </div>
             </CardContent>
           </Card>
-
-          {/* Performance Statistics */}
-          <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-            <PlayerStatsCards 
-              performanceStats={performanceStats} 
-              avgPerformanceRating={player.avg_performance_rating}
-            />
-          </Suspense>
-
-          {/* Performance Chart */}
-          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <PlayerPerformanceChart performanceStats={performanceStats} />
-          </Suspense>
 
           {/* Tournament History */}
           <Card>

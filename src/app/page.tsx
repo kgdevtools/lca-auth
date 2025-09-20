@@ -9,8 +9,16 @@ export default function Home() {
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter">
           Welcome to <span className="text-primary font-extrabold tracking-tightest">Limpopo</span> <span className="text-muted-foreground">Chess Academy's</span> home on the web
         </h1>
-        <p className="text-lg text-muted-foreground sm:text-xl">
-          Sign in to access your private dashboard, or <Link href="/tournaments" className="underline text-primary hover:text-primary/80">view current tournaments here</Link>.
+        <div className="flex flex-col items-center gap-4">
+          <Link
+            href="/forms"
+            className="w-full max-w-md px-4 py-3 bg-green-700 dark:bg-green-600 text-white rounded-sm hover:bg-green-800 dark:hover:bg-green-700 font-semibold text-lg text-center transition"
+          >
+            Register for Limpopo Chess Academy Open 2025
+          </Link>
+        </div>
+        <p className="text-lg text-muted-foreground sm:text-xl mt-2">
+          View <Link href="/tournaments" className="underline text-primary hover:text-primary/80">current tournaments here</Link>.
         </p>
       </div>
     </section>

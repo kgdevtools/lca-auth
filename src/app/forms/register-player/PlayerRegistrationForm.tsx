@@ -1,9 +1,11 @@
 "use client"
 
+
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
 import { LogoMark } from "@/components/logo-mark"
+import { registerPlayer } from "./server-actions"
 
 type ExperienceLevel = "beginner" | "intermediate" | "advanced"
 
@@ -40,25 +42,16 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
   const [error, setError] = React.useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
-    try {
-      const res = await fetch("/forms/register-player", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "Submission failed")
-      }
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setSubmitting(false)
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    const result = await registerPlayer(form);
+    setSubmitting(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
     }
+    onSuccess();
   }
 
   function update<K extends keyof PlayerRegistrationPayload>(key: K, value: PlayerRegistrationPayload[K]) {

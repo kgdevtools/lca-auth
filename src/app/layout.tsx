@@ -73,11 +73,11 @@ export default async function RootLayout({
                 <>
                   <Link href="/login" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
                     <LogIn className="h-4 w-4" aria-hidden />
-                    Login
+                    <span className="opacity-60 cursor-not-allowed select-none" aria-disabled="true">Login</span>
                   </Link>
-                  <Link href="/signup" className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2">
+                  <span className="text-sm rounded-md border px-3 py-1.5 opacity-60 cursor-not-allowed select-none inline-flex items-center gap-2" aria-disabled="true">
                     Sign Up
-                  </Link>
+                  </span>
                 </>
               )}
             </div>
