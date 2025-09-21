@@ -1,6 +1,8 @@
 // src/app/admin/admin-dashboard/page.tsx
+
 import { Suspense } from 'react'
 import DashboardOverview from './components/DashboardOverview'
+import TournamentRegistrationsTable from './components/TournamentRegistrationsTable'
 
 export default function AdminDashboardPage() {
   return (
@@ -37,6 +39,19 @@ export default function AdminDashboardPage() {
               <DashboardOverview />
             </Suspense>
 
+            {/* Tournament Registrations Table */}
+            <Suspense fallback={
+              <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-lg border border-gray-200 dark:border-gray-700 animate-pulse">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  ))}
+                </div>
+              </div>
+            }>
+              <TournamentRegistrationsTable />
+            </Suspense>
 
           </div>
         </div>

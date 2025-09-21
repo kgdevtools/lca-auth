@@ -1,6 +1,9 @@
+// src/app/admin/admin-dashboard/server-actions.ts
+
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { exportRegistrationsToExcel } from '@/services/exportToExcel'
 
 // Tournament interface
 interface Tournament {
@@ -22,6 +25,24 @@ interface Tournament {
   average_elo: number | null
   average_age: number | null
   source: string | null
+}
+
+// Tournament registration interface
+interface TournamentRegistration {
+  id: string
+  surname: string
+  names: string
+  section: string
+  chessa_id: string | null
+  federation: string | null
+  rating: number | null
+  sex: string | null
+  created_at: string
+  phone: string
+  dob: string
+  emergency_name: string
+  emergency_phone: string
+  comments?: string
 }
 
 export async function getPlayersWithPerformanceStats() {
@@ -241,5 +262,98 @@ export async function deleteTournament(id: string) {
   } catch (error) {
     console.error('Unexpected error in deleteTournament:', error)
     return { success: false, error: 'Unexpected error occurred' }
+  }
+}
+
+// Functions for tournament registrations
+export async function getTournamentRegistrations(): Promise<{ data: TournamentRegistration[] | null; error: string | null }> {
+  try {
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
+      .from('lca_open_2025_registrations')
+      .select('*')
+      .order('section', { ascending: true })
+      .order('surname', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching tournament registrations:', error)
+      return { data: null, error: error.message }
+    }
+
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('Unexpected error in getTournamentRegistrations:', error)
+    return { data: null, error: 'Unexpected error occurred' }
+  }
+}
+
+export async function deleteTournamentRegistration(id: string): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = await createClient()
+    
+    const { error } = await supabase
+      .from('lca_open_2025_registrations')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting tournament registration:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Unexpected error in deleteTournamentRegistration:', error)
+    return { success: false, error: 'Unexpected error occurred' }
+  }
+}
+
+export async function updateTournamentRegistration(id: string, registrationData: Partial<TournamentRegistration>): Promise<{ success: boolean; data?: TournamentRegistration; error: string | null }> {
+  try {
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
+      .from('lca_open_2025_registrations')
+      .update(registrationData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating tournament registration:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data, error: null }
+  } catch (error) {
+    console.error('Unexpected error in updateTournamentRegistration:', error)
+    return { success: false, error: 'Unexpected error occurred' }
+  }
+}
+
+// Export to Excel function
+// src/app/admin/admin-dashboard/server-actions.ts
+
+export async function exportRegistrationsToExcelFile() {
+  try {
+    const { data: registrations } = await getTournamentRegistrations();
+    
+    if (!registrations) {
+      return { success: false, error: "No registrations found" };
+    }
+
+    const excelBuffer = exportRegistrationsToExcel(registrations);
+    
+    // Convert Buffer to Uint8Array for client consumption
+    const uint8Array = new Uint8Array(excelBuffer);
+    
+    return { 
+      success: true, 
+      data: uint8Array // Return as Uint8Array instead of Buffer
+    };
+  } catch (error) {
+    console.error("Export error:", error);
+    return { success: false, error: "Failed to export data" };
   }
 }
