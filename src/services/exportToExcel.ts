@@ -17,6 +17,9 @@ interface TournamentRegistration {
   emergency_name: string;
   emergency_phone: string;
   comments?: string;
+  gender?: string | null;
+  club?: string | null;
+  city?: string | null;
 }
 
 export function exportRegistrationsToExcel(registrations: TournamentRegistration[]): Buffer {
@@ -24,8 +27,8 @@ export function exportRegistrationsToExcel(registrations: TournamentRegistration
   const workbook = XLSX.utils.book_new();
   
   // Prepare data for Excel - convert null values to empty strings for better Excel compatibility
+  // Exclude the ID field for security reasons
   const excelData = registrations.map(reg => ({
-    ID: reg.id,
     Surname: reg.surname || "",
     Names: reg.names || "",
     Section: reg.section || "",
@@ -33,6 +36,9 @@ export function exportRegistrationsToExcel(registrations: TournamentRegistration
     Federation: reg.federation || "",
     Rating: reg.rating !== null ? reg.rating : "",
     Sex: reg.sex || "",
+    Gender: reg.gender || "",
+    Club: reg.club || "",
+    City: reg.city || "",
     Created_At: reg.created_at || "",
     Phone: reg.phone || "",
     Date_of_Birth: reg.dob || "",

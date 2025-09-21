@@ -1,3 +1,5 @@
+// src/app/forms/tournament-registration/server-actions.ts
+
 "use server";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -17,6 +19,9 @@ interface PlayerRegistration {
   emergency_name: string;
   emergency_phone: string;
   comments?: string;
+  gender?: string | null;
+  club?: string | null;
+  city?: string | null;
 }
 
 export async function getAllPlayers(): Promise<PlayerRegistration[]> {
@@ -62,6 +67,9 @@ export async function registerLcaOpen2025(form: {
   emergencyName: string;
   emergencyPhone: string;
   comments?: string;
+  gender?: string;
+  club?: string;
+  city?: string;
 }) {
   const supabase = await createClient();
   // Check for duplicate (surname + names)
@@ -71,10 +79,12 @@ export async function registerLcaOpen2025(form: {
     .eq("surname", form.surname.trim())
     .eq("names", form.names.trim())
     .maybeSingle();
+    
   if (dupError) {
     console.error("[registerLcaOpen2025] Duplicate check error:", dupError);
     return { error: "Error checking for duplicates." };
   }
+  
   if (existing) {
     console.error("[registerLcaOpen2025] Duplicate found for:", form.surname, form.names);
     return { error: "A registration with this Surname and Name(s) already exists." };
@@ -95,6 +105,9 @@ export async function registerLcaOpen2025(form: {
           emergency_name: form.emergencyName.trim(),
           emergency_phone: form.emergencyPhone.trim(),
           comments: form.comments?.trim() || null,
+          gender: form.gender?.trim() || null,
+          club: form.club?.trim() || null,
+          city: form.city?.trim() || null,
         },
       ])
       .select();

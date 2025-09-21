@@ -4,6 +4,9 @@ type NextConfigWithDevOrigins = NextConfig & {
   experimental?: {
     
   }
+  images?: {
+    domains: string[];
+  }
 }
 
 const nextConfig: NextConfigWithDevOrigins = {
@@ -11,6 +14,9 @@ const nextConfig: NextConfigWithDevOrigins = {
     // Allow your mobile device (LAN) to load dev assets from this server
     // Replace with your device IP and port if it changes
     
+  },
+  images: {
+    domains: ['i.ibb.co'],
   },
 };
 

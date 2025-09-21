@@ -43,6 +43,9 @@ interface TournamentRegistration {
   emergency_name: string
   emergency_phone: string
   comments?: string
+  gender?: string | null
+  club?: string | null
+  city?: string | null
 }
 
 export async function getPlayersWithPerformanceStats() {
@@ -333,8 +336,6 @@ export async function updateTournamentRegistration(id: string, registrationData:
 }
 
 // Export to Excel function
-// src/app/admin/admin-dashboard/server-actions.ts
-
 export async function exportRegistrationsToExcelFile() {
   try {
     const { data: registrations } = await getTournamentRegistrations();

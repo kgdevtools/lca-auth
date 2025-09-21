@@ -1,5 +1,3 @@
-// src/app/admin/admin-dashboard/components/TournamentRegistrationsTable.tsx
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -25,6 +23,9 @@ interface TournamentRegistration {
   emergency_name: string;
   emergency_phone: string;
   comments?: string;
+  gender?: string | null;
+  club?: string | null;
+  city?: string | null;
 }
 
 export default function TournamentRegistrationsTable() {
@@ -113,46 +114,43 @@ export default function TournamentRegistrationsTable() {
     setEditForm({});
   };
 
-// src/app/admin/admin-dashboard/components/TournamentRegistrationsTable.tsx
-
-const handleExportToExcel = async () => {
-  setExporting(true);
-  
-  try {
-    const result = await exportRegistrationsToExcelFile();
+  const handleExportToExcel = async () => {
+    setExporting(true);
     
-    if (result.success && result.data) {
-      // Create blob directly from Uint8Array
-      const blob = new Blob([result.data], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
+    try {
+      const result = await exportRegistrationsToExcelFile();
       
-      // Create a download link
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lca_open_2025_registrations_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
-      // Trigger the download
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 0);
-    } else {
-      setError(result.error || "Failed to export to Excel");
+      if (result.success && result.data) {
+        // Create blob directly from Uint8Array
+        const blob = new Blob([result.data], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
+        
+        // Create a download link
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lca_open_2025_registrations_${new Date().toISOString().split('T')[0]}.xlsx`;
+        
+        // Trigger the download
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+      } else {
+        setError(result.error || "Failed to export to Excel");
+      }
+    } catch (err) {
+      setError("Failed to export to Excel");
+      console.error(err);
+    } finally {
+      setExporting(false);
     }
-  } catch (err) {
-    setError("Failed to export to Excel");
-    console.error(err);
-  } finally {
-    setExporting(false);
-  }
-};
-
+  };
 
   if (loading) {
     return (
@@ -195,7 +193,7 @@ const handleExportToExcel = async () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap gap-2">
-            {["A", "B", "Junior"].map(section => (
+            {["A", "B", "C"].map(section => (
               <Badge key={section} variant="outline">
                 {section} Section: {sectionCounts[section] || 0}
               </Badge>
@@ -224,7 +222,7 @@ const handleExportToExcel = async () => {
       </CardHeader>
       
       <CardContent>
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -233,13 +231,16 @@ const handleExportToExcel = async () => {
                 <TableHead>Rating</TableHead>
                 <TableHead>CHESSA ID</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Club</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Gender</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {registrations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-gray-500 dark:text-gray-400">
+                  <TableCell colSpan={9} className="text-center py-4 text-gray-500 dark:text-gray-400">
                     No registrations found.
                   </TableCell>
                 </TableRow>
@@ -283,7 +284,7 @@ const handleExportToExcel = async () => {
                         >
                           <option value="A">A Section</option>
                           <option value="B">B Section</option>
-                          <option value="Junior">Junior Section</option>
+                          <option value="C">C Section</option>
                         </select>
                       ) : (
                         <Badge variant="outline">{registration.section}</Badge>
@@ -329,6 +330,51 @@ const handleExportToExcel = async () => {
                         />
                       ) : (
                         registration.phone
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === registration.id ? (
+                        <input
+                          type="text"
+                          name="club"
+                          value={editForm.club || ""}
+                          onChange={handleEditChange}
+                          className="w-full p-2 border rounded"
+                          placeholder="Club"
+                        />
+                      ) : (
+                        registration.club || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === registration.id ? (
+                        <input
+                          type="text"
+                          name="city"
+                          value={editForm.city || ""}
+                          onChange={handleEditChange}
+                          className="w-full p-2 border rounded"
+                          placeholder="City"
+                        />
+                      ) : (
+                        registration.city || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingId === registration.id ? (
+                        <select
+                          name="gender"
+                          value={editForm.gender || ""}
+                          onChange={handleEditChange}
+                          className="w-full p-2 border rounded"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      ) : (
+                        registration.gender || '-'
                       )}
                     </TableCell>
                     <TableCell className="text-right">
