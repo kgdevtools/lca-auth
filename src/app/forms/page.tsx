@@ -1,25 +1,46 @@
-
-import Link from "next/link";
+import Link from "next/link"
 
 export default function FormsPage() {
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tightest leading-tight text-center mb-10 text-zinc-900 dark:text-zinc-100">Forms & Registrations</h1>
+      <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight text-center mb-8 text-foreground">
+        Forms & Registrations
+      </h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-sm shadow p-6 flex flex-col gap-3 transition-colors">
-          <h2 className="text-lg md:text-2xl font-bold mb-1 text-zinc-900 dark:text-zinc-100 tracking-tightest leading-tight">LCA Academy Registrations</h2>
-          <p className="text-zinc-700 dark:text-zinc-300 mb-2 text-base md:text-lg">Register as a player for the Limpopo Chess Academy.</p>
-          <Link href="/forms/register-player" className="w-full block px-4 py-3 bg-blue-700 dark:bg-blue-600 text-white rounded-sm hover:bg-blue-800 dark:hover:bg-blue-700 font-semibold text-base md:text-lg text-center transition">Register Player</Link>
+        <div className="bg-card border-2 border-border rounded shadow-sm p-6 flex flex-col min-h-[200px] transition-all hover:shadow-md hover:border-primary/20">
+          <div className="flex-1">
+            <h2 className="text-lg md:text-xl font-semibold mb-2 text-foreground tracking-tight leading-tight">
+              LCA Academy Registrations
+            </h2>
+            <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
+              Register as a player for the Limpopo Chess Academy.
+            </p>
+          </div>
+          <Link
+            href="/forms/register-player"
+            className="mt-4 w-full block px-4 py-3 bg-primary text-primary-foreground rounded font-medium text-sm md:text-base text-center transition-all hover:bg-primary/90 hover:shadow-sm"
+          >
+            Register Player
+          </Link>
         </div>
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-sm shadow p-6 flex flex-col gap-3 transition-colors">
-          <h2 className="text-lg md:text-2xl font-bold mb-1 text-zinc-900 dark:text-zinc-100 tracking-tightest leading-tight">Tournament Registrations</h2>
-          <p className="text-zinc-700 dark:text-zinc-300 mb-2 text-base md:text-lg">Register for the Limpopo Chess Academy Open 2025 tournament.</p>
-          <Link href="/forms/tournament-registration" className="w-full block px-4 py-3 bg-green-700 dark:bg-green-600 text-white rounded-sm hover:bg-green-800 dark:hover:bg-green-700 font-semibold text-base md:text-lg text-center transition">LCA Open 2025 Registration</Link>
+
+        <div className="bg-card border-2 border-border rounded shadow-sm p-6 flex flex-col min-h-[200px] transition-all hover:shadow-md hover:border-secondary/20">
+          <div className="flex-1">
+            <h2 className="text-lg md:text-xl font-semibold mb-2 text-foreground tracking-tight leading-tight">
+              Tournament Registrations
+            </h2>
+            <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
+              Register for the Limpopo Chess Academy Open 2025 tournament.
+            </p>
+          </div>
+          <Link
+            href="/forms/tournament-registration"
+            className="mt-4 w-full block px-4 py-3 bg-secondary text-secondary-foreground rounded font-medium text-sm md:text-base text-center transition-all hover:bg-secondary/80 hover:shadow-sm"
+          >
+            LCA Open 2025 Registration
+          </Link>
         </div>
       </div>
     </div>
-  );
+  )
 }
-
-
-
