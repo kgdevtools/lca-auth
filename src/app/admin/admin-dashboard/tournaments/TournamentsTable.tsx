@@ -62,9 +62,7 @@ export default function TournamentsTable() {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${name}"? This action cannot be undone.`
-    )
+    const confirmed = window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)
     if (!confirmed) return
 
     setDeleting(id)
@@ -113,12 +111,7 @@ export default function TournamentsTable() {
         <div className="p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Tournament Management
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {totalCount} tournaments total
-              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{totalCount} tournaments total</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -129,13 +122,13 @@ export default function TournamentsTable() {
                   placeholder="Search tournaments..."
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent w-full sm:w-64 transition-colors"
                 />
               </div>
 
               <button
                 onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Tournament
@@ -147,24 +140,24 @@ export default function TournamentsTable() {
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Tournament
                 </th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Organizer
                 </th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Location
                 </th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Stats
                 </th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tightest">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -174,7 +167,7 @@ export default function TournamentsTable() {
                 [...Array(itemsPerPage)].map((_, i) => (
                   <tr key={i}>
                     {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-2 py-1.5">
+                      <td key={j} className="px-3 py-4">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
                       </td>
                     ))}
@@ -182,77 +175,64 @@ export default function TournamentsTable() {
                 ))
               ) : tournaments.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-2 py-6 text-center text-gray-500 dark:text-gray-400"
-                  >
-                    {search
-                      ? "No tournaments found matching your search."
-                      : "No tournaments found."}
+                  <td colSpan={6} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
+                    {search ? "No tournaments found matching your search." : "No tournaments found."}
                   </td>
                 </tr>
               ) : (
                 tournaments.map((tournament) => (
-                  <tr
-                    key={tournament.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <td className="px-2 py-1.5">
-                      <div className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight tracking-tighter">
+                  <tr key={tournament.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td className="px-3 py-4">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {tournament.tournament_name || "Untitled Tournament"}
                       </div>
                     </td>
-                    <td className="px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 leading-tight">
+                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">
                       {tournament.organizer || "-"}
                     </td>
-                    <td className="px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 leading-tight">
-                      {tournament.location || "-"}
-                    </td>
-                    <td className="px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 leading-tight">
+                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">{tournament.location || "-"}</td>
+                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">
                       {formatDate(tournament.date)}
                     </td>
-                    <td className="px-2 py-1.5">
-                      <div className="text-sm text-gray-900 dark:text-gray-100 leading-tight">
+                    <td className="px-3 py-4">
+                      <div className="text-sm text-gray-700 dark:text-gray-300">
                         {tournament.rounds && (
-                          <div className="flex items-center">
+                          <div className="flex items-center mb-1">
                             <Users className="w-3 h-3 mr-1 text-gray-400 dark:text-gray-500" />
-                            {tournament.rounds} rounds
+                            <span className="font-medium">{tournament.rounds} rounds</span>
                           </div>
                         )}
                         {tournament.average_elo && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
                             Avg Rating: {tournament.average_elo}
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex items-center space-x-1">
+                    <td className="px-3 py-4">
+                      <div className="flex items-center space-x-2">
                         <button
                           title="View Details"
-                          onClick={() =>
-                            window.open(`/tournaments/${tournament.id}`, "_blank")
-                          }
-                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/50 rounded-md transition-all duration-200"
+                          onClick={() => window.open(`/tournaments/${tournament.id}`, "_blank")}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30 rounded-md transition-all duration-200"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           title="Edit Tournament"
                           onClick={() => handleEdit(tournament)}
-                          className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/50 rounded-md transition-all duration-200"
+                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30 rounded-md transition-all duration-200"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           title="Delete Tournament"
                           onClick={() => {
-                            const name =
-                              tournament.tournament_name || "tournament"
+                            const name = tournament.tournament_name || "tournament"
                             handleDelete(tournament.id, name)
                           }}
                           disabled={deleting === tournament.id}
-                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/50 rounded-md transition-all duration-200 disabled:opacity-50"
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 rounded-md transition-all duration-200 disabled:opacity-50"
                         >
                           {deleting === tournament.id ? (
                             <div className="w-4 h-4 border-2 border-red-600 dark:border-red-400 border-t-transparent rounded-full animate-spin"></div>
@@ -271,17 +251,17 @@ export default function TournamentsTable() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-            <div className="flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-sm text-gray-700 dark:text-gray-300">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of{" "}
+                {totalCount} results
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Previous
                 </button>
@@ -301,9 +281,9 @@ export default function TournamentsTable() {
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 text-sm border rounded transition-colors ${
+                        className={`px-3 py-2 text-sm border rounded-md transition-colors ${
                           currentPage === pageNum
-                            ? "bg-blue-600 text-white border-blue-600"
+                            ? "bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500"
                             : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         }`}
                       >
@@ -313,11 +293,9 @@ export default function TournamentsTable() {
                   })}
                 </div>
                 <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                  }
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Next
                 </button>

@@ -32,6 +32,7 @@ interface PlayerRegistration {
   gender?: string | null
   club?: string | null
   city?: string | null
+  fide_id?: string | null
 }
 
 interface RegistrationResult {
@@ -123,6 +124,7 @@ export default function TournamentRegistrationForm() {
     phone: "",
     dob: "",
     chessaId: "",
+    fideId: "",
     rating: "",
     section: "",
     emergencyName: "",
@@ -155,6 +157,7 @@ export default function TournamentRegistrationForm() {
     phone: string
     dob: string
     chessaId: string
+    fideId: string
     rating: string
     section: string
     emergencyName: string
@@ -197,6 +200,7 @@ export default function TournamentRegistrationForm() {
         phone: form.phone,
         dob: form.dob,
         chessaId: form.chessaId,
+        fideId: form.fideId,
         rating: form.rating,
         section: form.section,
         emergencyName: form.emergencyName,
@@ -228,6 +232,7 @@ export default function TournamentRegistrationForm() {
         phone: "",
         dob: "",
         chessaId: "",
+        fideId: "",
         rating: "",
         section: "",
         emergencyName: "",
@@ -307,8 +312,12 @@ export default function TournamentRegistrationForm() {
                 <div className="text-foreground">{success.dob}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground">CHESSA ID</div>
+                <div className="text-sm font-medium text-muted-foreground">Chess SA ID</div>
                 <div className="text-foreground">{success.chessa_id || "Not provided"}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-muted-foreground">FIDE ID</div>
+                <div className="text-foreground">{success.fide_id || "Not provided"}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-sm font-medium text-muted-foreground">Rating</div>
@@ -383,7 +392,7 @@ export default function TournamentRegistrationForm() {
                     <TableHead className="text-muted-foreground font-medium text-center">Section</TableHead>
                     <TableHead className="text-muted-foreground font-medium text-center">Rating</TableHead>
                     <TableHead className="text-muted-foreground font-medium text-center hidden md:table-cell">
-                      CHESSA ID
+                      Chess SA ID
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -558,61 +567,28 @@ export default function TournamentRegistrationForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="gender" className="text-foreground font-medium">
-                  Gender
-                </Label>
-                <select
-                  id="gender"
-                  name="gender"
-                  value={form.gender}
-                  onChange={handleChange}
-                  className="w-full p-3 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Prefer not to say">Prefer not to say</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="club" className="text-foreground font-medium">
-                  Club
-                </Label>
-                <Input
-                  id="club"
-                  name="club"
-                  value={form.club}
-                  onChange={handleChange}
-                  placeholder="Enter your club name"
-                  className="bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="city" className="text-foreground font-medium">
-                  City/Town/Village
-                </Label>
-                <Input
-                  id="city"
-                  name="city"
-                  value={form.city}
-                  onChange={handleChange}
-                  placeholder="Enter your location"
-                  className="bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
                 <Label htmlFor="chessaId" className="text-foreground font-medium">
-                  CHESSA ID
+                  Chess SA ID
                 </Label>
                 <Input
                   id="chessaId"
                   name="chessaId"
                   value={form.chessaId}
                   onChange={handleChange}
-                  placeholder="Enter your CHESSA ID (if available)"
+                  placeholder="Enter your Chess SA ID (if available)"
+                  className="bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fideId" className="text-foreground font-medium">
+                  FIDE ID
+                </Label>
+                <Input
+                  id="fideId"
+                  name="fideId"
+                  value={form.fideId}
+                  onChange={handleChange}
+                  placeholder="Enter your FIDE ID (if available)"
                   className="bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20"
                 />
               </div>
@@ -645,9 +621,13 @@ export default function TournamentRegistrationForm() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { section: "A", price: "R160", description: "Open to all players" },
+                  { section: "A", price: "R160", description: "Open to all irrespective of age or rating" },
                   { section: "B", price: "R120", description: "Players rated 1500 and lower" },
-                  { section: "C", price: "R100", description: "Junior players" },
+                  {
+                    section: "C",
+                    price: "R100",
+                    description: "Junior players aged 14 years and younger irrespective of rating",
+                  },
                 ].map(({ section, price, description }) => (
                   <div
                     key={section}
@@ -659,7 +639,9 @@ export default function TournamentRegistrationForm() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-bold text-lg text-foreground">{section} Section</div>
+                      <div className="font-bold text-lg text-foreground">
+                        {section === "C" ? "Juniors" : `${section} Section`}
+                      </div>
                       <div className="text-2xl font-bold text-primary">{price}</div>
                     </div>
                     <div className="text-sm text-muted-foreground">{description}</div>

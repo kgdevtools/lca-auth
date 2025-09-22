@@ -10,6 +10,7 @@ interface PlayerRegistration {
   names: string;
   section: string;
   chessa_id: string | null;
+  fide_id: string | null;
   federation: string | null;
   rating: number | null;
   sex: string | null;
@@ -62,6 +63,7 @@ export async function registerLcaOpen2025(form: {
   phone: string;
   dob: string;
   chessaId?: string;
+  fideId?: string;
   rating?: string;
   section: string;
   emergencyName: string;
@@ -99,7 +101,8 @@ export async function registerLcaOpen2025(form: {
           names: form.names.trim(),
           phone: form.phone.trim(),
           dob: form.dob,
-          chessa_id: form.chessaId?.trim() || null,
+          chessa_id: form.chessaId?.trim() || null, // Chess SA ID
+          fide_id: form.fideId?.trim() || null,     // FIDE ID
           rating: form.rating ? parseInt(form.rating, 10) : null,
           section: form.section,
           emergency_name: form.emergencyName.trim(),
