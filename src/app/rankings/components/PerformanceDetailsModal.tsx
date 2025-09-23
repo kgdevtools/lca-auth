@@ -21,7 +21,7 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl border-2">
+      <DialogContent className="w-[95vw] max-w-4xl border-2">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex flex-col">
             <span className="text-foreground">{player.display_name}</span>
