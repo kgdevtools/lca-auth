@@ -64,6 +64,7 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null}
             <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
             <NavLink href="/players" color="gray">Players</NavLink>
+            <NavLink href="/rankings" color="gray">Rankings</NavLink>
             <NavLink href="/forms" color="gray">Join Academy</NavLink>
             {!isAuthenticated && <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none">Sign Up</span>}
           </div>
@@ -72,5 +73,3 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
     </div>
   )
 }
-
-

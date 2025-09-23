@@ -43,6 +43,20 @@ export default function Home() {
             </Link>{" "}
             here.
           </p>
+
+                    <p className="text-base text-muted-foreground">
+            View{" "}
+            <Link
+              href="/rankings"
+              className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium underline decoration-primary/30 underline-offset-4 hover:decoration-primary/60 transition-all duration-200"
+            >
+              current rankings 
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>{" "}
+            here.
+          </p>
         </div>
       </div>
     </section>
