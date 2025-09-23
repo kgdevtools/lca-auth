@@ -21,9 +21,9 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-4xl border-2">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold flex flex-col">
+      <DialogContent className="w-[95vw] max-w-6xl max-h-[90vh] border-2 border-border bg-card text-card-foreground overflow-hidden flex flex-col rounded-sm">
+        <DialogHeader className="flex-shrink-0 pb-4">
+          <DialogTitle className="text-xl font-bold flex flex-col space-y-1">
             <span className="text-foreground">{player.display_name}</span>
             <span className="text-lg font-semibold text-muted-foreground">
               Avg Performance: {player.avg_performance_rating ?? "-"}
@@ -31,45 +31,58 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
           </DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-x-auto mt-4">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-bold uppercase text-xs text-muted-foreground">Tournament</TableHead>
-                <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground">
-                  Player Rating
-                </TableHead>
-                {tieBreakKeys.map((key) => (
-                  <TableHead key={key} className="text-center font-bold uppercase text-xs text-muted-foreground">
-                    {formatClassification(player.tournaments[0].classifications?.[key] ?? key)}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full overflow-x-auto overflow-y-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10">
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="font-bold uppercase text-xs text-muted-foreground w-[200px] sm:w-[250px] sm:sticky sm:left-0 bg-muted/50">
+                    Tournament
                   </TableHead>
-                ))}
-                <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground">
-                  Performance
-                </TableHead>
-                <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground">
-                  Confidence
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {player.tournaments.map((t, idx) => (
-                <TableRow key={`${t.tournament_id}-${idx}`} className="hover:bg-muted/30">
-                  <TableCell className="text-sm font-medium text-foreground">{t.tournament_name}</TableCell>
-                  <TableCell className="text-sm text-center text-muted-foreground">{t.player_rating}</TableCell>
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px] sm:w-[100px]">
+                    Rating
+                  </TableHead>
                   {tieBreakKeys.map((key) => (
-                    <TableCell key={key} className="text-sm text-center text-muted-foreground">
-                      {t.tie_breaks?.[key] ?? "-"}
-                    </TableCell>
+                    <TableHead
+                      key={key}
+                      className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px] sm:w-[120px]"
+                    >
+                      {formatClassification(player.tournaments[0].classifications?.[key] ?? key)}
+                    </TableHead>
                   ))}
-                  <TableCell className="text-sm font-semibold text-center text-foreground">
-                    {t.performance_rating ?? "-"}
-                  </TableCell>
-                  <TableCell className="text-sm text-center text-muted-foreground">{t.confidence ?? "-"}</TableCell>
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px] sm:w-[100px]">
+                    Performance
+                  </TableHead>
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px] sm:w-[100px]">
+                    Confidence
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {player.tournaments.map((t, idx) => (
+                  <TableRow key={`${t.tournament_id}-${idx}`} className="hover:bg-muted/30">
+                    <TableCell className="text-sm font-medium text-foreground w-[200px] sm:w-[250px] sm:sticky sm:left-0 bg-card break-words hyphens-auto leading-tight py-3">
+                      {t.tournament_name}
+                    </TableCell>
+                    <TableCell className="text-sm text-center text-muted-foreground w-[80px] sm:w-[100px]">
+                      {t.player_rating}
+                    </TableCell>
+                    {tieBreakKeys.map((key) => (
+                      <TableCell key={key} className="text-sm text-center text-muted-foreground w-[100px] sm:w-[120px]">
+                        {t.tie_breaks?.[key] ?? "-"}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-sm font-semibold text-center text-foreground w-[80px] sm:w-[100px]">
+                      {t.performance_rating ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-sm text-center text-muted-foreground w-[80px] sm:w-[100px]">
+                      {t.confidence ?? "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

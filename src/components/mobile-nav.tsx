@@ -61,8 +61,9 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             {isAuthenticated ? <NavLink href="/user/profile" color="primary">My Profile</NavLink> : null}
             {isAuthenticated ? <NavLink href="/admin/upload-tournament" color="gray">Upload Tournament</NavLink> : null}
             {isAuthenticated ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard Overview</NavLink> : null}
-            {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null}
+            {/* {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null} */}
             <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
+            <NavLink href="/rankings" color="gray">Rankings</NavLink>
             <NavLink href="/players" color="gray">Players</NavLink>
             <NavLink href="/rankings" color="gray">Rankings</NavLink>
             <NavLink href="/forms" color="gray">Join Academy</NavLink>
