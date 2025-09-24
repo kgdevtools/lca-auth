@@ -1,7 +1,34 @@
 import Link from "next/link"
 import { WarningBanner } from "@/components/warning-banner"
+import { CountdownTimer } from "@/components/countdown-timer"
+
+function getInitialCountdown() {
+  const tournamentDate = new Date("2025-09-27T09:00:00") // Saturday, September 27th, 2025 at 9:00 AM
+  const now = new Date()
+  const timeDiff = tournamentDate.getTime() - now.getTime()
+
+  if (timeDiff <= 0) {
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      isExpired: true,
+    }
+  }
+
+  return {
+    days: Math.floor(timeDiff / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+    minutes: Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)),
+    seconds: Math.floor((timeDiff % (1000 * 60)) / 1000),
+    isExpired: false,
+  }
+}
 
 export default function Home() {
+  const initialCountdown = getInitialCountdown()
+
   return (
     <section className="min-h-dvh px-4 py-16 mx-auto max-w-5xl grid place-items-center bg-background text-foreground">
       <div className="text-center space-y-8 animate-fade-in">
@@ -22,13 +49,7 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col items-center gap-6">
-          <Link
-            href="/forms"
-            className="group relative w-full max-w-md px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 dark:from-green-500 dark:to-green-600 text-white rounded-lg hover:from-green-700 hover:to-green-800 dark:hover:from-green-600 dark:hover:to-green-700 font-semibold text-lg text-center transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span className="relative z-10">Register for Limpopo Chess Academy Open 2025</span>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-green-400/20 to-green-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-          </Link>
+          <CountdownTimer targetDate="2025-09-27T09:00:00" initialTimeLeft={initialCountdown} />
 
           <p className="text-base text-muted-foreground">
             View{" "}
@@ -41,16 +62,15 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>{" "}
-            
           </p>
 
-                    <p className="text-base text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             View{" "}
             <Link
               href="/rankings"
               className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-medium underline decoration-primary/30 underline-offset-4 hover:decoration-primary/60 transition-all duration-200"
             >
-              current rankings 
+              current rankings
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
