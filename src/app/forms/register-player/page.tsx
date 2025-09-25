@@ -9,8 +9,8 @@ export default function RegisterPlayerPage() {
   const [success, setSuccess] = React.useState(false)
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-background">
+      <div className="w-full max-w-none px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
             Player Registration
@@ -19,12 +19,14 @@ export default function RegisterPlayerPage() {
         </div>
 
         {success ? (
-          <Alert className="border-2 border-green-500/20 bg-green-50 dark:bg-green-950/50 rounded shadow-sm">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <AlertDescription className="text-green-700 dark:text-green-300 font-medium">
-              Registration successful! We'll be in touch soon.
-            </AlertDescription>
-          </Alert>
+          <div className="max-w-2xl mx-auto">
+            <Alert className="border-2 border-green-500/20 bg-green-50 dark:bg-green-950/50 rounded shadow-sm">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-700 dark:text-green-300 font-medium">
+                Registration successful! We'll be in touch soon.
+              </AlertDescription>
+            </Alert>
+          </div>
         ) : (
           <PlayerRegistrationForm onSuccess={() => setSuccess(true)} />
         )}
