@@ -57,17 +57,43 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
           role="menu"
           className="absolute right-0 mt-2 w-56 rounded-md border bg-white dark:bg-neutral-900 p-2 shadow-md z-50"
         >
-          <div className="flex flex-col gap-1">
-            {isAuthenticated ? <NavLink href="/user/profile" color="primary">My Profile</NavLink> : null}
-            {isAuthenticated ? <NavLink href="/admin/upload-tournament" color="gray">Upload Tournament</NavLink> : null}
-            {isAuthenticated ? <NavLink href="/admin/admin-dashboard" color="gray">Admin Dashboard Overview</NavLink> : null}
+          <div className="flex flex-col gap-1 items-start">
+            {isAuthenticated ? (
+              <NavLink href="/user/profile" color="primary">
+                My Profile
+              </NavLink>
+            ) : null}
+            {isAuthenticated ? (
+              <NavLink href="/admin/upload-tournament" color="gray">
+                Upload Tournament
+              </NavLink>
+            ) : null}
+            {isAuthenticated ? (
+              <NavLink href="/admin/admin-dashboard" color="gray">
+                Admin Dashboard Overview
+              </NavLink>
+            ) : null}
             {/* {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null} */}
-            <NavLink href="/tournaments" color="gray">Tournaments</NavLink>
-            <NavLink href="/rankings" color="gray">Rankings</NavLink>
-            <NavLink href="/players" color="gray">Players</NavLink>
-            <NavLink href="/rankings" color="gray">Rankings</NavLink>
-            <NavLink href="/forms" color="gray">Join Academy</NavLink>
-            {!isAuthenticated && <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none">Sign Up</span>}
+            <NavLink href="/tournaments" color="gray">
+              Tournaments
+            </NavLink>
+            <NavLink href="/rankings" color="gray">
+              Rankings
+            </NavLink>
+            <NavLink href="/players" color="gray">
+              Players
+            </NavLink>
+            <NavLink href="/rankings" color="gray">
+              Rankings
+            </NavLink>
+            <NavLink href="/forms" color="gray">
+              Join Academy
+            </NavLink>
+            {!isAuthenticated && (
+              <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none">
+                Sign Up
+              </span>
+            )}
           </div>
         </div>
       ) : null}

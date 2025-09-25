@@ -34,14 +34,16 @@ export default function RankingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="py-6">
         <div className="space-y-6">
-          <div className="space-y-2">
+          <div className="space-y-2 px-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Player Rankings</h1>
             <p className="text-muted-foreground">View player performance rankings and statistics</p>
           </div>
 
-          <SearchFilters onSearch={handleSearch} tournamentOptions={tournaments} />
+          <div className="px-4">
+            <SearchFilters onSearch={handleSearch} tournamentOptions={tournaments} />
+          </div>
 
           <RankingsTable
             data={data}

@@ -40,12 +40,12 @@ export default async function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
         <header className="w-full border-b border-black/10">
-          <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between relative">
+          <nav className="px-2 h-16 flex items-center justify-between relative">
             <div className="flex items-center gap-2">
               <Link href="/" className="mr-2 inline-flex items-center gap-2" aria-label="Limpopo Chess Academy">
-                <LogoMark className="h-10 w-auto sm:h-12 md:h-14 lg:h-16" />
+                <LogoMark className="h-8 w-auto sm:h-10 md:h-12" />
               </Link>
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-1">
                 {user ? (
                   <NavLink href="/user/profile" color="primary">
                     My Profile
@@ -80,7 +80,7 @@ export default async function RootLayout({
                 </NavLink>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <ThemeToggle />
               <MobileNav isAuthenticated={Boolean(user)} />
               {user ? (
@@ -91,13 +91,13 @@ export default async function RootLayout({
                     await server.auth.signOut()
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Avatar name={user.email ?? "User"} />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-200 hidden sm:inline">
+                    <span className="text-sm text-neutral-700 dark:text-neutral-200 hidden lg:inline max-w-32 truncate">
                       {user.email}
                     </span>
                     <button
-                      className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2"
+                      className="text-xs rounded-md border px-2 py-1 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 whitespace-nowrap"
                       type="submit"
                     >
                       Sign out
@@ -108,15 +108,15 @@ export default async function RootLayout({
                 <>
                   <Link
                     href="/login"
-                    className="text-sm rounded-md border px-3 py-1.5 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-2"
+                    className="text-xs rounded-md border px-2 py-1 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 inline-flex items-center gap-1"
                   >
-                    <LogIn className="h-4 w-4" aria-hidden />
+                    <LogIn className="h-3 w-3" aria-hidden />
                     <span className="opacity-60 cursor-not-allowed select-none" aria-disabled="true">
                       Login
                     </span>
                   </Link>
                   <span
-                    className="text-sm rounded-md border px-3 py-1.5 opacity-60 cursor-not-allowed select-none inline-flex items-center gap-2"
+                    className="text-xs rounded-md border px-2 py-1 opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1"
                     aria-disabled="true"
                   >
                     Sign Up

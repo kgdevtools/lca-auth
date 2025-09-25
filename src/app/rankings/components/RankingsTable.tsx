@@ -1,5 +1,6 @@
 "use client"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import type { PlayerRanking } from "../server-actions"
 
 interface RankingsTableProps {
@@ -14,11 +15,10 @@ function TableSkeleton() {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[60px] text-center">Rank</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead className="text-center">Player Rating</TableHead>
-            <TableHead className="text-center">Avg Performance</TableHead>
-            <TableHead className="text-center">Events</TableHead>
+            <TableHead className="w-[50px] text-center">Rank</TableHead>
+            <TableHead className="w-[32%]">Name</TableHead>
+            <TableHead className="w-[20%] text-center">Rating</TableHead>
+            <TableHead className="w-[38%] text-center">Average Performance Rating</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -36,9 +36,6 @@ function TableSkeleton() {
               <TableCell className="text-center">
                 <div className="h-4 w-12 bg-muted animate-pulse rounded mx-auto" />
               </TableCell>
-              <TableCell className="text-center">
-                <div className="h-4 w-8 bg-muted animate-pulse rounded mx-auto" />
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -55,58 +52,55 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
   return (
     <div className="w-full">
       <div className="rounded-md border-2 border-border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-[60px] text-center font-semibold text-muted-foreground">Rank</TableHead>
-                <TableHead className="font-semibold text-muted-foreground min-w-[150px]">Name</TableHead>
-                <TableHead className="text-center font-semibold text-muted-foreground min-w-[120px]">
-                  Player Rating
-                </TableHead>
-                <TableHead className="text-center font-semibold text-muted-foreground min-w-[140px]">
-                  Avg Performance
-                </TableHead>
-                <TableHead className="text-center font-semibold text-muted-foreground min-w-[80px]">Events</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="w-[50px] text-left font-semibold text-muted-foreground pl-4">Rank</TableHead>
+              <TableHead className="w-[32%] font-semibold text-muted-foreground">Name</TableHead>
+              <TableHead className="w-[20%] text-center font-semibold text-muted-foreground">Rating</TableHead>
+              <TableHead className="w-[38%] text-left font-semibold text-muted-foreground pl-0">
+                <div className="text-balance">APR</div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  No players found matching your criteria
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No players found matching your criteria
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.map((player, idx) => {
-                  const latestTournament = player.tournaments[0]
-                  return (
-                    <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
-                      <TableCell className="text-sm font-medium text-center text-foreground">{idx + 1}</TableCell>
-                      <TableCell>
+            ) : (
+              data.map((player, idx) => {
+                const latestTournament = player.tournaments[0]
+                return (
+                  <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
+                    <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
+                    <TableCell className="pr-2">
+                      <div className="flex items-center justify-between gap-2">
                         <button
                           onClick={() => onSelectPlayer(player)}
-                          className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left"
+                          className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left truncate"
                         >
                           {player.display_name}
                         </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center text-muted-foreground">
-                        {latestTournament?.player_rating ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-sm font-semibold text-center text-foreground">
-                        {player.avg_performance_rating ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-center text-muted-foreground">
-                        {player.tournaments.length}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5 flex-shrink-0">
+                          {player.tournaments.length}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-center text-muted-foreground">
+                      {latestTournament?.player_rating ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-sm font-semibold text-left text-foreground pl-0">
+                      {player.avg_performance_rating ? Number(player.avg_performance_rating).toFixed(1) : "-"}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   )
