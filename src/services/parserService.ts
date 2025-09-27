@@ -25,7 +25,7 @@ export interface PlayerRanking {
   name?: string
   federation?: string
   rating: number | null
-  rounds: any[] // Changed back to array structure
+  rounds: any[]
   points: number | null
   tie_breaks: Record<string, number | null>
 }
@@ -80,13 +80,13 @@ export class ParserService {
 
     console.log("\n=== METADATA EXTRACTION ===")
 
-    // PATCH 1: Tournament name from A2 (row 1), not A1 (row 0)
+    // Tournament name from A2 (row 1)
     if (rows.length > 1 && rows[1][0]) {
       metadata.tournament_name = this.cleanCell(rows[1][0])
       console.log("Tournament name from row 1:", metadata.tournament_name)
     }
 
-    // PATCH 2: Extract rounds count from "Final Ranking" text
+    // Extract rounds count from "Final Ranking" text
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       if (row && row[0]) {
@@ -127,48 +127,19 @@ export class ParserService {
       }
 
       if (/location/i.test(cell)) metadata.location = row[0].split(":").pop()?.trim()
-      if (/rounds?/i.test(cell) && !metadata.rounds) metadata.rounds = this.parseNumber(row[1]) // Only if not found from Final Ranking
+      if (/rounds?/i.test(cell) && !metadata.rounds) metadata.rounds = this.parseNumber(row[1])
       if (/type/i.test(cell)) metadata.tournament_type = row[0].split(":").pop()?.trim()
 
       if (/rating (calculation|type)/i.test(cell)) {
         metadata.rating_calculation = row[0].split(":").pop()?.trim()
       }
 
-      // PATCH 3: Date format fix - handle Excel serial dates and text dates
+      // Date: now we just grab the raw string and keep it
       if (/date/i.test(cell)) {
         const rawDatePart = row[0].split(":").pop()?.trim()
         if (rawDatePart) {
-          console.log("Raw date part:", rawDatePart)
-          
-          // Check if it's a number (Excel serial date)
-          const serialNumber = parseFloat(rawDatePart)
-          if (!isNaN(serialNumber) && serialNumber > 0 && serialNumber < 100000) {
-            // Convert Excel serial date to JavaScript Date
-            // Excel uses 1900-01-01 as day 1, but incorrectly treats 1900 as leap year
-            // So we need to subtract 1 day for dates after Feb 28, 1900
-            const excelEpoch = new Date(1900, 0, 1) // Jan 1, 1900
-            const millisecondsPerDay = 24 * 60 * 60 * 1000
-            const jsDate = new Date(excelEpoch.getTime() + (serialNumber - 1) * millisecondsPerDay)
-            
-            // Account for Excel's leap year bug (Excel thinks 1900 is a leap year)
-            if (serialNumber > 59) { // After Feb 28, 1900
-              jsDate.setDate(jsDate.getDate() - 1)
-            }
-            
-            metadata.date = jsDate.toISOString().split('T')[0] // yyyy-mm-dd format
-            console.log("Converted Excel serial date:", serialNumber, "->", metadata.date)
-          } else {
-            // Handle text date format "2025/04/26 to 2025/05/01" - extract start date
-            const dateMatch = rawDatePart.match(/(\d{4}\/\d{2}\/\d{2})/)
-            if (dateMatch) {
-              // Convert from yyyy/mm/dd to yyyy-mm-dd
-              metadata.date = dateMatch[1].replace(/\//g, '-')
-              console.log("Parsed text date:", metadata.date)
-            } else {
-              metadata.date = rawDatePart
-              console.log("Date (no conversion):", metadata.date)
-            }
-          }
+          metadata.date = rawDatePart
+          console.log("Date set as raw text:", metadata.date)
         }
       }
 
@@ -182,7 +153,6 @@ export class ParserService {
       }
     }
 
-    // PATCH 4: Source field fix - use filename, not Excel URL
     metadata.source = this.fileName
     console.log("Source set to filename:", metadata.source)
 
@@ -194,7 +164,6 @@ export class ParserService {
 
     console.log("\n=== HEADER DETECTION ===")
 
-    // Look for "Final ranking" then next row with data
     let headerIndex = -1
     const finalRankingIndex = rows.findIndex(row =>
       row && this.cleanCell(row[0]).toLowerCase().includes('final ranking')
@@ -202,7 +171,6 @@ export class ParserService {
     
     if (finalRankingIndex >= 0) {
       console.log("Found 'Final ranking' at row:", finalRankingIndex)
-      // Check next few rows for headers
       for (let i = finalRankingIndex + 1; i <= finalRankingIndex + 3; i++) {
         if (rows[i] && rows[i].length > 3) {
           const hasRk = rows[i].some((c: any) => /^(rk\.?|rank)$/i.test(this.cleanCell(c)))
@@ -223,7 +191,6 @@ export class ParserService {
     const headers = rows[headerIndex].map((h: any) => this.cleanCell(h))
     console.log("Headers:", headers)
 
-    // Map columns
     let rankIdx = -1, nameIdx = -1, fedIdx = -1, ratingIdx = -1, pointsIdx = -1
     const tbIndices: { [key: string]: number } = {}
 
@@ -237,7 +204,6 @@ export class ParserService {
       if (ratingIdx === -1 && /^rtg$/.test(header)) ratingIdx = j
       if (pointsIdx === -1 && /^pts\.?$/.test(header)) pointsIdx = j
       
-      // PATCH 6: Tiebreak detection
       if (/^tb\d+$/i.test(header)) {
         tbIndices[header.toUpperCase()] = j
       }
@@ -245,7 +211,6 @@ export class ParserService {
 
     console.log("Column mapping:", { rankIdx, nameIdx, fedIdx, ratingIdx, pointsIdx, tbIndices })
 
-    // Extract players
     for (let i = headerIndex + 1; i < rows.length; i++) {
       const row = rows[i]
       if (!row || row.length === 0) continue
@@ -265,12 +230,11 @@ export class ParserService {
         name: name,
         federation: fedIdx >= 0 ? this.cleanCell(row[fedIdx]) : undefined,
         rating: ratingIdx >= 0 ? this.parseNumber(row[ratingIdx]) : null,
-        rounds: [], // PATCH 4: Back to array
+        rounds: [],
         points: pointsIdx >= 0 ? this.parseFloat(row[pointsIdx]) : null,
         tie_breaks: {},
       }
 
-      // PATCH 5: Round extraction - parse into array format
       const roundColumns = []
       for (let j = 0; j < headers.length; j++) {
         const header = headers[j]
@@ -279,20 +243,16 @@ export class ParserService {
         }
       }
 
-      console.log(`Found ${roundColumns.length} round columns for player ${name}`)
-
       for (const roundCol of roundColumns) {
         const val = this.cleanCell(row[roundCol.index])
         if (val && val !== '-') {
           const parsedRound = this.parseRoundResult(val)
           if (parsedRound) {
             player.rounds.push(parsedRound)
-            console.log(`Round parsed: ${val} -> `, parsedRound)
           }
         }
       }
 
-      // PATCH 6: Tiebreak extraction
       for (const [tbName, tbIndex] of Object.entries(tbIndices)) {
         const value = this.parseFloat(row[tbIndex])
         if (value !== null) {
@@ -300,24 +260,18 @@ export class ParserService {
         }
       }
 
-      console.log(`Player added: ${player.name}, ${player.rounds.length} rounds, ${Object.keys(player.tie_breaks).length} tiebreaks`)
       players.push(player)
     }
 
     return players
   }
 
-  // PATCH 5: New round result parsing method
   private parseRoundResult(val: string) {
     const clean = this.cleanCell(val)
     if (!clean) return null
 
-    console.log(`Parsing round: "${clean}"`)
-
-    // Parse format like "3b½", "27w1", etc.
     const match = clean.match(/(\d+)([wb])([01½])/i)
     if (!match) {
-      console.log(`No match for round: ${clean}`)
       return null
     }
 
