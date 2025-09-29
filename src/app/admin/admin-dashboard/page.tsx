@@ -3,6 +3,12 @@
 import { Suspense } from 'react'
 import DashboardOverview from './components/DashboardOverview'
 import TournamentRegistrationsTable from './components/TournamentRegistrationsTable'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Admin Dashboard',
+  description: 'Administration panel for Limpopo Chess Academy.',
+}
 
 export default function AdminDashboardPage() {
   return (

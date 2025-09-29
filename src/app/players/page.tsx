@@ -1,6 +1,12 @@
 import { Suspense } from "react"
 import PlayersTable from "./components/PlayersTable"
 import { WarningBanner } from "@/components/warning-banner"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Players",
+  description: "Explore Limpopo Chess Academy players and performance history.",
+}
 
 export default async function PlayersPage() {
   return (

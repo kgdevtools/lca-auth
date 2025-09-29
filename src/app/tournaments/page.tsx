@@ -1,7 +1,13 @@
 import Link from "next/link"
 import { getTournaments, Tournament } from "./server-actions"
+import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
+
+export const metadata: Metadata = {
+  title: "Tournaments",
+  description: "Browse Limpopo Chess Academy tournaments.",
+}
 
 export default async function TournamentsPage({
   searchParams,

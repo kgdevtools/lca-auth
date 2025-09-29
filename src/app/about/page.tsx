@@ -1,6 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Users, Calendar, Target, Award, BookOpen, Zap } from "lucide-react"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "About",
+  description: "About Limpopo Chess Academy — services, mission and vision.",
+}
 
 export default function AboutPage() {
   return (

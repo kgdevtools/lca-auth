@@ -14,7 +14,24 @@ export default function SignupPage() {
     <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md md:max-w-lg lg:max-w-xl">
         <CardHeader className="flex flex-col items-center">
-          <Image src="/lca_mark.svg" alt="LCA Logo" width={128} height={128} className="mb-4 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40" />
+          <div className="relative mb-4 w-56 h-20 sm:w-64 sm:h-24 md:w-72 md:h-28 lg:w-80 lg:h-32">
+            <Image
+              src="/Picture1.png"
+              alt="LCA Logo (light)"
+              fill
+              priority
+              className="object-contain block dark:hidden"
+              sizes="(min-width: 1024px) 20rem, (min-width: 768px) 18rem, 14rem"
+            />
+            <Image
+              src="/LCA_Logo_Dark.png"
+              alt="LCA Logo (dark)"
+              fill
+              priority
+              className="object-contain hidden dark:block"
+              sizes="(min-width: 1024px) 20rem, (min-width: 768px) 18rem, 14rem"
+            />
+          </div>
           <CardTitle className="text-2xl font-bold text-foreground lg:text-3xl">Sign Up</CardTitle>
           <CardDescription className="text-muted-foreground text-center lg:text-base">Create your account to join the Chess Academy</CardDescription>
         </CardHeader>

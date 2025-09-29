@@ -1,5 +1,11 @@
 import { Suspense } from 'react'
 import { WarningBanner } from '@/components/warning-banner'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'User Dashboard',
+  description: 'Your activity and stats at Limpopo Chess Academy.',
+}
 
 
 export default async function UserDashboardPage() {

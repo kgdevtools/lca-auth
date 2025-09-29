@@ -17,13 +17,24 @@ function LoginContent() {
     <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md shadow-lg border-border/50">
         <CardHeader className="flex flex-col items-center pt-6 pb-4">
-          <Image
-            src="/lca_mark.svg"
-            alt="LCA Logo"
-            width={280}
-            height={280}
-            className="w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 lg:w-80 lg:h-80"
-          />
+          <div className="relative mb-4 w-64 h-24 sm:w-72 sm:h-28 md:w-80 md:h-32 lg:w-96 lg:h-36">
+            <Image
+              src="/Picture1.png"
+              alt="LCA Logo (light)"
+              fill
+              priority
+              className="object-contain block dark:hidden"
+              sizes="(min-width: 1024px) 24rem, (min-width: 768px) 20rem, 16rem"
+            />
+            <Image
+              src="/LCA_Logo_Dark.png"
+              alt="LCA Logo (dark)"
+              fill
+              priority
+              className="object-contain hidden dark:block"
+              sizes="(min-width: 1024px) 24rem, (min-width: 768px) 20rem, 16rem"
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {message && (

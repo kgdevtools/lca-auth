@@ -1,4 +1,10 @@
 import Link from "next/link"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Forms & Registrations",
+  description: "Register players and tournaments at Limpopo Chess Academy.",
+}
 
 export default function FormsPage() {
   return (
