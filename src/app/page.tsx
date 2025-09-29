@@ -1,34 +1,7 @@
 import Link from "next/link"
 import { WarningBanner } from "@/components/warning-banner"
-import { CountdownTimer } from "@/components/countdown-timer"
-
-function getInitialCountdown() {
-  const tournamentDate = new Date("2025-09-27T09:00:00") // Saturday, September 27th, 2025 at 9:00 AM
-  const now = new Date()
-  const timeDiff = tournamentDate.getTime() - now.getTime()
-
-  if (timeDiff <= 0) {
-    return {
-      days: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-      isExpired: true,
-    }
-  }
-
-  return {
-    days: Math.floor(timeDiff / (1000 * 60 * 60 * 24)),
-    hours: Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-    minutes: Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)),
-    seconds: Math.floor((timeDiff % (1000 * 60)) / 1000),
-    isExpired: false,
-  }
-}
 
 export default function Home() {
-  const initialCountdown = getInitialCountdown()
-
   return (
     <section className="min-h-dvh px-4 py-16 mx-auto max-w-5xl grid place-items-center bg-background text-foreground">
       <div className="text-center space-y-8 animate-fade-in">
@@ -49,8 +22,6 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col items-center gap-6">
-          <CountdownTimer targetDate="2025-09-27T09:00:00" initialTimeLeft={initialCountdown} />
-
           <p className="text-base text-muted-foreground">
             View{" "}
             <Link

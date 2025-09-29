@@ -21,7 +21,7 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-6xl max-h-[90vh] border-2 border-border bg-card text-card-foreground overflow-hidden flex flex-col rounded-sm">
+      <DialogContent className="w-[95vw] max-w-[90rem] max-h-[90vh] border-2 border-border bg-card text-card-foreground overflow-hidden flex flex-col rounded-sm">
         <DialogHeader className="flex-shrink-0 pb-4">
           <DialogTitle className="text-xl font-bold flex flex-col space-y-1">
             <span className="text-foreground">{player.display_name}</span>
@@ -33,10 +33,10 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
 
         <div className="flex-1 overflow-hidden">
           <div className="h-full overflow-x-auto overflow-y-auto">
-            <Table>
+            <Table className="min-w-max">
               <TableHeader className="sticky top-0 z-10">
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-bold uppercase text-xs text-muted-foreground w-[200px] sm:w-[250px] sm:sticky sm:left-0 bg-muted/50">
+                  <TableHead className="font-bold uppercase text-xs text-muted-foreground min-w-[200px] sm:min-w-[250px] w-[200px] sm:w-[250px] bg-muted/50">
                     Tournament
                   </TableHead>
                   <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px] sm:w-[100px]">
@@ -61,7 +61,7 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
               <TableBody>
                 {player.tournaments.map((t, idx) => (
                   <TableRow key={`${t.tournament_id}-${idx}`} className="hover:bg-muted/30">
-                    <TableCell className="text-sm font-medium text-foreground w-[200px] sm:w-[250px] sm:sticky sm:left-0 bg-card break-words hyphens-auto leading-tight py-3">
+                    <TableCell className="text-sm font-medium text-foreground min-w-[200px] sm:min-w-[250px] w-[200px] sm:w-[250px] bg-card break-words hyphens-auto leading-tight py-3">
                       {t.tournament_name}
                     </TableCell>
                     <TableCell className="text-sm text-center text-muted-foreground w-[80px] sm:w-[100px]">

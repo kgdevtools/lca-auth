@@ -60,7 +60,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
   }
 
   return (
-    <div className="w-full max-w-none mx-auto">
+    <div id="player-registration" className="w-full max-w-none mx-auto">
       <div className="bg-card border-2 border-border rounded-[2px] p-4 sm:p-6 lg:p-8 xl:p-12 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="text-center">
@@ -201,11 +201,36 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   </h2>
                 </div>
                 <div className="space-y-4">
+                  {/* Limpopo Chess Academy */}
+                  <div className="p-4 border-2 rounded-[2px] bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-foreground">Limpopo Chess Academy</h3>
+                      <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                        Academy
+                      </Badge>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-4 w-4" />4 sessions per month, 2 hours each
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        Physical or online lessons available
+                      </div>
+                      <div className="mt-3">
+                        <div className="flex justify-between">
+                          <span className="text-foreground">Monthly fee:</span>
+                          <span className="font-semibold text-foreground">R600</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Polokwane Chess Club */}
-                  <div className="p-4 border-2 border-border rounded-[2px] bg-muted/30">
+                  <div className="p-4 border-2 rounded-[2px] bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-semibold text-foreground">Polokwane Chess Club</h3>
-                      <Badge variant="outline" className="bg-chart-1/20 text-chart-1 border-chart-1/30">
+                      <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
                         Club
                       </Badge>
                     </div>
@@ -231,31 +256,6 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     </div>
                   </div>
 
-                  {/* Limpopo Chess Academy */}
-                  <div className="p-4 border-2 border-border rounded-[2px] bg-muted/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-foreground">Limpopo Chess Academy</h3>
-                      <Badge variant="outline" className="bg-chart-2/20 text-chart-2 border-chart-2/30">
-                        Academy
-                      </Badge>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4" />4 sessions per month, 2 hours each
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        Physical or online lessons available
-                      </div>
-                      <div className="mt-3">
-                        <div className="flex justify-between">
-                          <span className="text-foreground">Monthly fee:</span>
-                          <span className="font-semibold text-foreground">R600</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Program Selection */}
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Select Program</label>
@@ -272,7 +272,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                       <option value="both">Both Programs</option>
                     </select>
                   </div>
-
+                </div>
                   {/* Lesson Type Selection */}
                   {form.selectedProgram === "limpopo" || form.selectedProgram === "both" ? (
                     <div>
@@ -303,34 +303,33 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     </Link>
                   </div>
                 </div>
-              </div>
 
-              {/* Comments Section */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Comments (optional)</label>
-                <textarea
-                  rows={4}
-                  className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
-                  placeholder="Any additional information, special requirements, or questions..."
-                  value={form.comments ?? ""}
-                  onChange={(e) => update("comments", e.target.value)}
-                />
-              </div>
+                {/* Comments Section */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Comments (optional)</label>
+                  <textarea
+                    rows={4}
+                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
+                    placeholder="Any additional information, special requirements, or questions..."
+                    value={form.comments ?? ""}
+                    onChange={(e) => update("comments", e.target.value)}
+                  />
+                </div>
 
-              {/* Submit Button */}
-              <div className="pt-4">
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? "Submitting…" : "Register Player"}
-                </Button>
+                {/* Submit Button */}
+                <div className="pt-4">
+                  <Button type="submit" disabled={submitting} className="w-full">
+                    {submitting ? "Submitting…" : "Register Player"}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
-  )
-}
-
-export default PlayerRegistrationForm
-
+    )
+  }
+  
+  export default PlayerRegistrationForm
+  
 

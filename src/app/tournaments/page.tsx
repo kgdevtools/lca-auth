@@ -1,41 +1,26 @@
 import Link from "next/link"
-import { createClient } from "@/utils/supabase/server"
+import { getTournaments, Tournament } from "./server-actions"
 
 export const dynamic = "force-dynamic"
 
-type Tournament = {
-  id: string
-  tournament_name: string | null
-  location: string | null
-  date: string | null
-  chief_arbiter: string | null
-}
-
-export default async function TournamentsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[]>> }) {
-  const sp = (await searchParams) ?? {}
-  const pageParam = Array.isArray(sp.page) ? sp.page[0] : sp.page
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1)
+export default async function TournamentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const sp = ((await searchParams) ?? {}) as Record<string, string | string[] | undefined>
+  const pageParamRaw = Array.isArray(sp.page) ? sp.page[0] : sp.page
+  const page = Math.max(1, parseInt(pageParamRaw ?? "1", 10) || 1)
   const pageSize = 10
-  const from = (page - 1) * pageSize
-  const to = from + pageSize - 1
 
-  const supabase = await createClient()
-  const { data: tournaments, error, count } = await supabase
-    .from("tournaments")
-    .select("id, tournament_name, location, date, chief_arbiter", { count: "exact" })
-    .order("date", { ascending: false })
-    .range(from, to)
+  // ✅ fetch tournaments via server-action
+  const tournamentsSorted = await getTournaments()
 
-  if (error) {
-    return (
-      <main className="min-h-dvh px-4 py-8 mx-auto max-w-3xl">
-        <p className="text-sm text-[var(--destructive)]">Failed to load tournaments</p>
-      </main>
-    )
-  }
-
-  const total = count ?? 0
+  const total = tournamentsSorted.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = (page - 1) * pageSize
+  const to = from + pageSize
+  const tournamentsPage = tournamentsSorted.slice(from, to)
 
   return (
     <main className="min-h-dvh p-4 sm:p-6 lg:p-8 mx-auto max-w-[90rem]">
@@ -44,13 +29,14 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
           Tournaments
         </h1>
         <p className="mt-2 text-sm sm:text-base text-muted-foreground">
-          Showing {tournaments?.length} of {total} tournaments
+          Showing {tournamentsPage.length} of {total} tournaments
         </p>
       </div>
 
+      {/* Tournament cards grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
-        {(tournaments as Tournament[] | null)?.map((t, index) => (
-          <Link 
+        {tournamentsPage.map((t: Tournament, index: number) => (
+          <Link
             key={t.id}
             href={`/tournaments/${t.id}`}
             className="group relative flex flex-col h-full rounded-lg border border-border bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/20 hover:bg-accent/50"
@@ -76,11 +62,14 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
                 </p>
                 <p className="flex items-start gap-2 text-sm text-muted-foreground">
                   <span className="shrink-0 w-16 text-xs font-medium text-foreground">Date</span>
-                  <span className="text-primary text-xs font-medium">{t.date ?? "Unknown date"}</span>
+                  <span className="text-primary text-xs font-medium">
+                    {t.date && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : "Invalid date"}
+                  </span>
                 </p>
               </div>
             </div>
 
+            {/* Glow border effect */}
             <div className="absolute inset-0 rounded-lg transition-opacity duration-200 opacity-0 group-hover:opacity-100 pointer-events-none">
               <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
               <div className="absolute inset-y-0 -right-px w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
@@ -94,6 +83,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams?:
   )
 }
 
+/* ---------------- Pagination Component ---------------- */
 function Pagination({ currentPage, totalPages }: { currentPage: number; totalPages: number }) {
   const prev = Math.max(1, currentPage - 1)
   const next = Math.min(totalPages, currentPage + 1)
@@ -101,26 +91,20 @@ function Pagination({ currentPage, totalPages }: { currentPage: number; totalPag
   const hasNext = currentPage < totalPages
   return (
     <div className="flex items-center justify-between mt-6 sm:mt-8 lg:mt-10">
-      <Link 
-        href={`/tournaments?page=${prev}`} 
+      <Link
+        href={`/tournaments?page=${prev}`}
         className={`inline-flex items-center justify-center text-sm font-medium h-9 px-4 py-2 rounded-md border shadow-sm transition-colors
-          ${hasPrev 
-            ? "bg-card hover:bg-accent hover:text-accent-foreground" 
-            : "pointer-events-none opacity-50"
-          }`}
+          ${hasPrev ? "bg-card hover:bg-accent hover:text-accent-foreground" : "pointer-events-none opacity-50"}`}
       >
         Previous
       </Link>
       <span className="text-sm font-medium text-muted-foreground">
         Page {currentPage} of {totalPages}
       </span>
-      <Link 
-        href={`/tournaments?page=${next}`} 
+      <Link
+        href={`/tournaments?page=${next}`}
         className={`inline-flex items-center justify-center text-sm font-medium h-9 px-4 py-2 rounded-md border shadow-sm transition-colors
-          ${hasNext 
-            ? "bg-card hover:bg-accent hover:text-accent-foreground" 
-            : "pointer-events-none opacity-50"
-          }`}
+          ${hasNext ? "bg-card hover:bg-accent hover:text-accent-foreground" : "pointer-events-none opacity-50"}`}
       >
         Next
       </Link>
