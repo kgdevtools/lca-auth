@@ -17,8 +17,9 @@ function TableSkeleton() {
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[50px] text-center">Rank</TableHead>
             <TableHead className="w-[32%]">Name</TableHead>
-            <TableHead className="w-[20%] text-center">Rating</TableHead>
-            <TableHead className="w-[38%] text-center">Average Performance Rating</TableHead>
+            <TableHead className="w-[10%] text-center">Fed</TableHead>
+            <TableHead className="w-[18%] text-center">Rating</TableHead>
+            <TableHead className="w-[40%] text-center">Average Performance Rating</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -29,6 +30,9 @@ function TableSkeleton() {
               </TableCell>
               <TableCell>
                 <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="h-4 w-10 bg-muted animate-pulse rounded mx-auto" />
               </TableCell>
               <TableCell className="text-center">
                 <div className="h-4 w-12 bg-muted animate-pulse rounded mx-auto" />
@@ -57,8 +61,9 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-[50px] text-left font-semibold text-muted-foreground pl-4">Rank</TableHead>
               <TableHead className="w-[32%] font-semibold text-muted-foreground">Name</TableHead>
-              <TableHead className="w-[20%] text-center font-semibold text-muted-foreground">Rating</TableHead>
-              <TableHead className="w-[38%] text-left font-semibold text-muted-foreground pl-0">
+              <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">Fed</TableHead>
+              <TableHead className="w-[18%] text-center font-semibold text-muted-foreground">Rating</TableHead>
+              <TableHead className="w-[40%] text-left font-semibold text-muted-foreground pl-0">
                 <div className="text-balance">APR</div>
               </TableHead>
             </TableRow>
@@ -66,13 +71,12 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No players found matching your criteria
                 </TableCell>
               </TableRow>
             ) : (
               data.map((player, idx) => {
-                const latestTournament = player.tournaments[0]
                 return (
                   <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
                     <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
@@ -84,13 +88,16 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
                         >
                           {player.display_name}
                         </button>
-                        <Badge variant="secondary" className="text-xs px-2 py-0.5 flex-shrink-0">
-                          {player.tournaments.length}
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5 flex-shrink-0" title="Tournaments played">
+                          {player.tournaments_count}
                         </Badge>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-center text-muted-foreground">
-                      {latestTournament?.player_rating ?? "-"}
+                      {player.fed ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-sm text-center text-muted-foreground">
+                      {player.rating ?? "-"}
                     </TableCell>
                     <TableCell className="text-sm font-semibold text-left text-foreground pl-0">
                       {player.avg_performance_rating ? Number(player.avg_performance_rating).toFixed(1) : "-"}

@@ -1,35 +1,95 @@
 "use client"
 
 import * as React from "react"
-import { getRankings, getTournamentOptions, type PlayerRanking, type RankingFilters } from "./server-actions"
+import Link from "next/link"
+import { getRankings, type PlayerRanking, type RankingFilters } from "./server-actions"
 import { RankingsTable } from "./components/RankingsTable"
 import { PerformanceDetailsModal } from "./components/PerformanceDetailsModal"
 import { SearchFilters } from "./components/SearchFilters"
 
 export default function RankingsPage() {
+  const [allData, setAllData] = React.useState<Array<PlayerRanking>>([])
   const [data, setData] = React.useState<Array<PlayerRanking>>([])
   const [selected, setSelected] = React.useState<PlayerRanking | null>(null)
   const [open, setOpen] = React.useState(false)
-  const [tournaments, setTournaments] = React.useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = React.useState(true)
+
+  // Fixed federation options as requested
+  const FED_OPTIONS = React.useMemo(() => ["LCP", "LMG", "LVT", "LWT", "LSG", "LIM", "CSA", "RSA"], [])
+
+  // Local filter state mirrors Players route behavior
+  const [filters, setFilters] = React.useState<RankingFilters>({
+    name: "",
+    fed: "ALL" as any,
+    rating: "ALL" as any,
+    gender: "ALL" as any,
+    ageGroup: "ALL" as any,
+  })
 
   React.useEffect(() => {
     setLoading(true)
-    Promise.all([getRankings({}), getTournamentOptions()])
-      .then(([rows, opts]) => {
+    getRankings()
+      .then((rows) => {
+        setAllData(rows)
         setData(rows)
-        setTournaments(opts)
       })
       .catch((err) => console.error("Error fetching data", err))
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSearch = (filters: RankingFilters) => {
-    setLoading(true)
-    getRankings(filters)
-      .then((rows) => setData(rows))
-      .catch((err) => console.error("Error fetching rankings", err))
-      .finally(() => setLoading(false))
+  // Apply client-side filters (no extra network requests)
+  React.useEffect(() => {
+    let rows = [...allData]
+    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL" } = filters
+
+    if (name && name.trim().length > 0) {
+      const q = name.trim().toLowerCase()
+      rows = rows.filter((p) =>
+        p.display_name.toLowerCase().includes(q) ||
+        (p.name_key ?? "").toLowerCase().includes(q) ||
+        (p.fed ?? "").toLowerCase().includes(q)
+      )
+    }
+
+    if (fed && fed !== ("ALL" as any)) {
+      const want = String(fed)
+      if (want === 'Limpopo') {
+        const LIM_SET = new Set(['LCP','LMG','LVT','LWT','LSG','LIM'])
+        rows = rows.filter((p) => LIM_SET.has(String(p.fed ?? '').toUpperCase()))
+      } else {
+        const wantUp = want.toUpperCase()
+        rows = rows.filter((p) => (p.fed ?? "").toUpperCase() === wantUp)
+      }
+    }
+
+    if (rating && rating !== ("ALL" as any)) {
+      if (rating === ("RATED" as any)) {
+        rows = rows.filter((p) => (p.avg_performance_rating ?? 0) > 0)
+      } else {
+        rows = rows.filter((p) => (p.avg_performance_rating ?? 0) <= 0)
+      }
+    }
+
+    if (gender && gender !== ("ALL" as any)) {
+      const want = String(gender).toLowerCase()
+      rows = rows.filter((p) => {
+        const sex = String(p.sex ?? "").toLowerCase()
+        if (want === "male") return sex === "m" || sex === "male"
+        if (want === "female") return sex === "f" || sex === "female"
+        return true
+      })
+    }
+
+    if (ageGroup && ageGroup !== ("ALL" as any)) {
+      rows = rows.filter((p) => p.age_group === ageGroup)
+    }
+
+    rows.sort((a, b) => (b.avg_performance_rating ?? 0) - (a.avg_performance_rating ?? 0))
+    setData(rows)
+  }, [filters, allData])
+
+  const handleSearch = (next: RankingFilters) => {
+    setFilters((prev) => ({ ...prev, ...next }))
   }
 
   return (
@@ -39,10 +99,14 @@ export default function RankingsPage() {
           <div className="space-y-2 px-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Player Rankings</h1>
             <p className="text-muted-foreground">View player performance rankings and statistics</p>
+            <p className="text-xs text-muted-foreground">
+              Tournament data from 1 October 2024 - 30 September 2025. If missing data, or info please contact us{' '}
+              <Link href="/forms/contact-us" className="underline text-primary font-semibold">here</Link>.
+            </p>
           </div>
 
           <div className="px-4">
-            <SearchFilters onSearch={handleSearch} tournamentOptions={tournaments} />
+            <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} />
           </div>
 
           <RankingsTable

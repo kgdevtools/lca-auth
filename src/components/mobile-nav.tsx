@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Menu, X } from "lucide-react"
+import { Menu, X, UserPlus } from "lucide-react"
 import { NavLink } from "@/components/nav-links"
 import { usePathname } from "next/navigation"
 
@@ -77,20 +77,17 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             <NavLink href="/tournaments" color="gray">
               Tournaments
             </NavLink>
+            {/* Rankings */}
             <NavLink href="/rankings" color="gray">
               Rankings
             </NavLink>
-            <NavLink href="/players" color="gray">
-              Players
-            </NavLink>
-            <NavLink href="/rankings" color="gray">
-              Rankings
-            </NavLink>
+            {/* Removed Players link */}
             <NavLink href="/forms" color="gray">
               Join Academy
             </NavLink>
             {!isAuthenticated && (
-              <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none">
+              <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1">
+                <UserPlus className="h-4 w-4" />
                 Sign Up
               </span>
             )}

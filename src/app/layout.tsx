@@ -49,17 +49,17 @@ export default async function RootLayout({
           }}
         />
         <header className="w-full border-b border-black/10">
-          <nav className="px-2 h-16 flex items-center justify-between relative">
-            <div className="flex items-center gap-2">
-              <Link href="/" className="mr-2 inline-flex items-center gap-2" aria-label="Limpopo Chess Academy">
-                <span className="relative h-8 sm:h-10 md:h-12 w-[180px] sm:w-[210px] md:w-[240px]">
+          <nav className="px-1 sm:px-2 h-16 flex items-center justify-between relative">
+            <div className="flex items-center gap-2 h-full">
+              <Link href="/" className="inline-flex items-center gap-2 h-full" aria-label="Limpopo Chess Academy">
+                <span className="relative h-full w-[160px] sm:w-[200px] md:w-[240px]">
                   <Image
                     src="/Picture1.png"
                     alt="Limpopo Chess Academy"
                     fill
                     priority
                     className="object-contain block dark:hidden"
-                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 210px, 180px"
+                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
                   <Image
                     src="/LCA_Logo_Dark.png"
@@ -67,7 +67,7 @@ export default async function RootLayout({
                     fill
                     priority
                     className="object-contain hidden dark:block"
-                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 210px, 180px"
+                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
                 </span>
               </Link>
@@ -97,9 +97,6 @@ export default async function RootLayout({
                 </NavLink>
                 <NavLink href="/rankings" color="gray">
                   Rankings
-                </NavLink>
-                <NavLink href="/players" color="gray">
-                  Players
                 </NavLink>
                 <NavLink href="/forms" color="gray">
                   Forms

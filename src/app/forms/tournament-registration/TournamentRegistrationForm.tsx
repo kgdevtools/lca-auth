@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import Image from "next/image"
 import Link from "next/link"
 import { HelpCircle, X, CheckCircle2, Trophy, Users, Calendar } from "lucide-react"
 
@@ -84,37 +83,6 @@ function DiscountTooltip() {
   )
 }
 
-// Modal component for poster preview
-function PosterModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  if (!isOpen) return null
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
-      onClick={onClose}
-    >
-      <div className="relative max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="absolute top-4 right-4 z-10 p-2 bg-card/90 backdrop-blur-sm rounded-md shadow-lg hover:bg-muted transition-colors border border-border"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5 text-card-foreground" />
-        </button>
-        <div className="bg-card border border-border rounded-lg shadow-2xl overflow-hidden">
-          <Image
-            src="/IMG-20250921-WA0000.jpg"
-            alt="Limpopo Chess Academy Open 2025 Tournament Poster"
-            width={800}
-            height={1200}
-            className="w-full h-auto object-contain"
-            priority
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function TournamentRegistrationForm() {
   // Form state
@@ -139,7 +107,6 @@ export default function TournamentRegistrationForm() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [allPlayers, setAllPlayers] = useState<PlayerRegistration[]>([])
-  const [showPosterModal, setShowPosterModal] = useState(false)
 
   // Handlers
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
@@ -366,7 +333,7 @@ export default function TournamentRegistrationForm() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {["A", "B", "C"].map((section) => (
+                {["A", "B", "C", "Ladies"].map((section) => (
                   <Badge
                     key={section}
                     variant={success.section === section ? "default" : "outline"}
@@ -376,7 +343,7 @@ export default function TournamentRegistrationForm() {
                         : "border-border text-muted-foreground bg-muted/50"
                     }
                   >
-                    {section} Section: {sectionCounts[section] || 0} players
+                    {section === "C" ? "Juniors" : section === "Ladies" ? "Ladies" : `${section} Section`}: {sectionCounts[section] || 0} players
                   </Badge>
                 ))}
               </div>
@@ -452,33 +419,21 @@ export default function TournamentRegistrationForm() {
 
   return (
     <>
-      <PosterModal isOpen={showPosterModal} onClose={() => setShowPosterModal(false)} />
-
       <form
         className="max-w-3xl mx-auto bg-card border border-border rounded-lg shadow-xl p-6 md:p-8 space-y-6 mt-8"
         onSubmit={handleSubmit}
       >
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <div
-              className="relative cursor-pointer group w-full max-w-md mx-auto"
-              onClick={() => setShowPosterModal(true)}
+          <div className="flex justify-center mb-4">
+            <Link
+              href="/IMG-20250921-WA0001.jpg"
+              target="_blank"
+              className="text-primary underline font-bold text-lg sm:text-xl md:text-2xl"
             >
-              <div className="relative w-full h-16 overflow-hidden rounded-md shadow-lg border border-border group-hover:border-muted-foreground transition-colors">
-                <Image
-                  src="/IMG-20250921-WA0000.jpg"
-                  alt="Limpopo Chess Academy Open 2025 Tournament Poster"
-                  width={800}
-                  height={1200}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/50 flex items-center justify-center group-hover:from-black/60 group-hover:to-black/40 transition-all">
-                  <span className="text-white font-semibold text-sm">View Tournament Poster</span>
-                </div>
-              </div>
-            </div>
+              Tournament Poster
+            </Link>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Limpopo Chess Academy Open 2025</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Limpopo Open 2025</h1>
           <p className="text-muted-foreground text-lg">Tournament Registration Form</p>
         </div>
 
@@ -621,13 +576,14 @@ export default function TournamentRegistrationForm() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { section: "A", price: "R160", description: "Open to all irrespective of age or rating" },
-                  { section: "B", price: "R120", description: "Players rated 1500 and lower" },
+                  { section: "A", price: "R300", description: "Open to all irrespective of age or rating" },
+                  { section: "B", price: "R250", description: "Players rated 1500 and lower" },
                   {
                     section: "C",
-                    price: "R100",
+                    price: "R150",
                     description: "Junior players aged 14 years and younger irrespective of rating",
                   },
+                  { section: "Ladies", price: "R150", description: "Ladies-only section" },
                 ].map(({ section, price, description }) => (
                   <div
                     key={section}
@@ -640,7 +596,7 @@ export default function TournamentRegistrationForm() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-bold text-lg text-foreground">
-                        {section === "C" ? "Juniors" : `${section} Section`}
+                        {section === "C" ? "Juniors" : section === "Ladies" ? "Ladies" : `${section} Section`}
                       </div>
                       <div className="text-2xl font-bold text-primary">{price}</div>
                     </div>
@@ -726,6 +682,17 @@ export default function TournamentRegistrationForm() {
             </div>
           </CardContent>
         </Card>
+
+        <p className="text-xs text-muted-foreground text-center">
+          or prefer using Google Forms?{' '}
+          <a
+            href="https://forms.gle/9mxemKBjGphmkfgN8"
+            target="_blank"
+            className="underline text-primary font-semibold"
+          >
+            https://forms.gle/9mxemKBjGphmkfgN8
+          </a>
+        </p>
 
         <div className="flex justify-center pt-4">
           <Button

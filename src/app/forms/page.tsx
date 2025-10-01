@@ -8,47 +8,45 @@ export const metadata: Metadata = {
 
 export default function FormsPage() {
   return (
-    <div className="mx-auto max-w-5xl p-4">
-      <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight text-center mb-8 text-foreground">
-        Forms & Registrations
-      </h1>
-      <div className="space-y-8">
-        <section>
-          <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3">Academy/Club Forms</h2>
-          <div className="bg-card border-2 border-border rounded shadow-sm p-6 flex flex-col min-h-[200px] transition-all hover:shadow-md hover:border-primary/20">
-            <div className="flex-1">
-              <h3 className="text-lg md:text-xl font-semibold mb-2 text-foreground tracking-tight leading-tight">
-                LCA Academy Registrations
-              </h3>
-              <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
-                Register as a player for the Limpopo Chess Academy.
-              </p>
+    <div className="mx-auto max-w-6xl px-3 sm:px-4 py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Forms & Registrations</h1>
+        <p className="text-sm text-muted-foreground mt-2">Manage academy and tournament registrations</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {/* Academy/Club */}
+        <section className="group">
+          <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-primary/30">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">LCA Academy Registrations</h3>
+                <p className="text-sm text-muted-foreground mt-1">Register as a player for the Limpopo Chess Academy.</p>
+              </div>
             </div>
             <Link
               href="/forms/register-player"
-              className="mt-4 w-full block px-4 py-3 bg-primary text-primary-foreground rounded font-medium text-sm md:text-base text-center transition-all hover:bg-primary/90 hover:shadow-sm"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
             >
               Register Player
             </Link>
           </div>
         </section>
 
-        <section>
-          <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3">Tournament Forms</h2>
-          <div className="bg-card border-2 border-border rounded shadow-sm p-6 flex flex-col min-h-[200px] transition-all hover:shadow-md hover:border-secondary/20">
-            <div className="flex-1">
-              <h3 className="text-lg md:text-xl font-semibold mb-2 text-foreground tracking-tight leading-tight">
-                Tournament Registrations
-              </h3>
-              <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
-                Register for the Limpopo Chess Academy Open 2025 tournament.
-              </p>
+        {/* Tournaments */}
+        <section className="group">
+          <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-secondary/30">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Tournament Registrations</h3>
+                <p className="text-sm text-muted-foreground mt-1">Register for the Limpopo Open 2025 tournament.</p>
+              </div>
             </div>
             <Link
               href="/forms/tournament-registration"
-              className="mt-4 w-full block px-4 py-3 bg-secondary text-secondary-foreground rounded font-medium text-sm md:text-base text-center transition-all hover:bg-secondary/80 hover:shadow-sm"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
             >
-              LCA Open 2025 Registration
+              Limpopo Open 2025 Registration
             </Link>
           </div>
         </section>
