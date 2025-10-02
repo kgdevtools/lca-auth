@@ -12,9 +12,10 @@ interface NavLinkProps {
   color?: 'primary' | 'secondary' | 'gray';
   isLoading?: boolean;
   icon?: ReactNode;
+  badge?: string;
 }
 
-export function NavLink({ href, children, color, isLoading: externalLoading, icon }: NavLinkProps) {
+export function NavLink({ href, children, color, isLoading: externalLoading, icon, badge }: NavLinkProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [internalLoading, setInternalLoading] = useState(false)
@@ -52,26 +53,33 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
   }
 
   return (
-    <Link
-      href={href}
-      className={clsx(
-        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200 inline-flex items-center justify-center gap-1.5",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        "leading-tight tracking-tightest",
-        isLoading && "opacity-75 cursor-not-allowed",
-        isActive && "pointer-events-none", // Disable clicks on active link
-        colorClasses[color || 'gray'],
+    <div className="relative inline-flex">
+      <Link
+        href={href}
+        className={clsx(
+          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200 inline-flex items-center justify-center gap-1.5",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+          "leading-tight tracking-tightest",
+          isLoading && "opacity-75 cursor-not-allowed",
+          isActive && "pointer-events-none", // Disable clicks on active link
+          colorClasses[color || 'gray'],
+        )}
+        aria-disabled={isLoading}
+        onClick={handleClick}
+      >
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          icon || getDefaultIcon(href)
+        )}
+        {children}
+      </Link>
+      {badge && (
+        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+          {badge}
+        </span>
       )}
-      aria-disabled={isLoading}
-      onClick={handleClick}
-    >
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        icon || getDefaultIcon(href)
-      )}
-      {children}
-    </Link>
+    </div>
   )
 }
 

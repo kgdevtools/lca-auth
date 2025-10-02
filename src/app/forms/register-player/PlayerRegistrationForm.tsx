@@ -3,10 +3,10 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
-import { LogoMark } from "@/components/logo-mark"
 import { Badge } from "@/components/ui/badge"
 import { Clock, MapPin, Phone, CreditCard } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 
 type ExperienceLevel = "beginner" | "intermediate" | "advanced"
 
@@ -61,10 +61,25 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
 
   return (
     <div id="player-registration" className="w-full max-w-none mx-auto">
-      <div className="bg-card border-2 border-border rounded-[2px] p-4 sm:p-6 lg:p-8 xl:p-12 shadow-sm">
+      <div className="bg-card rounded-sm p-4 sm:p-6 lg:p-8 xl:p-12 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="text-center">
-            <LogoMark className="mx-auto h-12 w-auto sm:h-16 md:h-20" />
+            <div className="relative w-full max-w-md mx-auto h-20 sm:h-24 md:h-28">
+              <Image
+                src="/Picture1.png"
+                alt="Limpopo Chess Academy logo (light)"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-contain block dark:hidden"
+              />
+              <Image
+                src="/LCA_Logo_Dark.png"
+                alt="Limpopo Chess Academy logo (dark)"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-contain hidden dark:block"
+              />
+            </div>
           </div>
 
           {error ? (
@@ -81,7 +96,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">First name</label>
                   <input
                     required
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.firstName}
                     onChange={(e) => update("firstName", e.target.value)}
                   />
@@ -90,7 +105,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
                   <input
                     required
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.lastName}
                     onChange={(e) => update("lastName", e.target.value)}
                   />
@@ -100,7 +115,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <input
                     type="date"
                     required
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.dob}
                     onChange={(e) => update("dob", e.target.value)}
                   />
@@ -108,7 +123,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Experience</label>
                   <select
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.experience}
                     onChange={(e) => update("experience", e.target.value as ExperienceLevel)}
                   >
@@ -120,7 +135,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">FIDE ID (optional)</label>
                   <input
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.fideId ?? ""}
                     onChange={(e) => update("fideId", e.target.value)}
                   />
@@ -128,7 +143,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">ChessSA ID (optional)</label>
                   <input
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.chessSaId ?? ""}
                     onChange={(e) => update("chessSaId", e.target.value)}
                   />
@@ -137,7 +152,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Rating (optional)</label>
                   <input
                     type="number"
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.rating ?? ""}
                     onChange={(e) => {
                       const val = e.target.value
@@ -155,7 +170,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     Parent/Guardian name (optional)
                   </label>
                   <input
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.parentName ?? ""}
                     onChange={(e) => update("parentName", e.target.value)}
                   />
@@ -165,7 +180,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     Parent/Guardian contact (optional)
                   </label>
                   <input
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.parentContact ?? ""}
                     onChange={(e) => update("parentContact", e.target.value)}
                   />
@@ -174,7 +189,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Emergency contact name</label>
                   <input
                     required
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.emergencyContact}
                     onChange={(e) => update("emergencyContact", e.target.value)}
                   />
@@ -183,7 +198,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Emergency phone</label>
                   <input
                     required
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.emergencyPhone}
                     onChange={(e) => update("emergencyPhone", e.target.value)}
                   />
@@ -202,9 +217,11 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 </div>
                 <div className="space-y-4">
                   {/* Limpopo Chess Academy */}
-                  <div className="p-4 border-2 rounded-[2px] bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40">
+                  <div className="p-4 rounded-sm bg-blue-50 dark:bg-blue-950/20">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-foreground">Limpopo Chess Academy</h3>
+                      <h3 className="font-semibold">
+                        <span className="text-primary bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">Join Limpopo Chess Academy</span>
+                      </h3>
                       <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
                         Academy
                       </Badge>
@@ -227,9 +244,11 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   </div>
 
                   {/* Polokwane Chess Club */}
-                  <div className="p-4 border-2 rounded-[2px] bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40">
+                  <div className="p-4 rounded-sm bg-red-50 dark:bg-red-950/20">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-foreground">Polokwane Chess Club</h3>
+                      <h3 className="font-semibold">
+                        <span className="bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">Polokwane Chess Club</span>
+                      </h3>
                       <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
                         Club
                       </Badge>
@@ -260,7 +279,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Select Program</label>
                     <select
-                      className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                      className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                       value={form.selectedProgram ?? ""}
                       onChange={(e) =>
                         update("selectedProgram", e.target.value as "polokwane" | "limpopo" | "both" | undefined)
@@ -278,7 +297,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-2">Lesson Type</label>
                       <select
-                        className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                        className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                         value={form.lessonType ?? "physical"}
                         onChange={(e) => update("lessonType", e.target.value as "physical" | "online" | "both")}
                       >
@@ -290,7 +309,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   ) : null}
 
                   {/* Contact Information */}
-                  <div className="p-4 border-2 border-primary/20 rounded-[2px] bg-primary/5">
+                  <div className="p-4 rounded-sm bg-primary/5">
                     <div className="flex items-center gap-2 mb-2">
                       <Phone className="h-4 w-4 text-primary" />
                       <span className="text-sm font-medium text-foreground">Need more information?</span>
@@ -309,7 +328,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-2">Comments (optional)</label>
                   <textarea
                     rows={4}
-                    className="w-full rounded-[2px] border-2 border-border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
+                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
                     placeholder="Any additional information, special requirements, or questions..."
                     value={form.comments ?? ""}
                     onChange={(e) => update("comments", e.target.value)}

@@ -26,9 +26,9 @@ export default function FormsPage() {
             </div>
             <Link
               href="/forms/register-player"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse-slow"
             >
-              Register Player
+              LCA Registration
             </Link>
           </div>
         </section>
@@ -44,7 +44,7 @@ export default function FormsPage() {
             </div>
             <Link
               href="/forms/tournament-registration"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-green-600 hover:bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse-slow"
             >
               Limpopo Open 2025 Registration
             </Link>

@@ -16,7 +16,7 @@ const nextConfig: NextConfigWithDevOrigins = {
     
   },
   images: {
-    domains: ['i.ibb.co'],
+    domains: ['i.ibb.co', 'images.ctfassets.net'],
   },
 };
 

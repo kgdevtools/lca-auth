@@ -98,7 +98,7 @@ export default async function RootLayout({
                 <NavLink href="/rankings" color="gray">
                   Rankings
                 </NavLink>
-                <NavLink href="/forms" color="gray">
+                <NavLink href="/forms" color="gray" badge="Register">
                   Forms
                 </NavLink>
               </div>
