@@ -74,9 +74,11 @@ export default function AddGamePage() {
   const [fen, setFen] = useState(game.fen())
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [headers, setHeaders] = useState<PgnHeaders>(initialHeaders);
-  const [isEditorOpen, setIsEditorOpen] = useState(false); // Default to closed
-  
-  // State for click-to-move functionality
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  // **NEW**: State for the raw PGN input from the textarea
+  const [rawPgnInput, setRawPgnInput] = useState('');
+
   const [moveFrom, setMoveFrom] = useState<Square | null>(null);
   const [legalMoveSquares, setLegalMoveSquares] = useState<Record<string, {}>>({});
 
@@ -85,7 +87,8 @@ export default function AddGamePage() {
 
   const combinedPgn = useMemo(() => {
     const headerString = Object.entries(headers).map(([key, value]) => `[${key} "${value}"]`).join('\n');
-    const movesText = game.pgn().replace(/```math.*?```\s*\n/g, '').trim();
+    // Ensure game.pgn() exists before trying to manipulate it
+    const movesText = game.pgn() ? game.pgn().replace(/```math.*?```\s*\n/g, '').trim() : '';
     return `${headerString}\n\n${movesText}`;
   }, [headers, game]);
 
@@ -94,10 +97,11 @@ export default function AddGamePage() {
     setHeaders(prev => ({ ...prev, [name]: value }));
   };
 
-  function updateGameState(updatedGame: Chess) {
+  // **MODIFIED**: Wrapped in useCallback for stable reference in useEffect
+  const updateGameState = useCallback((updatedGame: Chess) => {
     setFen(updatedGame.fen());
     setGame(updatedGame);
-    
+
     const history = updatedGame.history({ verbose: true });
     const lastHistoryMove = history[history.length - 1];
     if (lastHistoryMove) {
@@ -105,7 +109,40 @@ export default function AddGamePage() {
     } else {
       setLastMove(null);
     }
-  }
+  }, []); // Setters are stable, so no dependencies needed.
+
+  // **NEW**: useEffect to parse the pasted PGN and update the game state
+  useEffect(() => {
+    if (!rawPgnInput.trim()) return;
+
+    try {
+      const tempGame = new Chess();
+      // The loadPgn function from chess.js handles both headers and moves
+      tempGame.loadPgn(rawPgnInput);
+
+      // 1. Update the board to the final position from the PGN
+      updateGameState(tempGame);
+
+      // 2. Extract headers from the loaded PGN and update form fields
+      const parsedHeaders = tempGame.header();
+      const newHeaders: PgnHeaders = {
+        Event: parsedHeaders.Event || initialHeaders.Event,
+        Site: parsedHeaders.Site || initialHeaders.Site,
+        Date: parsedHeaders.Date || initialHeaders.Date,
+        Round: parsedHeaders.Round || initialHeaders.Round,
+        White: parsedHeaders.White || initialHeaders.White,
+        Black: parsedHeaders.Black || initialHeaders.Black,
+        Result: parsedHeaders.Result || initialHeaders.Result,
+      };
+      setHeaders(newHeaders);
+      setIsEditorOpen(true); // Open the editor to show the populated fields
+
+    } catch (e) {
+      console.warn("Could not parse PGN:", e);
+      // Gracefully ignore invalid PGN. The UI will not update.
+    }
+  }, [rawPgnInput, updateGameState]);
+
 
   const makeMove = (move: { from: Square; to: Square; promotion?: string }) => {
     const gameCopy = new Chess(game.fen());
@@ -126,7 +163,6 @@ export default function AddGamePage() {
   };
 
   function onSquareClick(square: Square) {
-    // If it's the first click (selecting a piece)
     if (!moveFrom) {
       const piece = game.get(square);
       if (piece && piece.color === game.turn()) {
@@ -144,26 +180,27 @@ export default function AddGamePage() {
       return;
     }
 
-    // If it's the second click (making a move)
     makeMove({ from: moveFrom, to: square, promotion: 'q' });
     setMoveFrom(null);
     setLegalMoveSquares({});
   }
-  
+
   const onPieceDrop = (sourceSquare: Square, targetSquare: Square): boolean => {
     const moveResult = makeMove({ from: sourceSquare, to: targetSquare, promotion: 'q' });
     return moveResult !== null;
   };
-  
+
   const handleUndo = () => {
     const gameCopy = new Chess(game.fen());
     gameCopy.undo();
     updateGameState(gameCopy);
   };
-  
+
+  // **MODIFIED**: Reset function now also clears the PGN input field
   const resetGame = () => {
     updateGameState(new Chess());
     setHeaders(initialHeaders);
+    setRawPgnInput(''); // Clear the textarea on reset
   };
 
   return (
@@ -171,7 +208,7 @@ export default function AddGamePage() {
       <div className="max-w-4xl mx-auto">
         <header className="mb-6">
           <h1 className="text-3xl font-bold tracking-tight">Add New Game to LCA Tournament Games</h1>
-          <p className="text-gray-400">Input a game from a chess tournament. Use the metadata editor to add important details like the event name, player names, and round.</p>
+          <p className="text-gray-400">Input a game from a chess tournament. You can either play out the moves on the board or paste a full PGN to auto-fill the form.</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -201,6 +238,25 @@ export default function AddGamePage() {
           {/* Right Column: Form and Game Info */}
           <div className="space-y-6">
             <form action={formAction} className="bg-gray-800 p-6 rounded-lg space-y-4">
+
+              {/* === NEW PGN INPUT FIELD === */}
+              <div>
+                <label htmlFor="pgn-input" className="block text-sm font-medium text-gray-300 mb-1">
+                  Import from PGN
+                </label>
+                <textarea
+                  id="pgn-input"
+                  name="pgn-input"
+                  rows={8}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-xs"
+                  placeholder="[Event &quot;?&quot;]&#10;[Site &quot;?&quot;]&#10;...&#10;&#10;1. e4 e5 2. Nf3 ..."
+                  value={rawPgnInput}
+                  onChange={(e) => setRawPgnInput(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-gray-400">Pasting a valid PGN will automatically update the board and metadata below.</p>
+              </div>
+              {/* =========================== */}
+
               <div className="border border-gray-700 rounded-lg">
                 <button
                   type="button"
@@ -242,7 +298,7 @@ export default function AddGamePage() {
                   </div>
                 </div>
               </div>
-              
+
               <input type="hidden" name="pgn" value={combinedPgn} />
 
               <div className="flex items-center gap-4 pt-2">
@@ -255,7 +311,7 @@ export default function AddGamePage() {
                 </p>
               )}
             </form>
-            
+
             <div className="bg-gray-800 p-4 rounded-lg">
               <h2 className="text-lg font-semibold mb-2">Live PGN Output</h2>
               <pre className="text-sm text-gray-300 bg-gray-900 p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-words">
@@ -268,3 +324,4 @@ export default function AddGamePage() {
     </div>
   );
 }
+
