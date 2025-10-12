@@ -1,5 +1,6 @@
 'use client';
 
+// Removed 'useLayoutEffect' from the import as it's no longer used
 import React, { useState, useEffect, useMemo, useCallback, useRef, forwardRef, ButtonHTMLAttributes, SVGProps } from 'react';
 import { Chess } from 'chess.js';
 import type { Move } from 'chess.js';
@@ -21,7 +22,6 @@ interface GameHistory {
 }
 
 // --- ICONS ---
-// **FIX:** Redefined icons to accept props (like className) to fix the type error.
 const Icons = {
   Start: (props: SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" {...props}><path d="M18.375 3.094a.75.75 0 0 0-1.06 0L9.81 10.59a2.25 2.25 0 0 0 0 3.182l7.505 7.504a.75.75 0 0 0 1.06-1.06L10.87 12.182a.75.75 0 0 1 0-1.06l7.505-7.504a.75.75 0 0 0 0-1.06Z" /><path d="M6 3a.75.75 0 0 0-.75.75v16.5a.75.75 0 0 0 1.5 0V3.75A.75.75 0 0 0 6 3Z" /></svg>,
   Prev: (props: SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" {...props}><path fillRule="evenodd" d="M14.78 6.22a.75.75 0 0 1 0 1.06L9.56 12l5.22 5.22a.75.75 0 1 1-1.06 1.06l-5.75-5.75a.75.75 0 0 1 0-1.06l5.75-5.75a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" /></svg>,
@@ -249,7 +249,7 @@ const BoardDisplay = ({ fen, lastMove, gameHistory, currentMoveIndex, onNavigate
   const goToNext = useCallback(() => onNavigate(currentMoveIndex + 1), [onNavigate, currentMoveIndex]);
 
   return (
-    <div className="lg:col-span-2 flex flex-col items-center">
+    <div className="lg:col-span-2 flex flex-col items-center sticky top-4 z-10">
       <div ref={boardWrapperRef} className="w-full max-w-[70vh] mx-auto aspect-square mb-3 shadow-2xl rounded-lg overflow-hidden">
         {boardWidth && boardWidth > 0 ? (
           <Chessboard
@@ -296,19 +296,16 @@ type MovesListProps = {
   onMoveSelect: (index: number) => void;
 };
 const MovesList = ({ moves, currentMoveIndex, onMoveSelect }: MovesListProps) => {
-  const activeMoveRef = useRef<HTMLButtonElement>(null);
-  
-  useEffect(() => {
-    activeMoveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [currentMoveIndex]);
+  // **FIX:** Removed the useRef and the useLayoutEffect that caused the automatic scrolling.
+  // The component will no longer control the scroll position.
 
   return (
     <div className="bg-slate-800 p-4 rounded-lg shadow-lg lg:col-span-1 h-fit"><h2 className="text-xl font-semibold mb-2 text-slate-200">Moves</h2>
       <div className="max-h-96 overflow-y-auto pr-1 text-sm"><div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1 items-center">
         {moves.map((move, index) => (index % 2 === 0 ? (<React.Fragment key={index}>
           <div className="text-right text-slate-500 font-mono pr-1">{move.moveNumber}.</div>
-          <MoveButton move={move} index={index} isCurrent={currentMoveIndex === index} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index ? activeMoveRef : null} />
-          {moves[index + 1] && <MoveButton move={moves[index + 1]} index={index + 1} isCurrent={currentMoveIndex === index + 1} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index + 1 ? activeMoveRef : null} />}
+          <MoveButton move={move} index={index} isCurrent={currentMoveIndex === index} onMoveSelect={onMoveSelect} />
+          {moves[index + 1] && <MoveButton move={moves[index + 1]} index={index + 1} isCurrent={currentMoveIndex === index + 1} onMoveSelect={onMoveSelect} />}
         </React.Fragment>) : null))}
       </div></div>
     </div>
@@ -321,10 +318,11 @@ type MoveButtonProps = {
   isCurrent: boolean;
   onMoveSelect: (index: number) => void;
 };
-const MoveButton = forwardRef<HTMLButtonElement, MoveButtonProps>(({ move, index, isCurrent, onMoveSelect }, ref) => (
-  <button ref={ref} onClick={() => onMoveSelect(index)} className={`w-full text-left p-1 rounded transition-colors font-mono ${isCurrent ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
+// **FIX:** Removed `forwardRef` as it's no longer needed.
+const MoveButton = ({ move, index, isCurrent, onMoveSelect }: MoveButtonProps) => (
+  <button onClick={() => onMoveSelect(index)} className={`w-full text-left p-1 rounded transition-colors font-mono ${isCurrent ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
     {move.san}
   </button>
-));
+);
 MoveButton.displayName = 'MoveButton';
 
