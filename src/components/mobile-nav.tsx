@@ -73,6 +73,13 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
                 Admin Dashboard Overview
               </NavLink>
             ) : null}
+
+            {isAuthenticated ? (
+              <NavLink href="/game-view" color="gray">
+                View Games
+              </NavLink>
+            ) : null}
+
             {/* {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null} */}
             <NavLink href="/tournaments" color="gray">
               Tournaments
