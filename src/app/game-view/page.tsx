@@ -78,7 +78,7 @@ export default function ViewGamePage() {
   const [isBoardReady, setIsBoardReady] = useState(false)
 
   const boardWrapperRef = useRef<HTMLDivElement>(null)
-  const [boardWidth, setBoardWidth] = useState<number>(400)
+  const [boardWidth, setBoardWidth] = useState<number>()
 
   useEffect(() => {
     async function loadGames() {
@@ -107,15 +107,17 @@ export default function ViewGamePage() {
       setGameHistory({ moves: [], fenHistory: [] })
       setGameHeaders({})
       setCurrentMoveIndex(-1)
-      setIsBoardReady(false)
       return
     }
 
     setIsBoardReady(false)
+    setIsBoardReady(false)
     const game = new Chess()
     try {
+      // Try to load the PGN
       game.loadPgn(currentPgn)
 
+      // Extract headers from the PGN
       const headers = game.header()
       const cleanedHeaders: Record<string, string> = {}
       for (const key in headers) {
@@ -142,55 +144,24 @@ export default function ViewGamePage() {
 
       setGameHistory({ moves: movesWithNumbers, fenHistory })
       setCurrentMoveIndex(-1)
-      
-      // Set a small timeout to ensure the board is ready after game data is loaded
-      setTimeout(() => setIsBoardReady(true), 300)
     } catch (error) {
       console.error("Failed to load PGN:", error)
       setGameHeaders({})
       setGameHistory({ moves: [], fenHistory: ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"] })
       setCurrentMoveIndex(-1)
-      setTimeout(() => setIsBoardReady(true), 300)
     }
   }, [currentPgn])
 
-  // Function to calculate the maximum board size that fits in the viewport
-  const calculateBoardSize = useCallback(() => {
-    if (!boardWrapperRef.current) return 400
-
-    // Get viewport dimensions
-    const viewportHeight = window.innerHeight
-    const viewportWidth = window.innerWidth
-    
-    // Get container dimensions
-    const containerWidth = boardWrapperRef.current.offsetWidth
-    
-    // Calculate maximum height available for the board
-    // Account for header, controls, and other UI elements
-    const maxBoardHeight = viewportHeight * 0.6 // Use 60% of viewport height
-    
-    // Calculate maximum width available for the board
-    const maxBoardWidth = Math.min(containerWidth, viewportWidth * 0.9) // Use 90% of viewport width or container width
-    
-    // Use the smaller of the two dimensions to ensure the board fits
-    const boardSize = Math.min(maxBoardHeight, maxBoardWidth, 600) // Cap at 600px for very large screens
-    
-    return Math.max(boardSize, 200) // Ensure minimum size of 200px
-  }, [])
-
   useEffect(() => {
     function handleResize() {
-      setIsBoardReady(false)
-      const newBoardWidth = calculateBoardSize()
-      setBoardWidth(newBoardWidth)
-      // Set a small timeout to ensure the board is ready after resize
-      setTimeout(() => setIsBoardReady(true), 300)
+      if (boardWrapperRef.current) {
+        setBoardWidth(boardWrapperRef.current.offsetWidth)
+      }
     }
-    
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [calculateBoardSize])
+  }, [])
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
@@ -215,17 +186,12 @@ export default function ViewGamePage() {
   const goToNext = useCallback(() => navigateTo(currentMoveIndex + 1), [navigateTo, currentMoveIndex])
 
   const handleGameSelect = useCallback((index: number) => {
-    setIsBoardReady(false)
-    setCurrentGameIndex(index)
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <p className="text-muted-foreground">Loading games...</p>
-      </div>
-    )
-  }
+    // Only update if it's a different game
+    if (index !== currentGameIndex) {
+      setIsBoardReady(false)
+      setCurrentGameIndex(index)
+    }
+  }, [currentGameIndex])
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8">
@@ -247,25 +213,19 @@ export default function ViewGamePage() {
                     <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-96 overflow-y-auto rounded-md">
+                <DropdownMenuContent 
+                  className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 md:max-h-80 lg:max-h-96 overflow-y-auto rounded-md bg-card p-1 border border-border"
+                >
                   {games.map((game, index) => (
                     <DropdownMenuItem
                       key={game.id}
-                      className="flex justify-between items-center cursor-pointer"
+                      className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${index % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`}
                       onSelect={() => handleGameSelect(index)}
                     >
-                      <span className="truncate flex-1">{game.title}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1 h-auto ml-2 flex-shrink-0 rounded-md"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                        }}
-                        aria-label={`Delete ${game.title}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-muted-foreground tabular-nums">{index + 1}.</span>
+                        <span className="truncate flex-1 text-foreground text-sm">{game.title}</span>
+                      </div>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -277,14 +237,10 @@ export default function ViewGamePage() {
         {games.length > 0 ? (
           <main className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-3 lg:gap-4">
             {/* Board Section - Responsive container */}
-            <div className="flex flex-col items-center justify-center w-full">
+            <div ref={boardWrapperRef} className="flex flex-col items-center justify-center w-full">
               <div className="flex flex-col w-full max-w-full">
-                <div 
-                  ref={boardWrapperRef} 
-                  className="w-full aspect-square shadow-lg rounded-t-lg overflow-hidden mx-auto relative"
-                  style={{ maxWidth: `${boardWidth}px` }}
-                >
-                  {isBoardReady && boardWidth > 0 ? (
+                <div className="w-full aspect-square shadow-lg rounded-t-lg overflow-hidden mx-auto">
+                  {boardWidth && boardWidth > 0 ? (
                     <div className="w-full h-full transition-opacity duration-300 opacity-100">
                       <Chessboard
                         boardWidth={boardWidth}
@@ -392,25 +348,33 @@ const ControlButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (
   </button>
 )
 
-const GameInfo: React.FC<{ headers: Record<string, string> }> = React.memo(({ headers }) => (
-  <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
-    <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground tracking-tight">Game Details</h2>
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
-      <div>
-        <span className="font-medium text-foreground">White:</span> {headers.White || "N/A"}
-      </div>
-      <div>
-        <span className="font-medium text-foreground">Black:</span> {headers.Black || "N/A"}
-      </div>
-      <div>
-        <span className="font-medium text-foreground">Event:</span> {headers.Event || "N/A"}
-      </div>
-      <div>
-        <span className="font-medium text-foreground">Result:</span> {headers.Result || "N/A"}
+const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) => {
+  // Extract values with fallbacks
+  const white = headers.White || headers.white || "N/A"
+  const black = headers.Black || headers.black || "N/A"
+  const event = headers.Event || headers.event || "N/A"
+  const result = headers.Result || headers.result || "*"
+  
+  return (
+    <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
+      <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground tracking-tight">Game Details</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
+        <div>
+          <span className="font-medium text-foreground">White:</span> {white}
+        </div>
+        <div>
+          <span className="font-medium text-foreground">Black:</span> {black}
+        </div>
+        <div>
+          <span className="font-medium text-foreground">Event:</span> {event}
+        </div>
+        <div>
+          <span className="font-medium text-foreground">Result:</span> {result}
+        </div>
       </div>
     </div>
-  </div>
-))
+  )
+}
 
 interface MovesListProps {
   moves: (VerboseMove & { moveNumber: number })[]

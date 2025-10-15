@@ -343,9 +343,36 @@ export default function GameViewerPage() {
     setIsSubmitting(true)
     setFormMessage(null)
 
+    // --- PGN CONSTRUCTION LOGIC ---
+    const pgnHeaders: Record<string, string> = {
+      Event: event,
+      Date: date,
+      White: white,
+      Black: black,
+      Result: result,
+      WhiteElo: whiteElo,
+      BlackElo: blackElo,
+      TimeControl: timeControl,
+      Opening: opening,
+    }
+
+    let headerString = ""
+    for (const key in pgnHeaders) {
+      const value = pgnHeaders[key]
+      if (value && value.trim()) {
+        headerString += `[${key} "${value.trim()}"]\r\n`
+      }
+    }
+
+    // Remove any existing headers from the pasted PGN to avoid duplication
+    const movesOnly = pgnText.replace(/^[\s\r\n]*\[.*\][\s\r\n]*/gm, "").trim()
+    
+    const finalPgn = `${headerString.trim()}\r\n\r\n${movesOnly}`
+    // --- END PGN CONSTRUCTION ---
+
     const formData = new FormData()
     formData.append("title", title)
-    formData.append("pgn", pgnText)
+    formData.append("pgn", finalPgn)
 
     const apiResult = await addGameToDB({ message: "", error: false }, formData)
 
@@ -465,6 +492,7 @@ export default function GameViewerPage() {
                 currentGameIndex={currentGameIndex}
                 onSelect={handleGameSelect}
                 onDelete={handleDeleteGame}
+                showDelete={false}
               />
             )}
             {previewMode && games.length === 0 && (
@@ -797,9 +825,10 @@ type GameSelectorProps = {
   currentGameIndex: number
   onSelect: (index: number) => void
   onDelete: (id: number, title: string) => void
+  showDelete?: boolean
 }
 
-const GameSelector = ({ games, currentGameIndex, onSelect, onDelete }: GameSelectorProps) => {
+const GameSelector = ({ games, currentGameIndex, onSelect, onDelete, showDelete = true }: GameSelectorProps) => {
   if (games.length === 0) return null
   return (
         <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-md">
@@ -811,26 +840,33 @@ const GameSelector = ({ games, currentGameIndex, onSelect, onDelete }: GameSelec
             <ChevronDown className="ml-2 w-4 h-4 dark:text-slate-400 text-slate-600 flex-shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
+        <DropdownMenuContent 
+          className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 md:max-h-80 lg:max-h-96 overflow-y-auto rounded-md bg-card p-1 border border-border"
+        >
           {games.map((game, index) => (
             <DropdownMenuItem
               key={game.id}
-              className="flex justify-between items-center cursor-pointer px-2 py-1 rounded-md hover:bg-slate-700"
+              className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${index % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`}
               onSelect={() => onSelect(index)}
             >
-              <span className="truncate flex-1 text-foreground text-sm">{game.title}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive p-1 h-auto ml-2 flex-shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete(game.id, game.title)
-                }}
-                aria-label={`Delete ${game.title}`}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-muted-foreground tabular-nums">{index + 1}.</span>
+                <span className="truncate flex-1 text-foreground text-sm">{game.title}</span>
+              </div>
+              {showDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive p-1 h-auto ml-2 flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(game.id, game.title)
+                  }}
+                  aria-label={`Delete ${game.title}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
