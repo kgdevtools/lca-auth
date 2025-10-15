@@ -334,26 +334,6 @@ export default function GameViewerPage() {
       return
     }
 
-    if (!date.trim()) {
-      setFormMessage({ text: "Date is required.", error: true })
-      return
-    }
-
-    if (!white.trim()) {
-      setFormMessage({ text: "White player name is required.", error: true })
-      return
-    }
-
-    if (!black.trim()) {
-      setFormMessage({ text: "Black player name is required.", error: true })
-      return
-    }
-
-    if (!result.trim()) {
-      setFormMessage({ text: "Result is required.", error: true })
-      return
-    }
-
     const validation = validatePgn(pgnText)
     if (!validation.valid) {
       setFormMessage({ text: `Invalid PGN: ${validation.error}`, error: true })
@@ -366,15 +346,6 @@ export default function GameViewerPage() {
     const formData = new FormData()
     formData.append("title", title)
     formData.append("pgn", pgnText)
-    formData.append("event", event)
-    formData.append("date", date)
-    formData.append("white", white)
-    formData.append("black", black)
-    formData.append("result", result)
-    formData.append("whiteElo", whiteElo)
-    formData.append("blackElo", blackElo)
-    formData.append("timeControl", timeControl)
-    formData.append("opening", opening)
 
     const apiResult = await addGameToDB({ message: "", error: false }, formData)
 
@@ -620,7 +591,7 @@ const AddGameForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="white" className="block text-sm font-medium mb-2">
-            White Player <span className="text-destructive">*</span>
+            White Player
           </label>
           <input
             type="text"
@@ -635,7 +606,7 @@ const AddGameForm = ({
         </div>
         <div>
           <label htmlFor="black" className="block text-sm font-medium mb-2">
-            Black Player <span className="text-destructive">*</span>
+            Black Player
           </label>
           <input
             type="text"
@@ -653,7 +624,7 @@ const AddGameForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="date" className="block text-sm font-medium mb-2">
-            Date <span className="text-destructive">*</span>
+            Date
           </label>
           <input
             type="text"
@@ -668,7 +639,7 @@ const AddGameForm = ({
         </div>
         <div>
           <label htmlFor="result" className="block text-sm font-medium mb-2">
-            Result <span className="text-destructive">*</span>
+            Result
           </label>
           <input
             type="text"

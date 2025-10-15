@@ -13,15 +13,6 @@ export interface GameData {
   created_at: string;
   title: string;
   pgn: string;
-  event?: string | null;
-  date: string;
-  white: string;
-  black: string;
-  result: string;
-  white_elo?: string | null;
-  black_elo?: string | null;
-  time_control?: string | null;
-  opening?: string | null;
 }
 
 /**
@@ -48,15 +39,6 @@ export async function addGameToDB(
 
   const title = formData.get('title') as string;
   const pgn = formData.get('pgn') as string;
-  const event = formData.get('event') as string;
-  const date = formData.get('date') as string;
-  const white = formData.get('white') as string;
-  const black = formData.get('black') as string;
-  const result = formData.get('result') as string;
-  const whiteElo = formData.get('whiteElo') as string;
-  const blackElo = formData.get('blackElo') as string;
-  const timeControl = formData.get('timeControl') as string;
-  const opening = formData.get('opening') as string;
 
   if (!title?.trim()) {
     return { message: 'Title is required.', error: true };
@@ -64,37 +46,13 @@ export async function addGameToDB(
   if (!pgn?.trim()) {
     return { message: 'Cannot add an empty game. PGN data is required.', error: true };
   }
-  if (!date?.trim()) {
-    return { message: 'Date is required.', error: true };
-  }
-  if (!white?.trim()) {
-    return { message: 'White player name is required.', error: true };
-  }
-  if (!black?.trim()) {
-    return { message: 'Black player name is required.', error: true };
-  }
-  if (!result?.trim()) {
-    return { message: 'Result is required.', error: true };
-  }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { message: 'Authentication required to add a game.', error: true };
   }
 
-  const { error } = await supabase.from('tournament-games').insert([{
-    title,
-    pgn,
-    event: event?.trim() || null,
-    date,
-    white,
-    black,
-    result,
-    white_elo: whiteElo?.trim() || null,
-    black_elo: blackElo?.trim() || null,
-    time_control: timeControl?.trim() || null,
-    opening: opening?.trim() || null,
-  }]);
+  const { error } = await supabase.from('tournament-games').insert([{ title, pgn }]);
   if (error) {
     console.error('Supabase insert error:', error.message);
     return { message: `Database error: ${error.message}`, error: true };
