@@ -42,10 +42,15 @@ function parsePgnHeaders(pgn: string): Record<string, string> {
 }
 
 function generateTitleFromPgn(headers: Record<string, string>): string {
-  const white = headers.White || "Unknown"
-  const black = headers.Black || "Unknown"
+  const white = headers.White || ""
+  const black = headers.Black || ""
   const event = headers.Event
   const date = headers.Date
+
+  // Return empty if both players are unknown/missing
+  if (!white && !black) {
+    return ""
+  }
 
   if (event && event !== "?" && event !== "rated blitz game") {
     return `${event}: ${white} vs ${black}`
@@ -87,12 +92,34 @@ export default function GameViewerPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formMessage, setFormMessage] = useState<{ text: string; error: boolean } | null>(null)
+  
+  // Metadata fields
+  const [event, setEvent] = useState("")
+  const [date, setDate] = useState("")
+  const [white, setWhite] = useState("")
+  const [black, setBlack] = useState("")
+  const [result, setResult] = useState("")
+  const [whiteElo, setWhiteElo] = useState("")
+  const [blackElo, setBlackElo] = useState("")
+  const [timeControl, setTimeControl] = useState("")
+  const [opening, setOpening] = useState("")
 
   // Validation state
   const [titleTouched, setTitleTouched] = useState(false)
   const [showValidation, setShowValidation] = useState(false)
+  const [hasManuallyEditedTitle, setHasManuallyEditedTitle] = useState(false)
+  const [hasManuallyEditedFields, setHasManuallyEditedFields] = useState(false)
+  
+  // Preview mode state
+  const [previewMode, setPreviewMode] = useState(false)
+  const [previewPgn, setPreviewPgn] = useState("")
 
-  const currentPgn = useMemo(() => games[currentGameIndex]?.pgn || "", [games, currentGameIndex])
+  const currentPgn = useMemo(() => {
+    if (previewMode && previewPgn) {
+      return previewPgn
+    }
+    return games[currentGameIndex]?.pgn || ""
+  }, [games, currentGameIndex, previewMode, previewPgn])
   const currentFen = useMemo(
     () => gameHistory.fenHistory[currentMoveIndex + 1] || "start",
     [currentMoveIndex, gameHistory],
@@ -175,25 +202,55 @@ export default function GameViewerPage() {
   }, [currentPgn])
 
   useEffect(() => {
-    if (!pgnText.trim()) return
+    if (!pgnText.trim()) {
+      setPreviewMode(false)
+      setPreviewPgn("")
+      return
+    }
 
     const validation = validatePgn(pgnText)
-    if (!validation.valid) return
+    if (!validation.valid) {
+      setPreviewMode(false)
+      setPreviewPgn("")
+      return
+    }
 
     try {
       const headers = parsePgnHeaders(pgnText)
-      if (!title.trim() || !titleTouched) {
+      // Only auto-fill if user hasn't manually edited the title
+      if (!hasManuallyEditedTitle) {
         const suggestedTitle = generateTitleFromPgn(headers)
         setTitle(suggestedTitle)
       }
+      // Auto-fill metadata fields if not manually edited
+      if (!hasManuallyEditedFields) {
+        setEvent(headers.Event || "")
+        setDate(headers.Date || headers.UTCDate || "")
+        setWhite(headers.White || "")
+        setBlack(headers.Black || "")
+        setResult(headers.Result || "")
+        setWhiteElo(headers.WhiteElo || "")
+        setBlackElo(headers.BlackElo || "")
+        setTimeControl(headers.TimeControl || "")
+        setOpening(headers.Opening || "")
+      }
+      // Enable preview mode with valid PGN
+      setPreviewMode(true)
+      setPreviewPgn(pgnText)
       setShowValidation(true)
     } catch (error) {
       console.error("Failed to parse PGN:", error)
+      setPreviewMode(false)
+      setPreviewPgn("")
     }
-  }, [pgnText, title, titleTouched])
+  }, [pgnText, hasManuallyEditedTitle, hasManuallyEditedFields])
 
   // --- HANDLERS ---
-  const handleGameSelect = useCallback((index: number) => setCurrentGameIndex(index), [])
+  const handleGameSelect = useCallback((index: number) => {
+    setCurrentGameIndex(index)
+    setPreviewMode(false)
+    setPreviewPgn("")
+  }, [])
 
   const handleDeleteGame = useCallback(
     async (gameId: number, gameTitle: string) => {
@@ -247,6 +304,7 @@ export default function GameViewerPage() {
     (value: string) => {
       setTitle(value)
       setTitleTouched(true)
+      setHasManuallyEditedTitle(true)
       if (showValidation && value.trim()) {
         setShowValidation(false)
       }
@@ -276,6 +334,26 @@ export default function GameViewerPage() {
       return
     }
 
+    if (!date.trim()) {
+      setFormMessage({ text: "Date is required.", error: true })
+      return
+    }
+
+    if (!white.trim()) {
+      setFormMessage({ text: "White player name is required.", error: true })
+      return
+    }
+
+    if (!black.trim()) {
+      setFormMessage({ text: "Black player name is required.", error: true })
+      return
+    }
+
+    if (!result.trim()) {
+      setFormMessage({ text: "Result is required.", error: true })
+      return
+    }
+
     const validation = validatePgn(pgnText)
     if (!validation.valid) {
       setFormMessage({ text: `Invalid PGN: ${validation.error}`, error: true })
@@ -288,18 +366,40 @@ export default function GameViewerPage() {
     const formData = new FormData()
     formData.append("title", title)
     formData.append("pgn", pgnText)
+    formData.append("event", event)
+    formData.append("date", date)
+    formData.append("white", white)
+    formData.append("black", black)
+    formData.append("result", result)
+    formData.append("whiteElo", whiteElo)
+    formData.append("blackElo", blackElo)
+    formData.append("timeControl", timeControl)
+    formData.append("opening", opening)
 
-    const result = await addGameToDB({ message: "", error: false }, formData)
+    const apiResult = await addGameToDB({ message: "", error: false }, formData)
 
     setIsSubmitting(false)
-    setFormMessage({ text: result.message, error: result.error })
+    setFormMessage({ text: apiResult.message, error: apiResult.error })
 
-    if (!result.error) {
+    if (!apiResult.error) {
       setTitle("")
       setPgnText("")
       setSelectedFile(null)
+      setEvent("")
+      setDate("")
+      setWhite("")
+      setBlack("")
+      setResult("")
+      setWhiteElo("")
+      setBlackElo("")
+      setTimeControl("")
+      setOpening("")
       setTitleTouched(false)
       setShowValidation(false)
+      setHasManuallyEditedTitle(false)
+      setHasManuallyEditedFields(false)
+      setPreviewMode(false)
+      setPreviewPgn("")
       setIsFormOpen(false)
       await loadGames()
     }
@@ -348,29 +448,64 @@ export default function GameViewerPage() {
                 isSubmitting={isSubmitting}
                 formMessage={formMessage}
                 isTitleInvalid={isTitleInvalid}
+                event={event}
+                date={date}
+                white={white}
+                black={black}
+                result={result}
+                whiteElo={whiteElo}
+                blackElo={blackElo}
+                timeControl={timeControl}
+                opening={opening}
                 onTitleChange={handleTitleChange}
                 onTitleBlur={handleTitleBlur}
                 onPgnTextChange={handlePgnTextChange}
                 onFileChange={handleFileChange}
+                onEventChange={(val) => { setEvent(val); setHasManuallyEditedFields(true); }}
+                onDateChange={(val) => { setDate(val); setHasManuallyEditedFields(true); }}
+                onWhiteChange={(val) => { setWhite(val); setHasManuallyEditedFields(true); }}
+                onBlackChange={(val) => { setBlack(val); setHasManuallyEditedFields(true); }}
+                onResultChange={(val) => { setResult(val); setHasManuallyEditedFields(true); }}
+                onWhiteEloChange={(val) => { setWhiteElo(val); setHasManuallyEditedFields(true); }}
+                onBlackEloChange={(val) => { setBlackElo(val); setHasManuallyEditedFields(true); }}
+                onTimeControlChange={(val) => { setTimeControl(val); setHasManuallyEditedFields(true); }}
+                onOpeningChange={(val) => { setOpening(val); setHasManuallyEditedFields(true); }}
                 onSubmit={handleSubmit}
               />
             </div>
           )}
         </div>
 
-        {games.length > 0 && (
+        {(games.length > 0 || previewMode) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
-            <GameInfo headers={gameHeaders} />
-            <GameSelector
-              games={games}
-              currentGameIndex={currentGameIndex}
-              onSelect={handleGameSelect}
-              onDelete={handleDeleteGame}
+            <GameInfo 
+              headers={gameHeaders} 
+              previewMode={previewMode}
+              previewData={{
+                white,
+                black,
+                event,
+                result
+              }}
             />
+            {games.length > 0 && (
+              <GameSelector
+                games={games}
+                currentGameIndex={currentGameIndex}
+                onSelect={handleGameSelect}
+                onDelete={handleDeleteGame}
+              />
+            )}
+            {previewMode && games.length === 0 && (
+              <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-md">
+                <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground">Preview Mode</h2>
+                <p className="text-sm text-muted-foreground">Previewing pasted/uploaded game</p>
+              </div>
+            )}
           </div>
         )}
 
-        {games.length > 0 ? (
+        {(games.length > 0 || previewMode) ? (
           <main className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-3">
             <BoardDisplay
               fen={currentFen}
@@ -400,10 +535,28 @@ type AddGameFormProps = {
   isSubmitting: boolean
   formMessage: { text: string; error: boolean } | null
   isTitleInvalid: boolean
+  event: string
+  date: string
+  white: string
+  black: string
+  result: string
+  whiteElo: string
+  blackElo: string
+  timeControl: string
+  opening: string
   onTitleChange: (value: string) => void
   onTitleBlur: () => void
   onPgnTextChange: (value: string) => void
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onEventChange: (value: string) => void
+  onDateChange: (value: string) => void
+  onWhiteChange: (value: string) => void
+  onBlackChange: (value: string) => void
+  onResultChange: (value: string) => void
+  onWhiteEloChange: (value: string) => void
+  onBlackEloChange: (value: string) => void
+  onTimeControlChange: (value: string) => void
+  onOpeningChange: (value: string) => void
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
 }
 
@@ -414,10 +567,28 @@ const AddGameForm = ({
   isSubmitting,
   formMessage,
   isTitleInvalid,
+  event,
+  date,
+  white,
+  black,
+  result,
+  whiteElo,
+  blackElo,
+  timeControl,
+  opening,
   onTitleChange,
   onTitleBlur,
   onPgnTextChange,
   onFileChange,
+  onEventChange,
+  onDateChange,
+  onWhiteChange,
+  onBlackChange,
+  onResultChange,
+  onWhiteEloChange,
+  onBlackEloChange,
+  onTimeControlChange,
+  onOpeningChange,
   onSubmit,
 }: AddGameFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -445,6 +616,155 @@ const AddGameForm = ({
         />
         {isTitleInvalid && <p className="text-destructive text-xs mt-1">Title is required</p>}
       </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="white" className="block text-sm font-medium mb-2">
+            White Player <span className="text-destructive">*</span>
+          </label>
+          <input
+            type="text"
+            id="white"
+            name="white"
+            value={white}
+            onChange={(e) => onWhiteChange(e.target.value)}
+            placeholder="White player name"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <label htmlFor="black" className="block text-sm font-medium mb-2">
+            Black Player <span className="text-destructive">*</span>
+          </label>
+          <input
+            type="text"
+            id="black"
+            name="black"
+            value={black}
+            onChange={(e) => onBlackChange(e.target.value)}
+            placeholder="Black player name"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="date" className="block text-sm font-medium mb-2">
+            Date <span className="text-destructive">*</span>
+          </label>
+          <input
+            type="text"
+            id="date"
+            name="date"
+            value={date}
+            onChange={(e) => onDateChange(e.target.value)}
+            placeholder="YYYY.MM.DD"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <label htmlFor="result" className="block text-sm font-medium mb-2">
+            Result <span className="text-destructive">*</span>
+          </label>
+          <input
+            type="text"
+            id="result"
+            name="result"
+            value={result}
+            onChange={(e) => onResultChange(e.target.value)}
+            placeholder="1-0, 0-1, 1/2-1/2, or *"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="event" className="block text-sm font-medium mb-2">
+          Event
+        </label>
+        <input
+          type="text"
+          id="event"
+          name="event"
+          value={event}
+          onChange={(e) => onEventChange(e.target.value)}
+          placeholder="Tournament or event name"
+          className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+          disabled={isSubmitting}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="whiteElo" className="block text-sm font-medium mb-2">
+            White Elo
+          </label>
+          <input
+            type="text"
+            id="whiteElo"
+            name="whiteElo"
+            value={whiteElo}
+            onChange={(e) => onWhiteEloChange(e.target.value)}
+            placeholder="e.g., 2100"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <label htmlFor="blackElo" className="block text-sm font-medium mb-2">
+            Black Elo
+          </label>
+          <input
+            type="text"
+            id="blackElo"
+            name="blackElo"
+            value={blackElo}
+            onChange={(e) => onBlackEloChange(e.target.value)}
+            placeholder="e.g., 2050"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="timeControl" className="block text-sm font-medium mb-2">
+            Time Control
+          </label>
+          <input
+            type="text"
+            id="timeControl"
+            name="timeControl"
+            value={timeControl}
+            onChange={(e) => onTimeControlChange(e.target.value)}
+            placeholder="e.g., 180+0"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+        <div>
+          <label htmlFor="opening" className="block text-sm font-medium mb-2">
+            Opening
+          </label>
+          <input
+            type="text"
+            id="opening"
+            name="opening"
+            value={opening}
+            onChange={(e) => onOpeningChange(e.target.value)}
+            placeholder="e.g., Sicilian Defense"
+            className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring"
+            disabled={isSubmitting}
+          />
+        </div>
+      </div>
+      
       <div>
         <label htmlFor="pgnText" className="block text-sm font-medium mb-2">
           PGN Data <span className="text-destructive">*</span>
@@ -466,7 +786,6 @@ const AddGameForm = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pgn,.txt,text/plain"
             onChange={onFileChange}
             className="hidden"
             disabled={isSubmitting}
@@ -476,7 +795,7 @@ const AddGameForm = ({
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSubmitting}
-            className="gap-2"
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-white"
           >
             <Upload className="w-4 h-4" />
             Choose File
@@ -495,7 +814,7 @@ const AddGameForm = ({
           {formMessage.text}
         </div>
       )}
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button type="submit" disabled={isSubmitting} className="w-full dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90">
         {isSubmitting ? "Adding Game..." : "Add Game"}
       </Button>
     </form>
@@ -517,8 +836,8 @@ const GameSelector = ({ games, currentGameIndex, onSelect, onDelete }: GameSelec
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="w-full flex items-center justify-between bg-transparent rounded-md text-sm">
-            <span className="truncate text-slate-200">{games[currentGameIndex]?.title || 'Select a game'}</span>
-            <ChevronDown className="ml-2 w-4 h-4 text-slate-400 flex-shrink-0" />
+            <span className="truncate dark:text-slate-200 text-slate-800">{games[currentGameIndex]?.title || 'Select a game'}</span>
+            <ChevronDown className="ml-2 w-4 h-4 dark:text-slate-400 text-slate-600 flex-shrink-0" />
           </Button>
         </DropdownMenuTrigger>
           <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
@@ -549,17 +868,33 @@ const GameSelector = ({ games, currentGameIndex, onSelect, onDelete }: GameSelec
   )
 }
 
-type GameInfoProps = { headers: Record<string, string> }
-const GameInfo = ({ headers }: GameInfoProps) => {
-  const { White, Black, Event, Result } = headers
+type GameInfoProps = { 
+  headers: Record<string, string>
+  previewMode: boolean
+  previewData: {
+    white: string
+    black: string
+    event: string
+    result: string
+  }
+}
+const GameInfo = ({ headers, previewMode, previewData }: GameInfoProps) => {
+  // Use preview data when in preview mode, otherwise use headers
+  const white = previewMode && previewData.white ? previewData.white : headers.White
+  const black = previewMode && previewData.black ? previewData.black : headers.Black
+  const event = previewMode && previewData.event ? previewData.event : headers.Event
+  const result = previewMode && previewData.result ? previewData.result : headers.Result
+  
   return (
     <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-md">
-      <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground">Game Details</h2>
+      <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground">
+        Game Details {previewMode && <span className="text-xs font-normal text-muted-foreground ml-2">(Live Preview)</span>}
+      </h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-        <InfoPair label="White" value={White} />
-        <InfoPair label="Black" value={Black} />
-        <InfoPair label="Event" value={Event} />
-        <InfoPair label="Result" value={Result} />
+        <InfoPair label="White" value={white} />
+        <InfoPair label="Black" value={black} />
+        <InfoPair label="Event" value={event} />
+        <InfoPair label="Result" value={result} />
       </div>
     </div>
   )
