@@ -75,14 +75,15 @@ export default function ViewGamePage() {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1)
   const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({})
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(undefined)
+  const [isBoardReady, setIsBoardReady] = useState(false)
 
   const boardWrapperRef = useRef<HTMLDivElement>(null)
-  // Provide a sensible initial width so the chessboard can render on first paint
-  const [boardWidth, setBoardWidth] = useState<number | undefined>(400)
+  const [boardWidth, setBoardWidth] = useState<number>(400)
 
   useEffect(() => {
     async function loadGames() {
       setIsLoading(true)
+      setIsBoardReady(false)
       const { games: fetchedGames, error } = await fetchGames()
       if (error) {
         console.error("Error fetching games:", error)
@@ -106,9 +107,11 @@ export default function ViewGamePage() {
       setGameHistory({ moves: [], fenHistory: [] })
       setGameHeaders({})
       setCurrentMoveIndex(-1)
+      setIsBoardReady(false)
       return
     }
 
+    setIsBoardReady(false)
     const game = new Chess()
     try {
       game.loadPgn(currentPgn)
@@ -139,24 +142,55 @@ export default function ViewGamePage() {
 
       setGameHistory({ moves: movesWithNumbers, fenHistory })
       setCurrentMoveIndex(-1)
+      
+      // Set a small timeout to ensure the board is ready after game data is loaded
+      setTimeout(() => setIsBoardReady(true), 300)
     } catch (error) {
       console.error("Failed to load PGN:", error)
       setGameHeaders({})
       setGameHistory({ moves: [], fenHistory: ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"] })
       setCurrentMoveIndex(-1)
+      setTimeout(() => setIsBoardReady(true), 300)
     }
   }, [currentPgn])
 
+  // Function to calculate the maximum board size that fits in the viewport
+  const calculateBoardSize = useCallback(() => {
+    if (!boardWrapperRef.current) return 400
+
+    // Get viewport dimensions
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+    
+    // Get container dimensions
+    const containerWidth = boardWrapperRef.current.offsetWidth
+    
+    // Calculate maximum height available for the board
+    // Account for header, controls, and other UI elements
+    const maxBoardHeight = viewportHeight * 0.6 // Use 60% of viewport height
+    
+    // Calculate maximum width available for the board
+    const maxBoardWidth = Math.min(containerWidth, viewportWidth * 0.9) // Use 90% of viewport width or container width
+    
+    // Use the smaller of the two dimensions to ensure the board fits
+    const boardSize = Math.min(maxBoardHeight, maxBoardWidth, 600) // Cap at 600px for very large screens
+    
+    return Math.max(boardSize, 200) // Ensure minimum size of 200px
+  }, [])
+
   useEffect(() => {
     function handleResize() {
-      if (boardWrapperRef.current) {
-        setBoardWidth(boardWrapperRef.current.offsetWidth)
-      }
+      setIsBoardReady(false)
+      const newBoardWidth = calculateBoardSize()
+      setBoardWidth(newBoardWidth)
+      // Set a small timeout to ensure the board is ready after resize
+      setTimeout(() => setIsBoardReady(true), 300)
     }
+    
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [])
+  }, [calculateBoardSize])
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
@@ -181,6 +215,7 @@ export default function ViewGamePage() {
   const goToNext = useCallback(() => navigateTo(currentMoveIndex + 1), [navigateTo, currentMoveIndex])
 
   const handleGameSelect = useCallback((index: number) => {
+    setIsBoardReady(false)
     setCurrentGameIndex(index)
   }, [])
 
@@ -240,32 +275,33 @@ export default function ViewGamePage() {
         )}
 
         {games.length > 0 ? (
-          <main className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-3 lg:gap-4 lg:h-[calc(100vh-14rem)]">
-            {/* Board Section - Sticky on desktop */}
-            <div className="lg:sticky lg:top-16 lg:self-start lg:h-[calc(100vh-14rem)]">
-              <div className="flex flex-col w-full h-full">
-                {/* Constrain the inner width to the measured boardWidth so controls align to the board */}
-                <div style={{ width: boardWidth ? `${boardWidth}px` : "100%" }}>
-                  <div
-                    ref={boardWrapperRef}
-                    className="w-full aspect-square max-h-[min(80vh,100%)] shadow-lg rounded-t-lg overflow-hidden"
-                  >
-                  {boardWidth && boardWidth > 0 ? (
-                    <Chessboard
-                      boardWidth={boardWidth}
-                      position={fen}
-                      arePiecesDraggable={false}
-                      customSquareStyles={
-                        lastMove
-                          ? {
-                              [lastMove.from]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
-                              [lastMove.to]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
-                            }
-                          : {}
-                      }
-                    />
+          <main className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-3 lg:gap-4">
+            {/* Board Section - Responsive container */}
+            <div className="flex flex-col items-center justify-center w-full">
+              <div className="flex flex-col w-full max-w-full">
+                <div 
+                  ref={boardWrapperRef} 
+                  className="w-full aspect-square shadow-lg rounded-t-lg overflow-hidden mx-auto relative"
+                  style={{ maxWidth: `${boardWidth}px` }}
+                >
+                  {isBoardReady && boardWidth > 0 ? (
+                    <div className="w-full h-full transition-opacity duration-300 opacity-100">
+                      <Chessboard
+                        boardWidth={boardWidth}
+                        position={fen}
+                        arePiecesDraggable={false}
+                        customSquareStyles={
+                          lastMove
+                            ? {
+                                [lastMove.from]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
+                                [lastMove.to]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
+                              }
+                            : {}
+                        }
+                      />
+                    </div>
                   ) : (
-                    <div className="w-full h-full bg-muted animate-pulse" />
+                    <BoardSkeleton />
                   )}
                 </div>
                 <div className="mt-3 w-full flex-shrink-0">
@@ -278,7 +314,6 @@ export default function ViewGamePage() {
                     canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
                   />
                 </div>
-                </div>
                 {gameHistory.moves.length > 0 && (
                   <div className="mt-2 text-center text-sm text-muted-foreground">
                     Move {currentMoveIndex + 1} of {gameHistory.moves.length}
@@ -286,9 +321,9 @@ export default function ViewGamePage() {
                 )}
               </div>
             </div>
-            
+
             {/* Moves Section - Scrollable */}
-            <div className="lg:h-full lg:overflow-hidden">
+            <div className="lg:h-[calc(100vh-14rem)] lg:overflow-hidden">
               <div className="h-full flex flex-col">
                 <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={navigateTo} />
               </div>
@@ -305,6 +340,23 @@ export default function ViewGamePage() {
 }
 
 // --- SUB-COMPONENTS ---
+
+// Board Skeleton Component
+const BoardSkeleton = () => (
+  <div className="w-full h-full bg-muted animate-pulse">
+    <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
+      {Array.from({ length: 64 }).map((_, index) => {
+        const isLight = (Math.floor(index / 8) + index) % 2 === 0
+        return (
+          <div
+            key={index}
+            className={`${isLight ? 'bg-gray-200' : 'bg-gray-300'} animate-pulse`}
+          />
+        )
+      })}
+    </div>
+  </div>
+)
 
 interface ControlsProps {
   onStart: () => void
