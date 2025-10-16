@@ -20,12 +20,22 @@ import {
 import { fetchGames, deleteGame, addGameToDB, type GameData } from "./actions"
 
 // --- TYPE DEFINITIONS ---
-// This is the correct type. We will construct an object that satisfies
-// the `Move` type from chess.js and add our own `moveNumber`.
 type UiMove = Move & { moveNumber: number }
 interface GameHistory {
   moves: UiMove[]
   fenHistory: string[]
+}
+
+// --- CONSTANTS ---
+const VALIDATION_RULES = {
+  title: { required: true, minLength: 1 },
+  pgn: { required: true },
+}
+
+const BOARD_CUSTOM_SQUARE_STYLES = {
+  lastMove: {
+    backgroundColor: "rgba(59, 130, 246, 0.4)"
+  }
 }
 
 // --- HELPER FUNCTIONS ---
@@ -47,7 +57,6 @@ function generateTitleFromPgn(headers: Record<string, string>): string {
   const event = headers.Event
   const date = headers.Date
 
-  // Return empty if both players are unknown/missing
   if (!white && !black) {
     return ""
   }
@@ -75,6 +84,72 @@ function validatePgn(pgn: string): { valid: boolean; error?: string } {
   }
 }
 
+function constructLichessStylePgn(
+  movesText: string,
+  metadata: {
+    event: string
+    date: string
+    white: string
+    black: string
+    result: string
+    whiteElo: string
+    blackElo: string
+    timeControl: string
+    opening: string
+  }
+): string {
+  const headers: Record<string, string> = {
+    Event: metadata.event || "?",
+    Site: "LCA Tournament Games",
+    Date: metadata.date || "????.??.??",
+    White: metadata.white || "?",
+    Black: metadata.black || "?",
+    Result: metadata.result || "*",
+    WhiteElo: metadata.whiteElo || "",
+    BlackElo: metadata.blackElo || "",
+    TimeControl: metadata.timeControl || "",
+    Opening: metadata.opening || "",
+    Termination: "Normal",
+    Annotator: "LCA Tournament System"
+  }
+
+  Object.keys(headers).forEach(key => {
+    if (headers[key] === "") {
+      delete headers[key]
+    }
+  })
+
+  let headerString = ""
+  for (const [key, value] of Object.entries(headers)) {
+    headerString += `[${key} "${value}"]\r\n`
+  }
+
+  return `${headerString.trim()}\r\n\r\n${movesText.trim()}`
+}
+
+// --- CUSTOM HOOKS ---
+function useGameForm() {
+  const [formState, setFormState] = useState({
+    title: "",
+    pgnText: "",
+    event: "",
+    date: "",
+    white: "",
+    black: "",
+    result: "",
+    whiteElo: "",
+    blackElo: "",
+    timeControl: "",
+    opening: "",
+  })
+  
+  const updateField = useCallback((field: string, value: string) => {
+    setFormState(prev => ({ ...prev, [field]: value }))
+  }, [])
+  
+  return { formState, updateField, setFormState }
+}
+
 // --- MAIN PAGE COMPONENT ---
 export default function GameViewerPage() {
   const [games, setGames] = useState<GameData[]>([])
@@ -83,27 +158,16 @@ export default function GameViewerPage() {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1)
   const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(true)
-
   const [isFormOpen, setIsFormOpen] = useState(false)
 
-  // Form state
-  const [title, setTitle] = useState("")
-  const [pgnText, setPgnText] = useState("")
+  // Form state using custom hook
+  const { formState, updateField, setFormState } = useGameForm()
+  const { title, pgnText, event, date, white, black, result, whiteElo, blackElo, timeControl, opening } = formState
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formMessage, setFormMessage] = useState<{ text: string; error: boolean } | null>(null)
   
-  // Metadata fields
-  const [event, setEvent] = useState("")
-  const [date, setDate] = useState("")
-  const [white, setWhite] = useState("")
-  const [black, setBlack] = useState("")
-  const [result, setResult] = useState("")
-  const [whiteElo, setWhiteElo] = useState("")
-  const [blackElo, setBlackElo] = useState("")
-  const [timeControl, setTimeControl] = useState("")
-  const [opening, setOpening] = useState("")
-
   // Validation state
   const [titleTouched, setTitleTouched] = useState(false)
   const [showValidation, setShowValidation] = useState(false)
@@ -120,10 +184,12 @@ export default function GameViewerPage() {
     }
     return games[currentGameIndex]?.pgn || ""
   }, [games, currentGameIndex, previewMode, previewPgn])
+  
   const currentFen = useMemo(
     () => gameHistory.fenHistory[currentMoveIndex + 1] || "start",
     [currentMoveIndex, gameHistory],
   )
+  
   const lastMove = useMemo(() => {
     if (currentMoveIndex < 0) return undefined
     const move = gameHistory.moves[currentMoveIndex]
@@ -135,7 +201,7 @@ export default function GameViewerPage() {
     loadGames()
   }, [])
 
-  async function loadGames() {
+  const loadGames = useCallback(async () => {
     setIsLoading(true)
     const { games: fetchedGames, error } = await fetchGames()
     if (error) {
@@ -147,7 +213,7 @@ export default function GameViewerPage() {
       }
     }
     setIsLoading(false)
-  }
+  }, [])
 
   useEffect(() => {
     if (!currentPgn) {
@@ -177,18 +243,14 @@ export default function GameViewerPage() {
         }
       })
 
-      // THE FIX IS HERE: We manually construct the full Move object
-      // by adding the missing boolean properties based on the `flags` string.
       const movesWithNumbers: UiMove[] = history.map((move, index) => ({
-        ...(move as any), // Spread the partial move object we get from history()
-        // Manually add the boolean properties required by the `Move` type
+        ...(move as any),
         isCapture: move.flags.includes("c") || move.flags.includes("e"),
         isPromotion: move.flags.includes("p"),
         isEnPassant: move.flags.includes("e"),
         isKingsideCastle: move.flags.includes("k"),
         isQueensideCastle: move.flags.includes("q"),
         isBigPawn: move.flags.includes("b"),
-        // Add our custom property
         moveNumber: Math.floor(index / 2) + 1,
       }))
 
@@ -217,24 +279,24 @@ export default function GameViewerPage() {
 
     try {
       const headers = parsePgnHeaders(pgnText)
-      // Only auto-fill if user hasn't manually edited the title
       if (!hasManuallyEditedTitle) {
         const suggestedTitle = generateTitleFromPgn(headers)
-        setTitle(suggestedTitle)
+        updateField('title', suggestedTitle)
       }
-      // Auto-fill metadata fields if not manually edited
       if (!hasManuallyEditedFields) {
-        setEvent(headers.Event || "")
-        setDate(headers.Date || headers.UTCDate || "")
-        setWhite(headers.White || "")
-        setBlack(headers.Black || "")
-        setResult(headers.Result || "")
-        setWhiteElo(headers.WhiteElo || "")
-        setBlackElo(headers.BlackElo || "")
-        setTimeControl(headers.TimeControl || "")
-        setOpening(headers.Opening || "")
+        setFormState(prev => ({
+          ...prev,
+          event: headers.Event || "",
+          date: headers.Date || headers.UTCDate || "",
+          white: headers.White || "",
+          black: headers.Black || "",
+          result: headers.Result || "",
+          whiteElo: headers.WhiteElo || "",
+          blackElo: headers.BlackElo || "",
+          timeControl: headers.TimeControl || "",
+          opening: headers.Opening || "",
+        }))
       }
-      // Enable preview mode with valid PGN
       setPreviewMode(true)
       setPreviewPgn(pgnText)
       setShowValidation(true)
@@ -243,7 +305,7 @@ export default function GameViewerPage() {
       setPreviewMode(false)
       setPreviewPgn("")
     }
-  }, [pgnText, hasManuallyEditedTitle, hasManuallyEditedFields])
+  }, [pgnText, hasManuallyEditedTitle, hasManuallyEditedFields, updateField, setFormState])
 
   // --- HANDLERS ---
   const handleGameSelect = useCallback((index: number) => {
@@ -289,27 +351,27 @@ export default function GameViewerPage() {
       const reader = new FileReader()
       reader.onload = (event) => {
         const content = event.target?.result as string
-        setPgnText(content)
+        updateField('pgnText', content)
       }
       reader.readAsText(file)
     }
-  }, [])
+  }, [updateField])
 
   const handlePgnTextChange = useCallback((value: string) => {
-    setPgnText(value)
+    updateField('pgnText', value)
     setSelectedFile(null)
-  }, [])
+  }, [updateField])
 
   const handleTitleChange = useCallback(
     (value: string) => {
-      setTitle(value)
+      updateField('title', value)
       setTitleTouched(true)
       setHasManuallyEditedTitle(true)
       if (showValidation && value.trim()) {
         setShowValidation(false)
       }
     },
-    [showValidation],
+    [showValidation, updateField],
   )
 
   const handleTitleBlur = useCallback(() => {
@@ -318,6 +380,11 @@ export default function GameViewerPage() {
       setShowValidation(true)
     }
   }, [title, pgnText])
+
+  const handleFieldChange = useCallback((field: string, value: string) => {
+    updateField(field, value)
+    setHasManuallyEditedFields(true)
+  }, [updateField])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -343,32 +410,21 @@ export default function GameViewerPage() {
     setIsSubmitting(true)
     setFormMessage(null)
 
-    // --- PGN CONSTRUCTION LOGIC ---
-    const pgnHeaders: Record<string, string> = {
-      Event: event,
-      Date: date,
-      White: white,
-      Black: black,
-      Result: result,
-      WhiteElo: whiteElo,
-      BlackElo: blackElo,
-      TimeControl: timeControl,
-      Opening: opening,
-    }
-
-    let headerString = ""
-    for (const key in pgnHeaders) {
-      const value = pgnHeaders[key]
-      if (value && value.trim()) {
-        headerString += `[${key} "${value.trim()}"]\r\n`
-      }
-    }
-
     // Remove any existing headers from the pasted PGN to avoid duplication
     const movesOnly = pgnText.replace(/^[\s\r\n]*\[.*\][\s\r\n]*/gm, "").trim()
     
-    const finalPgn = `${headerString.trim()}\r\n\r\n${movesOnly}`
-    // --- END PGN CONSTRUCTION ---
+    // Construct Lichess-style PGN with all metadata
+    const finalPgn = constructLichessStylePgn(movesOnly, {
+      event,
+      date,
+      white,
+      black,
+      result,
+      whiteElo,
+      blackElo,
+      timeControl,
+      opening,
+    })
 
     const formData = new FormData()
     formData.append("title", title)
@@ -380,18 +436,21 @@ export default function GameViewerPage() {
     setFormMessage({ text: apiResult.message, error: apiResult.error })
 
     if (!apiResult.error) {
-      setTitle("")
-      setPgnText("")
+      // Reset form state
+      setFormState({
+        title: "",
+        pgnText: "",
+        event: "",
+        date: "",
+        white: "",
+        black: "",
+        result: "",
+        whiteElo: "",
+        blackElo: "",
+        timeControl: "",
+        opening: "",
+      })
       setSelectedFile(null)
-      setEvent("")
-      setDate("")
-      setWhite("")
-      setBlack("")
-      setResult("")
-      setWhiteElo("")
-      setBlackElo("")
-      setTimeControl("")
-      setOpening("")
       setTitleTouched(false)
       setShowValidation(false)
       setHasManuallyEditedTitle(false)
@@ -404,11 +463,7 @@ export default function GameViewerPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-muted-foreground">Loading games...</div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
   const isTitleInvalid = showValidation && !title.trim()
@@ -459,15 +514,15 @@ export default function GameViewerPage() {
                 onTitleBlur={handleTitleBlur}
                 onPgnTextChange={handlePgnTextChange}
                 onFileChange={handleFileChange}
-                onEventChange={(val) => { setEvent(val); setHasManuallyEditedFields(true); }}
-                onDateChange={(val) => { setDate(val); setHasManuallyEditedFields(true); }}
-                onWhiteChange={(val) => { setWhite(val); setHasManuallyEditedFields(true); }}
-                onBlackChange={(val) => { setBlack(val); setHasManuallyEditedFields(true); }}
-                onResultChange={(val) => { setResult(val); setHasManuallyEditedFields(true); }}
-                onWhiteEloChange={(val) => { setWhiteElo(val); setHasManuallyEditedFields(true); }}
-                onBlackEloChange={(val) => { setBlackElo(val); setHasManuallyEditedFields(true); }}
-                onTimeControlChange={(val) => { setTimeControl(val); setHasManuallyEditedFields(true); }}
-                onOpeningChange={(val) => { setOpening(val); setHasManuallyEditedFields(true); }}
+                onEventChange={(val) => handleFieldChange('event', val)}
+                onDateChange={(val) => handleFieldChange('date', val)}
+                onWhiteChange={(val) => handleFieldChange('white', val)}
+                onBlackChange={(val) => handleFieldChange('black', val)}
+                onResultChange={(val) => handleFieldChange('result', val)}
+                onWhiteEloChange={(val) => handleFieldChange('whiteElo', val)}
+                onBlackEloChange={(val) => handleFieldChange('blackElo', val)}
+                onTimeControlChange={(val) => handleFieldChange('timeControl', val)}
+                onOpeningChange={(val) => handleFieldChange('opening', val)}
                 onSubmit={handleSubmit}
               />
             </div>
@@ -527,6 +582,15 @@ export default function GameViewerPage() {
 
 // --- SUB-COMPONENTS ---
 
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="text-muted-foreground">Loading games...</div>
+    </div>
+  </div>
+)
+
 type AddGameFormProps = {
   title: string
   pgnText: string
@@ -559,7 +623,7 @@ type AddGameFormProps = {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
 }
 
-const AddGameForm = ({
+const AddGameForm = React.memo(({
   title,
   pgnText,
   selectedFile,
@@ -818,7 +882,8 @@ const AddGameForm = ({
       </Button>
     </form>
   )
-}
+})
+AddGameForm.displayName = "AddGameForm"
 
 type GameSelectorProps = {
   games: GameData[]
@@ -828,7 +893,7 @@ type GameSelectorProps = {
   showDelete?: boolean
 }
 
-const GameSelector = ({ games, currentGameIndex, onSelect, onDelete, showDelete = true }: GameSelectorProps) => {
+const GameSelector = React.memo(({ games, currentGameIndex, onSelect, onDelete, showDelete = true }: GameSelectorProps) => {
   if (games.length === 0) return null
   return (
         <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-md">
@@ -873,7 +938,8 @@ const GameSelector = ({ games, currentGameIndex, onSelect, onDelete, showDelete 
       </DropdownMenu>
     </div>
   )
-}
+})
+GameSelector.displayName = "GameSelector"
 
 type GameInfoProps = { 
   headers: Record<string, string>
@@ -885,8 +951,7 @@ type GameInfoProps = {
     result: string
   }
 }
-const GameInfo = ({ headers, previewMode, previewData }: GameInfoProps) => {
-  // Use preview data when in preview mode, otherwise use headers
+const GameInfo = React.memo(({ headers, previewMode, previewData }: GameInfoProps) => {
   const white = previewMode && previewData.white ? previewData.white : headers.White
   const black = previewMode && previewData.black ? previewData.black : headers.Black
   const event = previewMode && previewData.event ? previewData.event : headers.Event
@@ -905,15 +970,17 @@ const GameInfo = ({ headers, previewMode, previewData }: GameInfoProps) => {
       </div>
     </div>
   )
-}
+})
+GameInfo.displayName = "GameInfo"
 
 type InfoPairProps = { label: string; value?: string }
-const InfoPair = ({ label, value }: InfoPairProps) => (
+const InfoPair = React.memo(({ label, value }: InfoPairProps) => (
   <div>
     <span className="font-medium text-foreground">{label}: </span>
     <span className="text-muted-foreground">{value || "N/A"}</span>
   </div>
-)
+))
+InfoPair.displayName = "InfoPair"
 
 type BoardDisplayProps = {
   fen: string
@@ -923,7 +990,7 @@ type BoardDisplayProps = {
   onNavigate: (index: number) => void
 }
 
-const BoardDisplay = ({ fen, lastMove, gameHistory, currentMoveIndex, onNavigate }: BoardDisplayProps) => {
+const BoardDisplay = React.memo(({ fen, lastMove, gameHistory, currentMoveIndex, onNavigate }: BoardDisplayProps) => {
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
   useEffect(() => {
@@ -950,8 +1017,8 @@ const BoardDisplay = ({ fen, lastMove, gameHistory, currentMoveIndex, onNavigate
             customSquareStyles={
               lastMove
                 ? {
-                    [lastMove.from]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
-                    [lastMove.to]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
+                    [lastMove.from]: BOARD_CUSTOM_SQUARE_STYLES.lastMove,
+                    [lastMove.to]: BOARD_CUSTOM_SQUARE_STYLES.lastMove,
                   }
                 : {}
             }
@@ -977,7 +1044,8 @@ const BoardDisplay = ({ fen, lastMove, gameHistory, currentMoveIndex, onNavigate
       )}
     </div>
   )
-}
+})
+BoardDisplay.displayName = "BoardDisplay"
 
 type ControlsProps = {
   onStart: () => void; onPrev: () => void; onNext: () => void; onEnd: () => void; canGoBack: boolean; canGoForward: boolean
@@ -997,7 +1065,7 @@ type MovesListProps = {
   moves: UiMove[]; currentMoveIndex: number; onMoveSelect: (index: number) => void
 }
 
-const MovesList = ({ moves, currentMoveIndex, onMoveSelect }: MovesListProps) => {
+const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: MovesListProps) => {
   return (
     <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-md lg:col-span-1 flex flex-col">
         <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground">Moves</h2>
@@ -1023,15 +1091,21 @@ const MovesList = ({ moves, currentMoveIndex, onMoveSelect }: MovesListProps) =>
         </div>
       </div>
   )
-}
+})
+MovesList.displayName = "MovesList"
 
 type MoveButtonProps = {
   move: UiMove; index: number; isCurrent: boolean; onMoveSelect: (index: number) => void
 }
 
-const MoveButton = ({ move, index, isCurrent, onMoveSelect }: MoveButtonProps) => (
-  <button onClick={() => onMoveSelect(index)} className={`w-full text-left px-2 py-1 rounded-[2px] transition-colors font-mono text-sm ${isCurrent ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}>
+const MoveButton = React.memo(({ move, index, isCurrent, onMoveSelect }: MoveButtonProps) => (
+  <button 
+    onClick={() => onMoveSelect(index)} 
+    aria-current={isCurrent ? "true" : "false"}
+    aria-label={`Move ${index + 1}: ${move.san}`}
+    className={`w-full text-left px-2 py-1 rounded-[2px] transition-colors font-mono text-sm ${isCurrent ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}
+  >
     {move.san}
   </button>
-)
+))
 MoveButton.displayName = "MoveButton"
