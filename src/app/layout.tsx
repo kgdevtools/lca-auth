@@ -48,17 +48,27 @@ export default async function RootLayout({
             __html: `(() => { try { var t = localStorage.getItem('theme'); var d = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches); if (d) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); } catch (e) {} })();`,
           }}
         />
-        <header className="w-full border-b border-black/10">
+        <header className="w-full">
           <nav className="px-1 sm:px-2 h-16 flex items-center justify-between relative">
             <div className="flex items-center gap-2 h-full">
-              <Link href="/" className="inline-flex items-center gap-2 h-full" aria-label="Limpopo Chess Academy">
-                <span className="relative h-full w-[160px] sm:w-[200px] md:w-[240px]">
+              <Link href="/" className="inline-flex items-center gap-2 h-full p-2" aria-label="Limpopo Chess Academy">
+                {/* We've wrapped the images in a div to apply the styles */}
+                <div
+                  className="relative h-full w-[160px] sm:w-[200px] md:w-[240px]
+                             transition-all duration-300 ease-in-out
+                             hover:scale-105 
+                             shadow-[0_4px_10px_rgba(0,0,0,0.05)]
+                             hover:shadow-[0_8px_25px_rgba(0,0,0,0.1)]
+                             dark:shadow-[0_4px_10px_rgba(0,0,0,0.2),_0_0_20px_rgba(255,255,255,0.05)]
+                             dark:hover:shadow-[0_8px_25px_rgba(0,0,0,0.3),_0_0_30px_rgba(255,255,255,0.1)]
+                             rounded-lg" // Optional: gives a slightly softer look
+                >
                   <Image
                     src="/Picture1.png"
                     alt="Limpopo Chess Academy"
                     fill
                     priority
-                    className="object-contain block dark:hidden"
+                    className="object-contain block dark:hidden rounded-lg"
                     sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
                   <Image
@@ -66,17 +76,13 @@ export default async function RootLayout({
                     alt="Limpopo Chess Academy"
                     fill
                     priority
-                    className="object-contain hidden dark:block"
+                    className="object-contain hidden dark:block rounded-lg"
                     sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
-                </span>
+                </div>
               </Link>
               <div className="hidden md:flex items-center gap-1">
-                {user ? (
-                  <NavLink href="/user/profile" color="primary">
-                    My Profile
-                  </NavLink>
-                ) : null}
+
                 {user ? (
                   <NavLink href="/user/user-dashboard" color="secondary">
                     User Dashboard
@@ -85,6 +91,11 @@ export default async function RootLayout({
                 {user ? (
                   <NavLink href="/admin/admin-dashboard" color="gray">
                     Admin Dashboard
+                  </NavLink>
+                ) : null}
+                              {user ? (
+                  <NavLink href="/add-game" color="gray">
+                    Add Game
                   </NavLink>
                 ) : null}
                 {user ? (
@@ -100,6 +111,9 @@ export default async function RootLayout({
                 </NavLink>
                 <NavLink href="/forms" color="gray" badge="Register">
                   Forms
+                </NavLink>
+                <NavLink href="/view" color="gray" badge="Beta">
+                  View Games
                 </NavLink>
               </div>
             </div>

@@ -41,7 +41,8 @@ const BOARD_CUSTOM_SQUARE_STYLES = {
 // --- HELPER FUNCTIONS ---
 function parsePgnHeaders(pgn: string): Record<string, string> {
   const headers: Record<string, string> = {}
-  const headerRegex = /```math(\w+)\s+"([^"]*)"```/g
+  // Match standard PGN header lines like: [Key "Value"]
+  const headerRegex = /^\s*\[([^\s\]]+)\s+"([^"]*)"\]/gm
   let match
 
   while ((match = headerRegex.exec(pgn)) !== null) {
@@ -98,33 +99,45 @@ function constructLichessStylePgn(
     opening: string
   }
 ): string {
-  const headers: Record<string, string> = {
-    Event: metadata.event || "?",
-    Site: "LCA Tournament Games",
-    Date: metadata.date || "????.??.??",
-    White: metadata.white || "?",
-    Black: metadata.black || "?",
-    Result: metadata.result || "*",
+  // We must always include the full metadata block with empty quoted values
+  // when fields are not provided. Use the exact header order requested by user.
+  const orderedKeys = [
+    'Event', 'Site', 'Date', 'White', 'Black', 'Result', 'GameId', 'UTCDate', 'UTCTime',
+    'WhiteElo', 'BlackElo', 'WhiteRatingDiff', 'BlackRatingDiff', 'Variant', 'TimeControl',
+    'ECO', 'Opening', 'Termination'
+  ]
+
+  const headerValues: Record<string, string> = {
+    Event: metadata.event || "",
+    Site: "",
+    Date: metadata.date || "",
+    White: metadata.white || "",
+    Black: metadata.black || "",
+    Result: metadata.result || "",
+    GameId: "",
+    UTCDate: "",
+    UTCTime: "",
     WhiteElo: metadata.whiteElo || "",
     BlackElo: metadata.blackElo || "",
+    WhiteRatingDiff: "",
+    BlackRatingDiff: "",
+    Variant: "",
     TimeControl: metadata.timeControl || "",
+    ECO: "",
     Opening: metadata.opening || "",
-    Termination: "Normal",
-    Annotator: "LCA Tournament System"
+    Termination: "",
   }
 
-  Object.keys(headers).forEach(key => {
-    if (headers[key] === "") {
-      delete headers[key]
-    }
-  })
-
-  let headerString = ""
-  for (const [key, value] of Object.entries(headers)) {
+  let headerString = ''
+  for (const key of orderedKeys) {
+    const value = headerValues[key] ?? ''
     headerString += `[${key} "${value}"]\r\n`
   }
 
-  return `${headerString.trim()}\r\n\r\n${movesText.trim()}`
+  // Ensure there is at least an asterisk placeholder for moves when none provided
+  const moves = movesText.trim() || '*'
+
+  return `${headerString}\r\n${moves}`
 }
 
 // --- CUSTOM HOOKS ---
@@ -401,7 +414,35 @@ export default function GameViewerPage() {
       return
     }
 
-    const validation = validatePgn(pgnText)
+    // We'll build a final PGN using any headers parsed from the pasted PGN
+    // plus values from the form fields (form fields take precedence).
+    // Then validate the final PGN to avoid false negatives when users paste moves-only.
+
+    // Parse headers from the pasted text (if any)
+    const parsedHeaders = parsePgnHeaders(pgnText)
+
+    // Remove only leading header block to extract moves text
+    const headerBlockRegex = /^(?:\s*\[[^\]]+\][\r\n]*)+/i
+    const movesOnly = pgnText.replace(headerBlockRegex, '').trim()
+
+    // Merge metadata: form values override parsed headers when provided
+    const mergedMetadata = {
+      event: (event && event.trim()) || parsedHeaders.Event || "",
+      date: (date && date.trim()) || parsedHeaders.Date || parsedHeaders.UTCDate || "",
+      white: (white && white.trim()) || parsedHeaders.White || "",
+      black: (black && black.trim()) || parsedHeaders.Black || "",
+      result: (result && result.trim()) || parsedHeaders.Result || "",
+      whiteElo: (whiteElo && whiteElo.trim()) || parsedHeaders.WhiteElo || "",
+      blackElo: (blackElo && blackElo.trim()) || parsedHeaders.BlackElo || "",
+      timeControl: (timeControl && timeControl.trim()) || parsedHeaders.TimeControl || "",
+      opening: (opening && opening.trim()) || parsedHeaders.Opening || "",
+    }
+
+    // Construct the final PGN string
+    const finalPgn = constructLichessStylePgn(movesOnly, mergedMetadata)
+
+    // Validate the final PGN
+    const validation = validatePgn(finalPgn)
     if (!validation.valid) {
       setFormMessage({ text: `Invalid PGN: ${validation.error}`, error: true })
       return
@@ -410,21 +451,7 @@ export default function GameViewerPage() {
     setIsSubmitting(true)
     setFormMessage(null)
 
-    // Remove any existing headers from the pasted PGN to avoid duplication
-    const movesOnly = pgnText.replace(/^[\s\r\n]*\[.*\][\s\r\n]*/gm, "").trim()
-    
-    // Construct Lichess-style PGN with all metadata
-    const finalPgn = constructLichessStylePgn(movesOnly, {
-      event,
-      date,
-      white,
-      black,
-      result,
-      whiteElo,
-      blackElo,
-      timeControl,
-      opening,
-    })
+    // finalPgn is already created above and validated
 
     const formData = new FormData()
     formData.append("title", title)
@@ -837,7 +864,7 @@ const AddGameForm = React.memo(({
           name="pgnText"
           value={pgnText}
           onChange={(e) => onPgnTextChange(e.target.value)}
-          placeholder="Paste PGN data here or upload a file below..."
+          placeholder={`[Event ""]\n[Site ""]\n[Date ""]\n[White ""]\n[Black ""]\n[Result ""]\n[GameId ""]\n[UTCDate ""]\n[UTCTime ""]\n[WhiteElo ""]\n[BlackElo ""]\n[WhiteRatingDiff ""]\n[BlackRatingDiff ""]\n[Variant ""]\n[TimeControl ""]\n[ECO ""]\n[Opening ""]\n[Termination ""]\n\n*`}
           rows={8}
           className="w-full px-3 py-2 bg-input border border-border rounded-[2px] text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring font-mono text-sm resize-y"
           disabled={isSubmitting}

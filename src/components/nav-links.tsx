@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { clsx } from "clsx"
-import { Shield, Loader2, Users, Trophy, FileText, TrendingUp } from "lucide-react"
+import { Shield, Loader2, Users, Trophy, FileText, TrendingUp, Binoculars } from "lucide-react"
 import { useState, ReactNode } from "react"
 
 interface NavLinkProps {
@@ -33,6 +33,7 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
     if (href.includes('/rankings')) return <TrendingUp className="h-4 w-4" />
     if (href.includes('/tournaments')) return <Trophy className="h-4 w-4" />
     if (href.includes('/forms')) return <FileText className="h-4 w-4" />
+    if (href.includes('/view')) return <Binoculars className="h-4 w-4" />
     return <Shield className="h-4 w-4" />
   }
 

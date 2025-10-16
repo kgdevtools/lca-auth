@@ -1,4 +1,4 @@
-// src/app/game-view/actions.ts
+// src/app/view/actions.ts
 
 'use server'
 

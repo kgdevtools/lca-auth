@@ -88,7 +88,10 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             <NavLink href="/rankings" color="gray">
               Rankings
             </NavLink>
-            {/* Removed Players link */}
+            {/* View Games */}
+            <NavLink href="/view" color="gray">
+              View Games
+            </NavLink>
             <NavLink href="/forms" color="gray" badge="Register">
               Join Academy
             </NavLink>

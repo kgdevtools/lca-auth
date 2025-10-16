@@ -262,3 +262,21 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Add this to the end of your src/app/globals.css file */
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+  }
+  5% {
+    transform: scale(1.03);
+  }
+  10% {
+    transform: scale(1);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 5s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
