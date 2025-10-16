@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { clsx } from "clsx"
-import { Shield, Loader2, Users, Trophy, FileText, TrendingUp, Binoculars } from "lucide-react"
+import { Shield, Loader2, Users, Trophy, FileText, TrendingUp, Binoculars, Newspaper } from "lucide-react"
 import { useState, ReactNode } from "react"
 
 interface NavLinkProps {
@@ -34,6 +34,7 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
     if (href.includes('/tournaments')) return <Trophy className="h-4 w-4" />
     if (href.includes('/forms')) return <FileText className="h-4 w-4" />
     if (href.includes('/view')) return <Binoculars className="h-4 w-4" />
+    if (href.includes('/blog')) return <Newspaper className="h-4 w-4" />
     return <Shield className="h-4 w-4" />
   }
 
@@ -76,7 +77,7 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
         {children}
       </Link>
       {badge && (
-        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-sm whitespace-nowrap shadow-sm">
           {badge}
         </span>
       )}

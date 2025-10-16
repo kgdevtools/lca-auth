@@ -8,9 +8,10 @@ import { BlogPostSkeleton } from '@/components/blog-skeletons'
 import { documentToReactComponents } from '@contentful/rich-text-react-renderer'
 import { BLOCKS, MARKS, INLINES } from '@contentful/rich-text-types'
 import { LCACarousel, type CarouselImage } from '@/components/lca-carousel'
-
-// Import the GameViewer component and its data type directly
-import GameViewer, { type GameData } from '@/components/game-viewer'
+import GameViewer from '@/components/game-viewer'
+import { fetchTournamentGames } from '@/services/gameService'
+// *** NEW: Import the ImageLightbox component ***
+import { ImageLightbox } from '@/components/image-lightbox'
 
 
 interface BlogPostPageProps {
@@ -19,7 +20,7 @@ interface BlogPostPageProps {
   }>
 }
 
-// Rich text rendering options
+// Rich text rendering options (no changes)
 const richTextRenderOptions = {
     renderMark: {
         [MARKS.BOLD]: (text: any) => <strong className="font-semibold">{text}</strong>,
@@ -71,24 +72,14 @@ const lcaOpenImages: CarouselImage[] = [
   { src: '/IMG-20250927-WA0012.jpg', alt: 'LCA Open 2025 - Final moments', title: 'Tournament Finale', caption: 'Concluding another successful LCA Open tournament' }
 ]
 
-const tournamentGames: GameData[] = [
-  {
-    title: "Side lines in the Birds Opening",
-    pgn: `[Event "Limpopo Open 2025"]\n[Site "Northern Academy, Flora Park, Polokwane"]\n[Date "2025.03.10"]\n[Round "2"]\n[Result "0-1"]\n[White "Emmanuel Maphoto"]\n[Black "Mahomole Sekgwari Kgaogelo"]\n[ECO "C43"]\n\n1. e4 e5 2. Bc4 Nf6 3. d4 exd4 4. Nf3 Bb4+ 5. c3 dxc3 6. bxc3 Ba5 7. e5 d5 8. exf6 dxc4 9. Qe2+ Be6 10. fxg7 Rg8 11. O-O Qf6 12. Be3 Qxg7 13. g3 Nc6 14. Nd4 Nxd4 15. Bxd4 Qg4 16. f3 Qh5 17. Nd2 Qd5 18. Ne4 O-O-O 19. Nf6 Qg5 20. Nxg8 Rxg8 21. Qe5 c5 22. f4 Qxe5 23. Bxe5 Bf5 24. Rad1 Bd3 25. Rfe1 Rg6 26. Kf2 f6 27. Bd6 Bxc3 28. Re7 Bd4+ 29. Kf3 f5 30. Rc7+ Kd8 31. Bxc5 Kxc7 32. Bxd4 Ra6 33. Rd2 h5 34. h3 Ra3 35. Be5+ Kc6 36. Kf2 Be4 37. Rd6+ Kc5 38. Rg6 Rxa2+ 39. Ke3 c3 40. Bxc3 Kc4 41. Be5 b5 42. Rg5 b4 43. Rxh5 Ra3+ 44. Ke2 Bf3+`
-  },
-  {
-    title: "An exchange sac in the London System",
-    pgn: `[Event "Limpopo Open 2025"]\n[Site "Northern Academy, Flora Park, Polokwane"]\n[Date "2025.03.10"]\n[Round "3"]\n[Result "1-0"]\n[White "Mankga Thabang"]\n[Black "Mahomole Sekgwari Kgaogelo"]\n[ECO "D02"]\n\n1. d4 d5 2. Nf3 Nf6 3. Bf4 e6 4. e3 c5 5. c3 Nc6 6. Nbd2 Be7 7. Bd3 a6 8. Ne5 Bd6 9. Bg3 Qe7 10. f4 Bd7 11. Bh4 Rc8 12. Ng4 cxd4 13. exd4 Bxf4 14. O-O g5 15. Rxf4 Nxg4 16. Rxg4 gxh4 17. Qf3 f5 18. Rf4 Qg5 19. Re1 Kd8 20. Qe3 Rg8 21. Bf1 h3 22. g3 Ne7 23. Nf3 Qf6 24. Ne5 Ng6 25. Bxh3 Nxf4 26. Qxf4 Rc7 27. Bf1 Bc8 28. c4 h5 29. c5 h4 30. b4 hxg3 31. hxg3 Rcg7 32. Re3 Rh7 33. Bg2 Bd7 34. Kf2 Bb5 35. Rc3 Qg5 36. Nd3 1-0`
-  },
-  {
-    title: "An adventure in the Ruy Lopez",
-    pgn: `[Event "Limpopo Open 2025"]\n[Site "Northern Academy, Flora Park, Polokwane"]\n[Date "2025.03.10"]\n[Round "4"]\n[Result "1-0"]\n[White "Mahomole Tebogo"]\n[Black "Mahomole Mahlodi Johannes"]\n[ECO "C96"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O b5 6. Bb3 Be7 7. Re1 d6 8. c3 Na5 9. Bc2 c5 10. h3 O-O 11. d4 Qc7 12. Nbd2 cxd4 13. cxd4 Be6 14. d5 Rac8 15. Bd3 Bd7 16. Qe2 Be8 17. b4 Nc4 18. Bxc4 bxc4 19. Nb1 Nd7 20. Nc3 f5 21. Bg5 fxe4 22. Qxe4 Nf6 1-0`
-  },
-];
-
 
 async function BlogPostContent({ slug }: { slug: string }) {
   const blog = await getBlogPostBySlug(slug)
+  const { games: tournamentGames, error: gamesError } = await fetchTournamentGames();
+
+  if (gamesError) {
+    console.error("Failed to load tournament games for blog post:", gamesError);
+  }
 
   if (!blog) {
     notFound()
@@ -119,19 +110,25 @@ async function BlogPostContent({ slug }: { slug: string }) {
       {/* Tournament Rankings - Juniors */}
       <div className="mt-12 pt-8 border-t border-border">
         <p className="text-sm text-muted-foreground mb-4 text-center">Top 10 LCA Launch Open Chess Championships 2025 Juniors.{' '}<Link href="/tournaments/9602fa88-8c4f-4c4b-a430-63720ed54595" className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors">View full results</Link></p>
-        <div className="relative w-full aspect-[16/5] sm:aspect-[16/4] md:aspect-[21/9] lg:aspect-[21/7] mb-8">
-          <Image src="/juniors-rankings-light.png" alt="Top 10 Juniors Rankings - LCA Launch Open 2025" fill sizes="(min-width: 1024px) 1024px, 100vw" className="object-contain block dark:hidden" />
-          <Image src="/juniors-rankings-dark.png" alt="Top 10 Juniors Rankings - LCA Launch Open 2025" fill sizes="(min-width: 1024px) 1024px, 100vw" className="object-contain hidden dark:block" />
-        </div>
+        
+        {/* *** UPDATED to use ImageLightbox *** */}
+        <ImageLightbox
+          srcLight="/juniors-rankings-light.png"
+          srcDark="/juniors-rankings-dark.png"
+          alt="Top 10 Juniors Rankings - LCA Launch Open 2025"
+        />
       </div>
 
       {/* Tournament Rankings - Section A & B */}
       <div className="mt-8">
         <p className="text-sm text-muted-foreground mb-4 text-center">Top 10 LCA Launch Open Chess Championships 2025 Section A & B Combined.{' '}<Link href="/tournaments/7c2bb272-7324-4b65-9262-22b474c7a155" className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors">View results</Link></p>
-        <div className="relative w-full aspect-[16/5] sm:aspect-[16/4] md:aspect-[21/9] lg:aspect-[21/7] mb-8">
-          <Image src="/section-ab-rankings-light.png" alt="Top 10 Section A & B Rankings - LCA Launch Open 2025" fill sizes="(min-width: 1024px) 1024px, 100vw" className="object-contain block dark:hidden" />
-          <Image src="/section-ab-rankings-dark.png" alt="Top 10 Section A & B Rankings - LCA Launch Open 2025" fill sizes="(min-width: 1024px) 1024px, 100vw" className="object-contain hidden dark:block" />
-        </div>
+        
+        {/* *** UPDATED to use ImageLightbox *** */}
+        <ImageLightbox
+          srcLight="/section-ab-rankings-light.png"
+          srcDark="/section-ab-rankings-dark.png"
+          alt="Top 10 Section A & B Rankings - LCA Launch Open 2025"
+        />
       </div>
 
       {/* LCA Open 2025 Carousel */}
@@ -145,27 +142,8 @@ async function BlogPostContent({ slug }: { slug: string }) {
         <h2 className="text-2xl font-semibold text-foreground mb-6 text-center">
           Notable Tournament Games
         </h2>
-
-        {/* --- NEW WARNING BANNER --- */}
-        <div className="mb-6 p-4 rounded-lg bg-amber-100 border-l-4 border-amber-500 dark:bg-amber-900/30 dark:border-amber-600">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-500 dark:text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="text-sm text-amber-800 dark:text-amber-200">
-              <p className="font-medium">Demonstration and Testing Only</p>
-              <p className="mt-1">
-                Please note: The games displayed in this viewer are for demonstration purposes(used for testing features and not actual tournament data) and are not from the actual tournament mentioned in the article.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <GameViewer games={tournamentGames} />
       </div>
-
     </article>
   )
 }

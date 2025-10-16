@@ -88,8 +88,17 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             <NavLink href="/rankings" color="gray">
               Rankings
             </NavLink>
+            <NavLink href="/blog" color="gray">
+             <span className="absolute -top-1 -right-1 bg-cyan-600 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-sm whitespace-nowrap shadow-sm">
+          Beta
+        </span>
+              Blog
+            </NavLink>
             {/* View Games */}
             <NavLink href="/view" color="gray">
+             <span className="absolute -top-1 -right-1 bg-cyan-600 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-sm whitespace-nowrap shadow-sm">
+          Beta
+        </span>
               View Games
             </NavLink>
             <NavLink href="/forms" color="gray" badge="Register">
