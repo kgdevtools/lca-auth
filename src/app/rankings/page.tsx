@@ -24,6 +24,7 @@ export default function RankingsPage() {
     rating: "ALL" as any,
     gender: "ALL" as any,
     ageGroup: "ALL" as any,
+    events: "ALL" as any,
   })
 
   React.useEffect(() => {
@@ -40,7 +41,7 @@ export default function RankingsPage() {
   // Apply client-side filters (no extra network requests)
   React.useEffect(() => {
     let rows = [...allData]
-    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL" } = filters
+    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL", events = "ALL" } = filters
 
     if (name && name.trim().length > 0) {
       const q = name.trim().toLowerCase()
@@ -82,6 +83,19 @@ export default function RankingsPage() {
 
     if (ageGroup && ageGroup !== ("ALL" as any)) {
       rows = rows.filter((p) => p.age_group === ageGroup)
+    }
+
+    if (events && events !== ("ALL" as any)) {
+      rows = rows.filter((p) => {
+        const count = p.tournaments_count;
+        switch (events) {
+          case '1': return count === 1;
+          case '2-3': return count >= 2 && count <= 3;
+          case '4-5': return count >= 4 && count <= 5;
+          case '6+': return count >= 6;
+          default: return true;
+        }
+      });
     }
 
     rows.sort((a, b) => (b.avg_performance_rating ?? 0) - (a.avg_performance_rating ?? 0))

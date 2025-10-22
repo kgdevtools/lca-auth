@@ -9,10 +9,11 @@ export interface SearchFiltersState {
   rating: string
   gender: string
   ageGroup: string
+  events: string
 }
 
 interface SearchFiltersProps {
-  onSearch: (filters: SearchFiltersState) => void
+  onSearch: (filters: Partial<SearchFiltersState>) => void
   fedOptions: string[]
 }
 
@@ -22,6 +23,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
   const [rating, setRating] = React.useState("ALL")
   const [gender, setGender] = React.useState("ALL")
   const [ageGroup, setAgeGroup] = React.useState("ALL")
+  const [events, setEvents] = React.useState("ALL")
 
   const apply = React.useCallback((next: Partial<SearchFiltersState> = {}) => {
     const payload: SearchFiltersState = {
@@ -30,10 +32,11 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
       rating,
       gender,
       ageGroup,
+      events,
       ...next,
     }
     onSearch(payload)
-  }, [name, fed, rating, gender, ageGroup, onSearch])
+  }, [name, fed, rating, gender, ageGroup, events, onSearch])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +49,8 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
     setRating("ALL")
     setGender("ALL")
     setAgeGroup("ALL")
-    onSearch({ name: "", fed: "ALL", rating: "ALL", gender: "ALL", ageGroup: "ALL" })
+    setEvents("ALL")
+    onSearch({ name: "", fed: "ALL", rating: "ALL", gender: "ALL", ageGroup: "ALL", events: "ALL" })
   }
 
   // Debounce name input
@@ -106,6 +110,13 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
             <span className="text-xs font-semibold text-muted-foreground">Age:</span>
             {['U20','U18','U16','U14','U12','U10'].map((a) => (
               <Chip key={a} active={ageGroup === a} onClick={() => { const next = ageGroup === a ? 'ALL' : a; setAgeGroup(next); apply({ ageGroup: next }) }}>{a}</Chip>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground">Events:</span>
+            {['1', '2-3', '4-5', '6+'].map((e) => (
+              <Chip key={e} active={events === e} onClick={() => { const next = events === e ? 'ALL' : e; setEvents(next); apply({ events: next }) }}>{e}</Chip>
             ))}
           </div>
 

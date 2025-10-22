@@ -17,9 +17,10 @@ function TableSkeleton() {
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[50px] text-center">Rank</TableHead>
             <TableHead className="w-[32%]">Name</TableHead>
+            <TableHead className="w-[10%] text-center">Events</TableHead>
             <TableHead className="w-[10%] text-center">Fed</TableHead>
             <TableHead className="w-[18%] text-center">Rating</TableHead>
-            <TableHead className="w-[40%] text-center">Average Performance Rating</TableHead>
+            <TableHead className="w-[30%] text-center">Average Performance Rating</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -30,6 +31,9 @@ function TableSkeleton() {
               </TableCell>
               <TableCell>
                 <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="h-4 w-8 bg-muted animate-pulse rounded mx-auto" />
               </TableCell>
               <TableCell className="text-center">
                 <div className="h-4 w-10 bg-muted animate-pulse rounded mx-auto" />
@@ -61,9 +65,10 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="w-[50px] text-left font-semibold text-muted-foreground pl-4">Rank</TableHead>
               <TableHead className="w-[32%] font-semibold text-muted-foreground">Name</TableHead>
+              <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">No of Events</TableHead>
               <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">Fed</TableHead>
               <TableHead className="w-[18%] text-center font-semibold text-muted-foreground">Rating</TableHead>
-              <TableHead className="w-[40%] text-left font-semibold text-muted-foreground pl-0">
+              <TableHead className="w-[30%] text-left font-semibold text-muted-foreground pl-0">
                 <div className="text-balance">APR</div>
               </TableHead>
             </TableRow>
@@ -71,7 +76,7 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No players found matching your criteria
                 </TableCell>
               </TableRow>
@@ -81,17 +86,17 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
                   <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
                     <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
                     <TableCell className="pr-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => onSelectPlayer(player)}
-                          className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left truncate"
-                        >
-                          {player.display_name}
-                        </button>
-                        <Badge variant="secondary" className="text-xs px-2 py-0.5 flex-shrink-0" title="Tournaments played">
-                          {player.tournaments_count}
-                        </Badge>
-                      </div>
+                      <button
+                        onClick={() => onSelectPlayer(player)}
+                        className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left truncate"
+                      >
+                        {player.display_name}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-sm text-center text-muted-foreground">
+                      <Badge variant="secondary" className="text-xs px-2 py-0.5" title="Tournaments played">
+                        {player.tournaments_count}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-center text-muted-foreground">
                       {player.fed ?? "-"}

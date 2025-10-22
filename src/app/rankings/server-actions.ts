@@ -36,6 +36,7 @@ export interface RankingFilters {
   ageGroup?: string;
   rating?: string;
   gender?: string;
+  events?: string;
 }
 
 function safeNumber(v: any): number | null {
@@ -333,4 +334,3 @@ export async function getRankings(): Promise<PlayerRanking[]> {
 
   return sorted;
 }
- 
