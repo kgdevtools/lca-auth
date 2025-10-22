@@ -108,7 +108,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
 
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground">Age:</span>
-            {['U20','U18','U16','U14','U12','U10'].map((a) => (
+            {['ADT', 'SNR', 'VET', 'U20','U18','U16','U14','U12','U10'].map((a) => (
               <Chip key={a} active={ageGroup === a} onClick={() => { const next = ageGroup === a ? 'ALL' : a; setAgeGroup(next); apply({ ageGroup: next }) }}>{a}</Chip>
             ))}
           </div>

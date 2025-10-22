@@ -109,13 +109,21 @@ function computeAgeYears(bdateRaw: any, now: Date = new Date()): number | null {
 
 function deriveAgeGroup(age: number | null): string | null {
   if (age == null) return null;
-  // Align with Players page brackets
+
+  // Assign the most specific age group label for display purposes.
+  // The checks are ordered from oldest to youngest.
+  if (age >= 60) return 'VET'; // Veterans are 60+
+  if (age >= 50) return 'SNR'; // Seniors are 50-59
+  if (age >= 20) return 'ADT'; // Adults are 20-49
+
+  // Youth categories with specific, non-overlapping ranges for display.
   if (age >= 17 && age <= 19) return 'U20';
-  if (age >= 15 && age <= 17) return 'U18';
-  if (age >= 13 && age <= 15) return 'U16';
-  if (age >= 11 && age <= 13) return 'U14';
-  if (age >= 9 && age <= 11) return 'U12';
-  if (age >= 7 && age <= 9) return 'U10';
+  if (age >= 15 && age <= 16) return 'U18';
+  if (age >= 13 && age <= 14) return 'U16';
+  if (age >= 11 && age <= 12) return 'U14';
+  if (age >= 9 && age <= 10) return 'U12';
+  if (age >= 7 && age <= 8) return 'U10';
+
   return null;
 }
 

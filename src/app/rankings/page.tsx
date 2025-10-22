@@ -82,7 +82,23 @@ export default function RankingsPage() {
     }
 
     if (ageGroup && ageGroup !== ("ALL" as any)) {
-      rows = rows.filter((p) => p.age_group === ageGroup)
+      rows = rows.filter((p) => {
+        const age = p.age_years;
+        if (age == null) return false;
+
+        switch (ageGroup) {
+          case 'ADT': return age >= 20;
+          case 'SNR': return age >= 50;
+          case 'VET': return age >= 60;
+          case 'U20': return age >= 17 && age <= 19;
+          case 'U18': return age >= 15 && age <= 16;
+          case 'U16': return age >= 13 && age <= 14;
+          case 'U14': return age >= 11 && age <= 12;
+          case 'U12': return age >= 9 && age <= 10;
+          case 'U10': return age >= 7 && age <= 8;
+          default: return true;
+        }
+      });
     }
 
     if (events && events !== ("ALL" as any)) {
