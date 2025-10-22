@@ -115,7 +115,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
 
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground">Events:</span>
-            {['1', '2-3', '4-5', '6+'].map((e) => (
+            {['1', '2+', '3+', '4+', '5+', '6+'].map((e) => (
               <Chip key={e} active={events === e} onClick={() => { const next = events === e ? 'ALL' : e; setEvents(next); apply({ events: next }) }}>{e}</Chip>
             ))}
           </div>

@@ -106,8 +106,10 @@ export default function RankingsPage() {
         const count = p.tournaments_count;
         switch (events) {
           case '1': return count === 1;
-          case '2-3': return count >= 2 && count <= 3;
-          case '4-5': return count >= 4 && count <= 5;
+          case '2+': return count >= 2;
+          case '3+': return count >= 3;
+          case '4+': return count >= 4;
+          case '5+': return count >= 5;
           case '6+': return count >= 6;
           default: return true;
         }
