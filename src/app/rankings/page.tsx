@@ -137,7 +137,7 @@ export default function RankingsPage() {
             </p>
           </div>
 
-          <div className="px-4">
+          <div className="sticky top-0 z-10 bg-background px-4 py-2 -my-2">
             <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} />
           </div>
 

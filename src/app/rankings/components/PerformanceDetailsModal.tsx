@@ -17,7 +17,8 @@ interface PerformanceDetailsModalProps {
 export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDetailsModalProps) {
   if (!player) return null
 
-  const tieBreakKeys = Array.from(new Set(player.tournaments.flatMap((t) => Object.keys(t.tie_breaks ?? {}))))
+  // Always display TB1-TB6 columns
+  const allTieBreakColumns = ['TB1', 'TB2', 'TB3', 'TB4', 'TB5', 'TB6']
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -39,21 +40,21 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                   <TableHead className="font-bold uppercase text-xs text-muted-foreground min-w-[260px] w-[260px]">
                     Tournament
                   </TableHead>
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px]">
                     Rating
                   </TableHead>
-                  {tieBreakKeys.map((key) => (
+                  {allTieBreakColumns.map((tbKey) => (
                     <TableHead
-                      key={key}
-                      className="text-center font-bold uppercase text-xs text-muted-foreground w-[120px]"
+                      key={tbKey}
+                      className="text-center font-bold uppercase text-xs text-muted-foreground w-[70px]"
                     >
-                      {formatClassification(player.tournaments[0].classifications?.[key] ?? key)}
+                      {tbKey}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[120px]">
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
                     Performance
                   </TableHead>
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[120px]">
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
                     Confidence
                   </TableHead>
                 </TableRow>
@@ -64,18 +65,29 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                     <TableCell className="text-sm font-medium text-foreground min-w-[260px] w-[260px] break-words leading-tight py-3">
                       {t.tournament_name}
                     </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
-                      {t.player_rating}
+                    <TableCell className="text-sm text-center text-muted-foreground w-[80px]">
+                      {t.player_rating ?? "-"}
                     </TableCell>
-                    {tieBreakKeys.map((key) => (
-                      <TableCell key={key} className="text-sm text-center text-muted-foreground w-[120px]">
-                        {t.tie_breaks?.[key] ?? "-"}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-sm font-semibold text-center text-foreground w-[120px]">
+                    {allTieBreakColumns.map((tbKey) => {
+                      const value = t.tie_breaks?.[tbKey]
+                      const hasValue = value !== undefined && value !== null && value !== ""
+                      return (
+                        <TableCell 
+                          key={tbKey} 
+                          className={`text-sm text-center w-[70px] ${
+                            hasValue 
+                              ? "text-foreground font-medium" 
+                              : "text-muted-foreground/40 italic"
+                          }`}
+                        >
+                          {hasValue ? value : "-"}
+                        </TableCell>
+                      )
+                    })}
+                    <TableCell className="text-sm font-semibold text-center text-foreground w-[100px]">
                       {t.performance_rating ?? "-"}
                     </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground w-[120px]">
+                    <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
                       {t.confidence ?? "-"}
                     </TableCell>
                   </TableRow>
