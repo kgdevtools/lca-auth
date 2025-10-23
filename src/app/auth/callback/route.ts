@@ -30,7 +30,71 @@ export async function GET(request: NextRequest) {
   // Explicitly exchange the OAuth code for a session to ensure cookies are set
   const code = nextUrl.searchParams.get('code')
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data: sessionData } = await supabase.auth.exchangeCodeForSession(code)
+    
+    // Check if this is a signup flow
+    const isSignup = request.cookies.get('is_signup')?.value === 'true'
+    
+    if (isSignup && sessionData?.user) {
+      const tournamentFullName = request.cookies.get('signup_tournament_fullname')?.value
+      const chessaId = request.cookies.get('signup_chessa_id')?.value
+      
+      // Check if profile exists
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', sessionData.user.id)
+        .single()
+      
+      if (existingProfile) {
+        // Update existing profile
+        await supabase
+          .from('profiles')
+          .update({
+            tournament_fullname: tournamentFullName || null,
+            chessa_id: chessaId || null,
+            full_name: sessionData.user.user_metadata?.full_name || sessionData.user.user_metadata?.name || null,
+            avatar_url: sessionData.user.user_metadata?.avatar_url || null,
+          })
+          .eq('id', sessionData.user.id)
+      } else {
+        // Create new profile
+        await supabase
+          .from('profiles')
+          .insert({
+            id: sessionData.user.id,
+            tournament_fullname: tournamentFullName || null,
+            chessa_id: chessaId || null,
+            full_name: sessionData.user.user_metadata?.full_name || sessionData.user.user_metadata?.name || null,
+            avatar_url: sessionData.user.user_metadata?.avatar_url || null,
+            role: 'student', // default role
+          })
+      }
+      
+      // Clear signup cookies
+      response.cookies.delete('is_signup')
+      response.cookies.delete('signup_tournament_fullname')
+      response.cookies.delete('signup_chessa_id')
+    } else if (sessionData?.user) {
+      // Regular login - just ensure profile exists with basic info
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', sessionData.user.id)
+        .single()
+      
+      if (!existingProfile) {
+        // Create basic profile for login flow
+        await supabase
+          .from('profiles')
+          .insert({
+            id: sessionData.user.id,
+            full_name: sessionData.user.user_metadata?.full_name || sessionData.user.user_metadata?.name || null,
+            avatar_url: sessionData.user.user_metadata?.avatar_url || null,
+            role: 'student',
+          })
+      }
+    }
   } else {
     // Fallback: trigger user fetch to refresh cookies if already exchanged
     await supabase.auth.getUser()
