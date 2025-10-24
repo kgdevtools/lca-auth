@@ -3,6 +3,7 @@ import React from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WarningBanner } from '@/components/warning-banner'
+import { PlayerCombobox } from '@/components/ui/combobox'
 import type { ProfilePageData } from './actions'
 import { updateProfile } from './actions'
 
@@ -27,6 +28,7 @@ export default function ProfileView({ user, profile, profileError, signOutAction
     : 'Unknown'
 
   const roleColor = profile?.role ? getRoleColor(profile.role) : getRoleColor('student')
+  const chessaIdRef = React.useRef<HTMLInputElement>(null)
 
   return (
     <main className="min-h-dvh p-6">
@@ -81,11 +83,12 @@ export default function ProfileView({ user, profile, profileError, signOutAction
                   <span>{profile?.full_name || '—'}</span>
                 </div>
                 
-                <EditableRow
+                <PlayerSearchRow
                   label="Tournament Full Name"
                   name="tournament_fullname"
                   defaultValue={profile?.tournament_fullname ?? ''}
                   updateAction={updateProfile}
+                  chessaIdRef={chessaIdRef}
                 />
                 
                 <EditableRow
@@ -93,6 +96,7 @@ export default function ProfileView({ user, profile, profileError, signOutAction
                   name="chessa_id"
                   defaultValue={profile?.chessa_id ?? ''}
                   updateAction={updateProfile}
+                  ref={chessaIdRef}
                 />
                 
                 <div className="grid grid-cols-[140px_1fr] gap-2 text-sm">
@@ -130,17 +134,101 @@ export default function ProfileView({ user, profile, profileError, signOutAction
   )
 }
 
-function EditableRow({ 
+function PlayerSearchRow({ 
   label, 
   name, 
   defaultValue,
-  updateAction 
+  updateAction,
+  chessaIdRef
 }: { 
   label: string
   name: string
   defaultValue: string
   updateAction: (formData: FormData) => Promise<void>
+  chessaIdRef: React.RefObject<HTMLInputElement | null>
 }) {
+  const [editing, setEditing] = React.useState(false)
+  const [value, setValue] = React.useState(defaultValue)
+  const [selectedPlayer, setSelectedPlayer] = React.useState<any>(null)
+
+  async function handleSubmit(formData: FormData) {
+    await updateAction(formData)
+    setEditing(false)
+  }
+
+  const handlePlayerSelect = (player: any) => {
+    setSelectedPlayer(player)
+    // Auto-populate Chess SA ID if UNIQUE_NO is available
+    if (player.UNIQUE_NO && chessaIdRef.current) {
+      chessaIdRef.current.value = player.UNIQUE_NO
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-2 text-sm items-center">
+      <span className="text-muted-foreground font-medium">{label}:</span>
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <span>{value || '—'}</span>
+            <button
+              className="text-xs text-primary underline ml-2"
+              onClick={() => setEditing(true)}
+              type="button"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <form action={handleSubmit} className="flex gap-2 items-center w-full">
+            <div className="flex-1 min-w-0">
+              <PlayerCombobox
+                value={value}
+                onValueChange={setValue}
+                onPlayerSelect={handlePlayerSelect}
+                placeholder="Search for a player..."
+                className="w-full"
+              />
+              <input
+                type="hidden"
+                name={name}
+                value={value}
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="text-sm px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 whitespace-nowrap"
+            >
+              Save
+            </button>
+            <button 
+              type="button" 
+              onClick={() => { 
+                setEditing(false)
+                setValue(defaultValue) 
+              }} 
+              className="text-sm px-3 py-1 border rounded hover:bg-accent whitespace-nowrap"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const EditableRow = React.forwardRef<HTMLInputElement, { 
+  label: string
+  name: string
+  defaultValue: string
+  updateAction: (formData: FormData) => Promise<void>
+}>(({ 
+  label, 
+  name, 
+  defaultValue,
+  updateAction 
+}, ref) => {
   const [editing, setEditing] = React.useState(false)
   const [value, setValue] = React.useState(defaultValue)
 
@@ -167,6 +255,7 @@ function EditableRow({
         ) : (
           <form action={handleSubmit} className="flex gap-2 items-center">
             <input
+              ref={ref}
               name={name}
               value={value}
               onChange={(e) => setValue(e.currentTarget.value)}
@@ -194,4 +283,6 @@ function EditableRow({
       </div>
     </div>
   )
-}
+})
+
+EditableRow.displayName = "EditableRow"

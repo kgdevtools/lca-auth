@@ -25,6 +25,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?message=Authentication failed', request.url))
     }
 
+    // Check user role to determine redirect destination
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    const isAdmin = profile?.role === 'admin'
+    const redirectPath = isAdmin ? '/admin/admin-dashboard' : '/user'
+
     // Check if this is a signup flow
     const cookieStore = request.cookies
     const isSignup = cookieStore.get('is_signup')?.value === 'true'
@@ -49,15 +59,15 @@ export async function GET(request: NextRequest) {
       }
       
       // Clear signup cookies by setting them with maxAge: 0
-      const response = NextResponse.redirect(new URL(next, request.url))
+      const response = NextResponse.redirect(new URL(redirectPath, request.url))
       response.cookies.set('is_signup', '', { maxAge: 0 })
       response.cookies.set('signup_tournament_fullname', '', { maxAge: 0 })
       response.cookies.set('signup_chessa_id', '', { maxAge: 0 })
       return response
     }
 
-    // For regular login, just redirect
-    return NextResponse.redirect(new URL(next, request.url))
+    // For regular login, redirect based on user role
+    return NextResponse.redirect(new URL(redirectPath, request.url))
     
   } catch (error) {
     console.error('Unexpected error in auth callback:', error)

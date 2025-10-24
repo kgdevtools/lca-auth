@@ -15,28 +15,28 @@ function LoginContent() {
 
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md shadow-lg border-border/50">
-        <CardHeader className="flex flex-col items-center pt-6 pb-4">
-          <div className="relative mb-4 w-64 h-24 sm:w-72 sm:h-28 md:w-80 md:h-32 lg:w-96 lg:h-36">
-            <Image
-              src="/Picture1.png"
-              alt="LCA Logo (light)"
-              fill
-              priority
-              className="object-contain block dark:hidden"
-              sizes="(min-width: 1024px) 24rem, (min-width: 768px) 20rem, 16rem"
-            />
-            <Image
-              src="/LCA_Logo_Dark.png"
-              alt="LCA Logo (dark)"
-              fill
-              priority
-              className="object-contain hidden dark:block"
-              sizes="(min-width: 1024px) 24rem, (min-width: 768px) 20rem, 16rem"
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <Card className="w-full max-w-lg shadow-lg border-border/50 overflow-hidden">
+        {/* Image covering entire top part of the card */}
+        <div className="relative w-full h-48 sm:h-56 md:h-64">
+          <Image
+            src="/Picture1.png"
+            alt="LCA Logo (light)"
+            fill
+            priority
+            className="object-cover block dark:hidden"
+            sizes="(min-width: 1024px) 32rem, (min-width: 768px) 28rem, 24rem"
+          />
+          <Image
+            src="/LCA_Logo_Dark.png"
+            alt="LCA Logo (dark)"
+            fill
+            priority
+            className="object-cover hidden dark:block"
+            sizes="(min-width: 1024px) 32rem, (min-width: 768px) 28rem, 24rem"
+          />
+        </div>
+        
+        <CardContent className="space-y-4 pt-4">
           {message && (
             <Alert className="bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
               <AlertDescription className="font-medium">{message}</AlertDescription>
@@ -53,7 +53,7 @@ function LoginContent() {
             <form action={signInWithGoogle} className="w-full">
               <Button
                 type="submit"
-                className="w-full h-14 text-base font-bold rounded-sm hover:bg-accent/90 transition-colors"
+                className="w-full h-12 text-base font-bold rounded-sm hover:bg-accent/90 transition-colors"
                 size="lg"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-6 w-6 mr-3">
@@ -79,7 +79,7 @@ function LoginContent() {
             </form>
           </Suspense>
 
-          <div className="text-center text-sm text-muted-foreground/80 lg:text-base font-medium">
+          <div className="text-center text-sm text-muted-foreground/80 lg:text-base font-medium leading-tight">
             Don't have an account?{" "}
             <Link href="/signup" className="underline text-primary hover:text-primary/80 font-semibold">
               Sign Up

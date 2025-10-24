@@ -10,7 +10,7 @@ interface MobileNavProps {
   isAdmin?: boolean
 }
 
-export function MobileNav({ isAuthenticated }: MobileNavProps) {
+export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) {
   const [open, setOpen] = React.useState(false)
   const pathname = usePathname()
 
@@ -64,14 +64,14 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
                 My Profile
               </NavLink>
             ) : null}
-            {isAuthenticated ? (
+            {isAdmin ? (
               <NavLink href="/admin/upload-tournament" color="gray">
                 Upload Tournament
               </NavLink>
             ) : null}
-            {isAuthenticated ? (
+            {isAdmin ? (
               <NavLink href="/admin/admin-dashboard" color="gray">
-                Admin Dashboard Overview
+                Admin Dashboard
               </NavLink>
             ) : null}
 

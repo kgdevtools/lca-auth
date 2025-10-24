@@ -40,8 +40,17 @@ export default async function RootLayout({
   const { data } = await supabase.auth.getUser()
   const user = data.user
 
-  // no role fetch here (reverting changes)
-  const isAdmin = false
+  // Fetch user role from profiles table
+  let isAdmin = false
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    isAdmin = profile?.role === 'admin'
+  }
 
   return (
     <html lang="en">
@@ -130,7 +139,7 @@ export default async function RootLayout({
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <ThemeToggle />
-              <MobileNav isAuthenticated={Boolean(user)} />
+              <MobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
               {user ? (
                 <form
                   action={async () => {
