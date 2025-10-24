@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react"
 import { fetchGames, type GameData } from "./actions"
+import { TOURNAMENTS, type TournamentId } from "./config"
 
 type UiMove = Move & { moveNumber: number }
 interface GameHistory { moves: UiMove[]; fenHistory: string[] }
@@ -15,27 +16,44 @@ interface GameHistory { moves: UiMove[]; fenHistory: string[] }
 const BOARD_CUSTOM_SQUARE_STYLES = { lastMove: { backgroundColor: "rgba(59, 130, 246, 0.4)" } }
 
 export default function ViewOnlyPage() {
+  const [selectedTournamentId, setSelectedTournamentId] = useState<TournamentId>(TOURNAMENTS[0].id);
   const [games, setGames] = useState<GameData[]>([])
-  const [currentGameIndex, setCurrentGameIndex] = useState(0)
+  const [currentGameIndex, setCurrentGameIndex] = useState(-1)
+  
   const [gameHistory, setGameHistory] = useState<GameHistory>({ moves: [], fenHistory: [] })
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1)
   const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({})
-  const [isLoading, setIsLoading] = useState(true)
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(undefined)
 
+  const [isLoading, setIsLoading] = useState(true)
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
 
-  useEffect(() => { loadGames() }, [])
-  async function loadGames() {
-    setIsLoading(true)
-    const { games: fetchedGames, error } = await fetchGames()
-    if (error) console.error("Error fetching games:", error)
-    else { setGames(fetchedGames); if (fetchedGames.length > 0) setCurrentGameIndex(0) }
-    setIsLoading(false)
-  }
+  useEffect(() => {
+    async function loadGames() {
+      setIsLoading(true);
 
-  const currentPgn = useMemo(() => games[currentGameIndex]?.pgn || "", [games, currentGameIndex])
+      const { games: fetchedGames, error } = await fetchGames(selectedTournamentId);
+      
+      if (error) {
+        console.error("Error fetching games:", error);
+        setGames([]);
+        setCurrentGameIndex(-1);
+      } else {
+        setGames(fetchedGames);
+        setCurrentGameIndex(fetchedGames.length > 0 ? 0 : -1); 
+      }
+      
+      setIsLoading(false);
+    }
+
+    loadGames();
+  }, [selectedTournamentId]);
+  
+  const currentPgn = useMemo(() => {
+    if (currentGameIndex < 0 || !games[currentGameIndex]) return "";
+    return games[currentGameIndex].pgn;
+  }, [games, currentGameIndex]);
 
   useEffect(() => {
     if (!currentPgn) {
@@ -55,7 +73,7 @@ export default function ViewOnlyPage() {
       const temp = new Chess()
       const fenHistory: string[] = [temp.fen()]
       history.forEach(m => {
-        try { temp.move((m as any).san); fenHistory.push(temp.fen()) } catch (e) { }
+        try { temp.move((m as any).san); fenHistory.push(temp.fen()) } catch (e) { /* ignore */ }
       })
       const movesWithNumbers: UiMove[] = history.map((m, i) => ({ ...(m as any), moveNumber: Math.floor(i / 2) + 1 }))
       setGameHistory({ moves: movesWithNumbers, fenHistory })
@@ -68,21 +86,46 @@ export default function ViewOnlyPage() {
     }
   }, [currentPgn])
 
+  // ** THE CRITICAL FIX FOR THE CHESSBOARD LOADING **
+  // This effect now depends on `isLoading`. When `isLoading` becomes false,
+  // the main content is rendered, and this effect will re-run to correctly
+  // measure the width of the board's container.
   useEffect(() => {
-    function handleResize() { if (boardWrapperRef.current) setBoardWidth(boardWrapperRef.current.offsetWidth) }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [isLoading])
+    function handleResize() { 
+      if (boardWrapperRef.current) {
+        setBoardWidth(boardWrapperRef.current.offsetWidth);
+      }
+    }
+    handleResize(); // Measure on initial render (or after loading state changes)
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isLoading]);
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
       const m = gameHistory.moves[currentMoveIndex]
       setLastMove({ from: m.from, to: m.to })
-    } else setLastMove(undefined)
+    } else {
+      setLastMove(undefined)
+    }
   }, [currentMoveIndex, gameHistory.moves])
 
-  const navigateTo = useCallback((index: number) => setCurrentMoveIndex(Math.max(-1, Math.min(index, gameHistory.moves.length - 1))), [gameHistory.moves.length])
+  const navigateTo = useCallback((index: number) => {
+    setCurrentMoveIndex(Math.max(-1, Math.min(index, gameHistory.moves.length - 1)))
+  }, [gameHistory.moves.length])
+
+  const handleTournamentSelect = (tournamentId: TournamentId) => {
+    if (tournamentId !== selectedTournamentId) {
+        setSelectedTournamentId(tournamentId)
+    }
+  }
+
+  const handleGameSelect = (index: number) => {
+    setCurrentGameIndex(index);
+  }
+
+  const selectedTournamentName = TOURNAMENTS.find(t => t.id === selectedTournamentId)?.name || 'Select a tournament';
+  const selectedGameTitle = games[currentGameIndex]?.title || (games.length > 0 ? 'Select a game' : 'No games available');
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8">
@@ -92,99 +135,91 @@ export default function ViewOnlyPage() {
           <p className="text-muted-foreground">Browse, replay and inspect games.</p>
         </header>
 
-        {games.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <GameInfo headers={gameHeaders} />
-            <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
-              <h2 className="text-lg font-semibold mb-4">Current Game</h2>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
-                    <span className="truncate">{games[currentGameIndex]?.title || 'Select a game'}</span>
-                    <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 md:max-h-80 lg:max-h-96 overflow-y-auto rounded-md bg-card p-1 border border-border">
-                  {games.map((g, i) => (
-                    <DropdownMenuItem key={g.id} className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${i % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`} onSelect={() => setCurrentGameIndex(i)}>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-muted-foreground tabular-nums">{i + 1}.</span>
-                        <span className="truncate flex-1 text-foreground text-sm">{g.title}</span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <GameInfo headers={gameHeaders} />
+          
+          <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
+              <div>
+                  <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Tournament</h3>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
+                              <span className="truncate">{selectedTournamentName}</span>
+                              <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-md bg-card p-1 border border-border">
+                          {TOURNAMENTS.map((t) => (
+                              <DropdownMenuItem key={t.id} onSelect={() => handleTournamentSelect(t.id)} className="cursor-pointer">
+                                  {t.name}
+                              </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              </div>
+              
+              <div>
+                  <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Game</h3>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
+                          <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
+                              <span className="truncate">{isLoading ? 'Loading games...' : selectedGameTitle}</span>
+                              <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
+                          {games.map((g, i) => (
+                              <DropdownMenuItem key={g.id} className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${i % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`} onSelect={() => handleGameSelect(i)}>
+                                  <div className="flex items-center gap-3">
+                                      <span className="text-xs font-mono text-muted-foreground tabular-nums">{i + 1}.</span>
+                                      <span className="truncate flex-1 text-foreground text-sm">{g.title}</span>
+                                  </div>
+                              </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              </div>
           </div>
-        )}
+        </div>
 
-        {games.length > 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-3 mt-3">
+              <div className="flex flex-col max-w-lg mx-auto lg:mx-0 w-full">
+                  <div className="w-full aspect-square bg-muted animate-pulse rounded-md" />
+                  <div className="mt-3 p-3 bg-card border border-border rounded-[2px] shadow-sm"><div className="h-10 bg-muted animate-pulse rounded-[2px]"></div></div>
+              </div>
+              <div className="bg-card border border-border p-4 rounded-lg shadow-sm"><div className="space-y-2"><div className="h-6 w-1/4 bg-muted rounded animate-pulse mb-4" />{Array.from({ length: 10 }).map((_, i) => (<div key={i} className="h-6 bg-muted rounded animate-pulse" />))}</div></div>
+          </div>
+        ) : games.length === 0 ? (
+          <div className="bg-card border border-border p-8 rounded-lg text-center shadow-sm mt-3">
+            <p className="text-muted-foreground">No games available for this tournament.</p>
+          </div>
+        ) : (
           <main className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-3">
             <div className="flex flex-col max-w-lg mx-auto lg:mx-0 w-full">
               <div ref={boardWrapperRef} className="w-full aspect-square shadow-lg rounded-[2px] overflow-hidden border border-border">
                 {boardWidth && boardWidth > 0 ? (
-                  <Chessboard
-                    boardWidth={boardWidth}
-                    position={gameHistory.fenHistory[currentMoveIndex + 1] || 'start'}
-                    arePiecesDraggable={false}
-                    customSquareStyles={lastMove ? { [lastMove.from]: BOARD_CUSTOM_SQUARE_STYLES.lastMove, [lastMove.to]: BOARD_CUSTOM_SQUARE_STYLES.lastMove } : {}}
-                  />
+                  <Chessboard boardWidth={boardWidth} position={gameHistory.fenHistory[currentMoveIndex + 1] || 'start'} arePiecesDraggable={false} customSquareStyles={lastMove ? { [lastMove.from]: BOARD_CUSTOM_SQUARE_STYLES.lastMove, [lastMove.to]: BOARD_CUSTOM_SQUARE_STYLES.lastMove } : {}}/>
                 ) : (
                   <div className="w-full h-full bg-muted animate-pulse" />
                 )}
               </div>
-
               <div className="mt-3">
-                <Controls
-                  onStart={() => navigateTo(-1)}
-                  onPrev={() => navigateTo(currentMoveIndex - 1)}
-                  onNext={() => navigateTo(currentMoveIndex + 1)}
-                  onEnd={() => navigateTo(gameHistory.moves.length - 1)}
-                  canGoBack={currentMoveIndex > -1}
-                  canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
-                />
+                <Controls onStart={() => navigateTo(-1)} onPrev={() => navigateTo(currentMoveIndex - 1)} onNext={() => navigateTo(currentMoveIndex + 1)} onEnd={() => navigateTo(gameHistory.moves.length - 1)} canGoBack={currentMoveIndex > -1} canGoForward={currentMoveIndex < gameHistory.moves.length - 1}/>
               </div>
-
-              {gameHistory.moves.length > 0 && (
-                <div className="mt-2 text-center text-sm text-muted-foreground">Move {currentMoveIndex + 1} of {gameHistory.moves.length}</div>
-              )}
+              {gameHistory.moves.length > 0 && (<div className="mt-2 text-center text-sm text-muted-foreground">Move {currentMoveIndex + 1} of {gameHistory.moves.length}</div>)}
             </div>
-
-            <div className="lg:h-[calc(100vh-14rem)] lg:overflow-hidden">
-              <div className="h-full flex flex-col">
-                <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} />
-              </div>
+            <div className="lg:h-[calc(100vh-18rem)] lg:overflow-hidden">
+              <div className="h-full flex flex-col"><MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} /></div>
             </div>
           </main>
-        ) : (
-          isLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
-                <div className="w-full h-80 bg-muted animate-pulse" />
-              </div>
-              <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
-                <div className="space-y-2">
-                  <div className="h-6 w-3/4 bg-muted rounded animate-pulse" />
-                  <div className="grid grid-cols-2 gap-2">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-10 bg-muted rounded animate-pulse" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-card border border-border p-8 rounded-lg text-center shadow-sm">
-              <p className="text-muted-foreground">No games available yet.</p>
-            </div>
-          )
         )}
       </div>
     </div>
   )
 }
 
+// Sub-components (Controls, MovesList, etc.) remain unchanged from your last version. I'm including them here for completeness.
 const Controls = React.memo(({ onStart, onPrev, onNext, onEnd, canGoBack, canGoForward }: { onStart: () => void; onPrev: () => void; onNext: () => void; onEnd: () => void; canGoBack: boolean; canGoForward: boolean }) => (
   <div className="flex justify-center items-center gap-2 p-3 bg-card border border-border rounded-[2px] shadow-sm">
     <Button variant="outline" size="lg" onClick={onStart} disabled={!canGoBack} aria-label="Go to start" className="flex-1 rounded-[2px] bg-transparent"><ChevronsLeft className="w-5 h-5" /></Button>
@@ -205,8 +240,9 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
       const element = activeMoveRef.current
       const containerRect = container.getBoundingClientRect()
       const elementRect = element.getBoundingClientRect()
-      const isVisible = elementRect.top >= containerRect.top && elementRect.bottom <= containerRect.bottom
-      if (!isVisible) element.scrollIntoView({ behavior: "smooth", block: "center" })
+      if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
     }
   }, [currentMoveIndex])
 
@@ -220,15 +256,7 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
               <React.Fragment key={index}>
                 <div className="text-right text-muted-foreground font-mono pr-1 text-xs">{move.moveNumber}.</div>
                 <MoveButton move={move} index={index} isCurrent={currentMoveIndex === index} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index ? activeMoveRef : null} />
-                {moves[index + 1] && (
-                  <MoveButton
-                    move={moves[index + 1]}
-                    index={index + 1}
-                    isCurrent={currentMoveIndex === index + 1}
-                    onMoveSelect={onMoveSelect}
-                    ref={currentMoveIndex === index + 1 ? activeMoveRef : null}
-                  />
-                )}
+                {moves[index + 1] && (<MoveButton move={moves[index + 1]} index={index + 1} isCurrent={currentMoveIndex === index + 1} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index + 1 ? activeMoveRef : null}/>)}
               </React.Fragment>
             ) : null,
           )}
@@ -240,13 +268,7 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
 MovesList.displayName = "MovesList"
 
 const MoveButton = React.forwardRef<HTMLButtonElement, { move: UiMove; index: number; isCurrent: boolean; onMoveSelect: (i: number) => void }>(({ move, index, isCurrent, onMoveSelect }, ref) => (
-  <button
-    ref={ref}
-    onClick={() => onMoveSelect(index)}
-    aria-current={isCurrent ? "true" : "false"}
-    aria-label={`Move ${index + 1}: ${move.san}`}
-    className={`w-full text-left px-2 py-1 rounded-[2px] transition-colors font-mono text-sm ${isCurrent ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}
-  >
+  <button ref={ref} onClick={() => onMoveSelect(index)} aria-current={isCurrent ? "true" : "false"} aria-label={`Move ${index + 1}: ${move.san}`} className={`w-full text-left px-2 py-1 rounded-[2px] transition-colors font-mono text-sm ${isCurrent ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}>
     {move.san}
   </button>
 ))
