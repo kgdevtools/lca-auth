@@ -40,6 +40,9 @@ export default async function RootLayout({
   const { data } = await supabase.auth.getUser()
   const user = data.user
 
+  // no role fetch here (reverting changes)
+  const isAdmin = false
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
@@ -84,11 +87,11 @@ export default async function RootLayout({
               <div className="hidden md:flex items-center gap-1">
 
                 {user ? (
-                  <NavLink href="/user/user-dashboard" color="secondary">
+                  <NavLink href="/user" color="secondary">
                     User Dashboard
                   </NavLink>
                 ) : null}
-                {user ? (
+                {isAdmin ? (
                   <NavLink href="/admin/admin-dashboard" color="gray">
                     Admin Dashboard
                   </NavLink>
@@ -98,7 +101,7 @@ export default async function RootLayout({
                     Add Game
                   </NavLink>
                 ) : null}
-                {user ? (
+                {isAdmin ? (
                   <NavLink href="/admin/upload-tournament" color="gray">
                     Upload Tournament
                   </NavLink>
@@ -118,6 +121,7 @@ export default async function RootLayout({
                 <NavLink href="/forms" color="gray" badge="Register">
                   Forms
                 </NavLink>
+                
                 <NavLink href="/view" color="gray">
                     <span className="absolute -top-1 -right-1 bg-cyan-600 text-white text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-sm whitespace-nowrap shadow-sm">Beta</span>
                   View Games

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 
 interface MobileNavProps {
   isAuthenticated: boolean
+  isAdmin?: boolean
 }
 
 export function MobileNav({ isAuthenticated }: MobileNavProps) {
@@ -77,6 +78,12 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
             {isAuthenticated ? (
               <NavLink href="/game-view" color="gray">
                 View Games
+              </NavLink>
+            ) : null}
+
+            {isAuthenticated ? (
+              <NavLink href="/add-game" color="gray">
+                Add Game
               </NavLink>
             ) : null}
 

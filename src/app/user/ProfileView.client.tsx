@@ -1,8 +1,10 @@
 "use client"
+import React from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WarningBanner } from '@/components/warning-banner'
 import type { ProfilePageData } from './actions'
+import { updateProfile } from './actions'
 
 interface Props extends ProfilePageData {}
 
@@ -79,15 +81,19 @@ export default function ProfileView({ user, profile, profileError, signOutAction
                   <span>{profile?.full_name || '—'}</span>
                 </div>
                 
-                <div className="grid grid-cols-[140px_1fr] gap-2 text-sm">
-                  <span className="text-muted-foreground font-medium">Tournament Name:</span>
-                  <span>{profile?.tournament_fullname || '—'}</span>
-                </div>
+                <EditableRow
+                  label="Tournament Full Name"
+                  name="tournament_fullname"
+                  defaultValue={profile?.tournament_fullname ?? ''}
+                  updateAction={updateProfile}
+                />
                 
-                <div className="grid grid-cols-[140px_1fr] gap-2 text-sm">
-                  <span className="text-muted-foreground font-medium">ChessA ID:</span>
-                  <span>{profile?.chessa_id || '—'}</span>
-                </div>
+                <EditableRow
+                  label="Chess SA ID"
+                  name="chessa_id"
+                  defaultValue={profile?.chessa_id ?? ''}
+                  updateAction={updateProfile}
+                />
                 
                 <div className="grid grid-cols-[140px_1fr] gap-2 text-sm">
                   <span className="text-muted-foreground font-medium">Member Since:</span>
@@ -121,5 +127,71 @@ export default function ProfileView({ user, profile, profileError, signOutAction
         </div>
       </div>
     </main>
+  )
+}
+
+function EditableRow({ 
+  label, 
+  name, 
+  defaultValue,
+  updateAction 
+}: { 
+  label: string
+  name: string
+  defaultValue: string
+  updateAction: (formData: FormData) => Promise<void>
+}) {
+  const [editing, setEditing] = React.useState(false)
+  const [value, setValue] = React.useState(defaultValue)
+
+  async function handleSubmit(formData: FormData) {
+    await updateAction(formData)
+    setEditing(false)
+  }
+
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-2 text-sm items-center">
+      <span className="text-muted-foreground font-medium">{label}:</span>
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <span>{value || '—'}</span>
+            <button
+              className="text-xs text-primary underline ml-2"
+              onClick={() => setEditing(true)}
+              type="button"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <form action={handleSubmit} className="flex gap-2 items-center">
+            <input
+              name={name}
+              value={value}
+              onChange={(e) => setValue(e.currentTarget.value)}
+              className="border rounded px-2 py-1 bg-background"
+              autoFocus
+            />
+            <button 
+              type="submit" 
+              className="text-sm px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              Save
+            </button>
+            <button 
+              type="button" 
+              onClick={() => { 
+                setEditing(false)
+                setValue(defaultValue) 
+              }} 
+              className="text-sm px-3 py-1 border rounded hover:bg-accent"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   )
 }
