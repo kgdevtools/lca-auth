@@ -3,9 +3,10 @@ import React from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WarningBanner } from '@/components/warning-banner'
-import { PlayerCombobox } from '@/components/ui/combobox'
+import { PlayerSearchCombobox } from '@/components/ui/player-search-combobox'
 import type { ProfilePageData } from './actions'
 import { updateProfile } from './actions'
+import type { PlayerSearchResult } from './tournament-actions'
 
 interface Props extends ProfilePageData {}
 
@@ -22,13 +23,34 @@ const getRoleColor = (role: string) => {
   }
 }
 
-export default function ProfileView({ user, profile, profileError, signOutAction }: Props) {
+export default function ProfileView({ user, profile, profileError, tournamentData, signOutAction }: Props) {
   const memberSince = user.created_at 
     ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
     : 'Unknown'
 
   const roleColor = profile?.role ? getRoleColor(profile.role) : getRoleColor('student')
   const chessaIdRef = React.useRef<HTMLInputElement>(null)
+
+  // Calculate tournament statistics
+  const tournamentStats = React.useMemo(() => {
+    if (!tournamentData || tournamentData.length === 0) return null
+
+    const uniqueTournaments = new Set(tournamentData.map(t => t.tournament_name)).size
+    const latestRating = tournamentData[0]?.rating || 'N/A'
+    const highestRating = Math.max(...tournamentData.map(t => parseInt(t.rating || '0') || 0))
+    const averagePerformance = tournamentData.reduce((acc, t) => {
+      const perf = parseInt(t.performance_rating || '0') || 0
+      return acc + perf
+    }, 0) / tournamentData.length
+
+    return {
+      totalGames: tournamentData.length,
+      uniqueTournaments,
+      latestRating,
+      highestRating: highestRating > 0 ? highestRating : 'N/A',
+      averagePerformance: averagePerformance > 0 ? Math.round(averagePerformance) : 'N/A'
+    }
+  }, [tournamentData])
 
   return (
     <main className="min-h-dvh p-6">
@@ -112,6 +134,68 @@ export default function ProfileView({ user, profile, profileError, signOutAction
             </CardContent>
           </Card>
 
+          {/* Tournament Statistics Card - Only show if user has tournament data */}
+          {tournamentStats && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Tournament Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Total Games</p>
+                    <p className="text-2xl font-bold">{tournamentStats.totalGames}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Tournaments</p>
+                    <p className="text-2xl font-bold">{tournamentStats.uniqueTournaments}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Current Rating</p>
+                    <p className="text-2xl font-bold">{tournamentStats.latestRating}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Highest Rating</p>
+                    <p className="text-2xl font-bold">{tournamentStats.highestRating}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Avg Performance</p>
+                    <p className="text-2xl font-bold">{tournamentStats.averagePerformance}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent Tournaments - Only show if user has tournament data */}
+          {tournamentData && tournamentData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Tournaments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {tournamentData.slice(0, 5).map((tournament, idx) => (
+                    <div key={idx} className="border-b pb-3 last:border-0">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{tournament.tournament_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Rating: {tournament.player_rating || 'N/A'} | 
+                            Performance: {tournament.performance_rating || 'N/A'}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {tournament.created_at}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Sign Out */}
           <Card>
             <CardHeader>
@@ -149,18 +233,16 @@ function PlayerSearchRow({
 }) {
   const [editing, setEditing] = React.useState(false)
   const [value, setValue] = React.useState(defaultValue)
-  const [selectedPlayer, setSelectedPlayer] = React.useState<any>(null)
 
   async function handleSubmit(formData: FormData) {
     await updateAction(formData)
     setEditing(false)
   }
 
-  const handlePlayerSelect = (player: any) => {
-    setSelectedPlayer(player)
-    // Auto-populate Chess SA ID if UNIQUE_NO is available
-    if (player.UNIQUE_NO && chessaIdRef.current) {
-      chessaIdRef.current.value = player.UNIQUE_NO
+  const handlePlayerSelect = (player: PlayerSearchResult) => {
+    // Auto-populate Chess SA ID if unique_no is available
+    if (player.unique_no && chessaIdRef.current) {
+      chessaIdRef.current.value = player.unique_no
     }
   }
 
@@ -182,7 +264,7 @@ function PlayerSearchRow({
         ) : (
           <form action={handleSubmit} className="flex gap-2 items-center w-full">
             <div className="flex-1 min-w-0">
-              <PlayerCombobox
+              <PlayerSearchCombobox
                 value={value}
                 onValueChange={setValue}
                 onPlayerSelect={handlePlayerSelect}

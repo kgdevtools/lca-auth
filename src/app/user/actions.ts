@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 import { User } from "@supabase/supabase-js"
+import { getPlayerTournamentData, PlayerTournamentData } from './tournament-actions'
 
 export interface Profile {
   id: string
@@ -18,6 +19,7 @@ export interface ProfilePageData {
   user: User
   profile: Profile | null
   profileError: string | null
+  tournamentData: PlayerTournamentData[]
   signOutAction: () => Promise<void>
 }
 
@@ -36,14 +38,20 @@ export async function fetchProfilePageData(user: User): Promise<ProfilePageData>
     .eq('id', user.id)
     .single()
 
+  // Fetch tournament data if tournament_fullname exists
+  let tournamentData: PlayerTournamentData[] = []
+  if (profile?.tournament_fullname) {
+    tournamentData = await getPlayerTournamentData(profile.tournament_fullname)
+  }
+
   return {
     user,
     profile: profile as Profile | null,
     profileError: profileError?.message ?? null,
+    tournamentData,
     signOutAction: signOut,
   }
 }
-
 
 // Server action to update editable profile fields from the user page
 export async function updateProfile(formData: FormData) {
@@ -55,7 +63,6 @@ export async function updateProfile(formData: FormData) {
   const user = data.user
 
   if (!user) {
-    // If there's no logged-in user, send them to login
     redirect('/login')
   }
 
@@ -68,11 +75,8 @@ export async function updateProfile(formData: FormData) {
     .eq('id', user.id)
 
   if (error) {
-    // Redirect back to /user with an error message (simple approach)
     redirect(`/user?message=${encodeURIComponent(error.message)}`)
   }
 
-  // After successful update, redirect back to the profile page to refresh
   redirect('/user')
 }
-

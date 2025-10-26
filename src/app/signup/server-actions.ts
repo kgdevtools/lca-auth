@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/utils/supabase/server'
+import { createClientForServerAction } from '@/utils/supabase/server'
 import { redirect } from "next/navigation"
 import { headers } from 'next/headers'
 import { cookies } from 'next/headers'
@@ -14,7 +14,7 @@ export async function signUpWithGoogle(formData: FormData) {
     redirect('/signup?message=Tournament Full Name is required')
   }
 
-  const supabase = await createClient()
+  const supabase = await createClientForServerAction()
   const origin = (await headers()).get('origin')
   
   // Store signup data in cookies temporarily to be used in callback

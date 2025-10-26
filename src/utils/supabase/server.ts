@@ -21,6 +21,10 @@ export async function createClient() {
             // This is fine when called from a Server Component
             // The middleware will handle session refresh
             // But we should not swallow errors in Server Actions
+            // Log the error so we can see cookie write failures during debugging
+            // (do not rethrow to avoid breaking Server Components)
+            // eslint-disable-next-line no-console
+            console.error('cookie setAll error (server):', error)
           }
         },
       },

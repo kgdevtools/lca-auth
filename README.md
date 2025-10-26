@@ -1,1 +1,1 @@
-LCA Front End
+Limpopo Chess Academy Front End
