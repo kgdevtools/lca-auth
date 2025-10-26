@@ -141,16 +141,17 @@ export default function RankingsPage() {
             <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} />
           </div>
 
-          <RankingsTable
+          {/* <RankingsTable
             data={data}
             loading={loading}
             onSelectPlayer={(p) => {
               setSelected(p)
               setOpen(true)
             }}
-          />
+          /> */}
+          <div>Under Maintainance. U+1F527</div>
 
-          <PerformanceDetailsModal player={selected} open={open} onClose={() => setOpen(false)} />
+          {/* <PerformanceDetailsModal player={selected} open={open} onClose={() => setOpen(false)} /> */}
         </div>
       </div>
     </div>
