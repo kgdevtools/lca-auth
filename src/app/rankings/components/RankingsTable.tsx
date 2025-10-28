@@ -95,6 +95,23 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
                 const sex = String(player.sex ?? '').toUpperCase();
                 const displaySex = sex.startsWith('M') ? 'M' : sex.startsWith('F') ? 'F' : '-';
                 
+                // Calculate average performance rating only from played tournaments
+                const playedTournaments = player.tournaments.filter(tournament => {
+                  const tieBreaks = tournament.tie_breaks || {}
+                  const hasValidTieBreaks = Object.values(tieBreaks).some(value => 
+                    value !== null && value !== undefined && value !== "" && value !== 0
+                  )
+                  return hasValidTieBreaks && tournament.performance_rating
+                })
+                
+                const validPerformanceRatings = playedTournaments
+                  .map(t => t.performance_rating)
+                  .filter((rating): rating is number => rating !== null && rating !== undefined)
+                
+                const avgPerformanceRating = validPerformanceRatings.length > 0 
+                  ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
+                  : null
+
                 return (
                   <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
                     <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
@@ -124,7 +141,7 @@ export function RankingsTable({ data, loading = false, onSelectPlayer }: Ranking
                       {player.rating ?? "-"}
                     </TableCell>
                     <TableCell className="text-sm font-semibold text-left text-foreground pl-0">
-                      {player.avg_performance_rating ? Number(player.avg_performance_rating).toFixed(1) : "-"}
+                      {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
                     </TableCell>
                   </TableRow>
                 )

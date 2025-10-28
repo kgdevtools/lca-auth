@@ -20,15 +20,40 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
   // Always display TB1-TB6 columns
   const allTieBreakColumns = ['TB1', 'TB2', 'TB3', 'TB4', 'TB5', 'TB6']
 
+  // Calculate tournaments actually played (excluding those where all TB values are 0 or null)
+  const playedTournaments = player.tournaments.filter(tournament => {
+    const tieBreaks = tournament.tie_breaks || {}
+    const hasValidTieBreaks = Object.values(tieBreaks).some(value => 
+      value !== null && value !== undefined && value !== "" && value !== 0
+    )
+    return hasValidTieBreaks
+  })
+
+  const tournamentsPlayedCount = playedTournaments.length
+
+  // Calculate average performance rating only from played tournaments
+  const validPerformanceRatings = playedTournaments
+    .map(t => t.performance_rating)
+    .filter((rating): rating is number => rating !== null && rating !== undefined)
+  
+  const avgPerformanceRating = validPerformanceRatings.length > 0 
+    ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
+    : null
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent size="wide" className="border-2 border-border bg-card text-card-foreground flex flex-col rounded-md">
         <DialogHeader className="flex-shrink-0 pb-3 px-2 sm:px-4">
           <DialogTitle className="text-xl sm:text-2xl font-bold flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
             <span className="text-foreground truncate">{player.display_name}</span>
-            <span className="text-base sm:text-lg font-semibold text-muted-foreground whitespace-nowrap">
-              Avg Performance: {player.avg_performance_rating ?? "-"}
-            </span>
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
+              <span className="text-base sm:text-lg font-semibold text-muted-foreground whitespace-nowrap">
+                Tournaments Played: {tournamentsPlayedCount}
+              </span>
+              <span className="text-base sm:text-lg font-semibold text-muted-foreground whitespace-nowrap">
+                Avg Performance: {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
+              </span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -60,38 +85,48 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {player.tournaments.map((t, idx) => (
-                  <TableRow key={`${t.tournament_id}-${idx}`} className="hover:bg-muted/30">
-                    <TableCell className="text-sm font-medium text-foreground min-w-[260px] w-[260px] break-words leading-tight py-3">
-                      {t.tournament_name}
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground w-[80px]">
-                      {t.player_rating ?? "-"}
-                    </TableCell>
-                    {allTieBreakColumns.map((tbKey) => {
-                      const value = t.tie_breaks?.[tbKey]
-                      const hasValue = value !== undefined && value !== null && value !== ""
-                      return (
-                        <TableCell 
-                          key={tbKey} 
-                          className={`text-sm text-center w-[70px] ${
-                            hasValue 
-                              ? "text-foreground font-medium" 
-                              : "text-muted-foreground/40 italic"
-                          }`}
-                        >
-                          {hasValue ? value : "-"}
-                        </TableCell>
-                      )
-                    })}
-                    <TableCell className="text-sm font-semibold text-center text-foreground w-[100px]">
-                      {t.performance_rating ?? "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
-                      {t.confidence ?? "-"}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {player.tournaments.map((t, idx) => {
+                  const tieBreaks = t.tie_breaks || {}
+                  const hasValidTieBreaks = Object.values(tieBreaks).some(value => 
+                    value !== null && value !== undefined && value !== "" && value !== 0
+                  )
+                  
+                  return (
+                    <TableRow key={`${t.tournament_id}-${idx}`} className={`hover:bg-muted/30 ${!hasValidTieBreaks ? 'opacity-50' : ''}`}>
+                      <TableCell className="text-sm font-medium text-foreground min-w-[260px] w-[260px] break-words leading-tight py-3">
+                        {t.tournament_name}
+                        {!hasValidTieBreaks && (
+                          <span className="text-xs text-muted-foreground ml-2">(Registered)</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground w-[80px]">
+                        {t.player_rating ?? "-"}
+                      </TableCell>
+                      {allTieBreakColumns.map((tbKey) => {
+                        const value = t.tie_breaks?.[tbKey]
+                        const hasValue = value !== undefined && value !== null && value !== ""
+                        return (
+                          <TableCell 
+                            key={tbKey} 
+                            className={`text-sm text-center w-[70px] ${
+                              hasValue 
+                                ? "text-foreground font-medium" 
+                                : "text-muted-foreground/40 italic"
+                            }`}
+                          >
+                            {hasValue ? value : "-"}
+                          </TableCell>
+                        )
+                      })}
+                      <TableCell className="text-sm font-semibold text-center text-foreground w-[100px]">
+                        {t.performance_rating ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
+                        {t.confidence ?? "-"}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

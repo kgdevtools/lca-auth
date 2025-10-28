@@ -4,6 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { getRankings, type PlayerRanking, type RankingFilters } from "./server-actions"
 import { SearchFilters } from "./components/SearchFilters"
+import { RankingsTable } from "./components/RankingsTable"
+import { PerformanceDetailsModal } from "./components/PerformanceDetailsModal"
 
 export default function RankingsPage() {
   const [allData, setAllData] = React.useState<Array<PlayerRanking>>([])
@@ -160,15 +162,15 @@ export default function RankingsPage() {
             <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} />
           </div>
 
-          {/* <RankingsTable
+          <RankingsTable
             data={data}
             loading={loading}
             onSelectPlayer={(p) => {
               setSelected(p)
               setOpen(true)
             }}
-          /> */}
-          <div className="flex flex-col items-center justify-center py-24 px-4">
+          />
+          {/* <div className="flex flex-col items-center justify-center py-24 px-4">
             <div className="text-center space-y-6 max-w-2xl">
               <div className="text-8xl sm:text-9xl mb-8" role="img" aria-label="hammer">
                 🔨
@@ -180,9 +182,9 @@ export default function RankingsPage() {
                 We're currently updating the rankings system. Please check back soon.
               </p>
             </div>
-          </div>
+          </div> */}
 
-          {/* <PerformanceDetailsModal player={selected} open={open} onClose={() => setOpen(false)} /> */}
+          <PerformanceDetailsModal player={selected} open={open} onClose={() => setOpen(false)} />
         </div>
       </div>
     </div>
