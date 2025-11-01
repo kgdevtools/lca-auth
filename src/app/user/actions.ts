@@ -3,7 +3,7 @@
 import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 import { User } from "@supabase/supabase-js"
-import { getPlayerTournamentData, PlayerTournamentData } from './tournament-actions'
+import { getActivePlayerData, getPlayerStatistics, findPlayerMatches, ActivePlayerData, MatchResult } from './tournament-actions'
 
 export interface Profile {
   id: string
@@ -19,7 +19,9 @@ export interface ProfilePageData {
   user: User
   profile: Profile | null
   profileError: string | null
-  tournamentData: PlayerTournamentData[]
+  activePlayerData: ActivePlayerData[]
+  playerStats: Awaited<ReturnType<typeof getPlayerStatistics>>
+  matchResult: MatchResult
   signOutAction: () => Promise<void>
 }
 
@@ -38,23 +40,30 @@ export async function fetchProfilePageData(user: User): Promise<ProfilePageData>
     .eq('id', user.id)
     .single()
 
-  // Fetch tournament data if tournament_fullname exists
-  let tournamentData: PlayerTournamentData[] = []
+  // Fetch active player data if tournament_fullname exists
+  let activePlayerData: ActivePlayerData[] = []
+  let playerStats = null
+  let matchResult: MatchResult = { exactMatch: null, closeMatches: [] }
+
   if (profile?.tournament_fullname) {
-    tournamentData = await getPlayerTournamentData(profile.tournament_fullname)
+    activePlayerData = await getActivePlayerData(profile.tournament_fullname)
+    playerStats = await getPlayerStatistics(profile.tournament_fullname)
+    matchResult = await findPlayerMatches(profile.tournament_fullname)
   }
 
   return {
     user,
     profile: profile as Profile | null,
     profileError: profileError?.message ?? null,
-    tournamentData,
+    activePlayerData,
+    playerStats,
+    matchResult,
     signOutAction: signOut,
   }
 }
 
 // Server action to update editable profile fields from the user page
-export async function updateProfile(formData: FormData) {
+export async function updateProfile(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const tournamentFullName = (formData.get('tournament_fullname') as string) || null
   const chessaId = (formData.get('chessa_id') as string) || null
 
@@ -75,8 +84,10 @@ export async function updateProfile(formData: FormData) {
     .eq('id', user.id)
 
   if (error) {
-    redirect(`/user?message=${encodeURIComponent(error.message)}`)
+    console.error('Error updating profile:', error)
+    return { success: false, error: error.message }
   }
 
-  redirect('/user')
+  // Return success - let client handle the UI update
+  return { success: true }
 }
