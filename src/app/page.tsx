@@ -16,7 +16,7 @@ export default function Home() {
       {/* Top hero: left logos, right copy */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 lg:gap-10 items-center">
         {/* Logos - responsive, swap for theme */}
-        <div className="w-full md:col-span-2 bg-white dark:bg-black">
+        <div className="w-full md:col-span-2 bg-white dark:bg-slate-950">
           <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[5/3] lg:aspect-[3/1] md:min-h-[220px] lg:min-h-[260px] xl:min-h-[300px]">
             <Image
               src="/Picture1.png"
@@ -27,7 +27,7 @@ export default function Home() {
               className="object-contain block dark:hidden"
             />
             <Image
-              src="/LCA_Logo_Dark.png"
+              src="/lca-cyan-dark-bg-updated.png"
               alt="Limpopo Chess Academy logo (dark)"
               fill
               priority

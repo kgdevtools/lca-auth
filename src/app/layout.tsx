@@ -91,7 +91,7 @@ export default async function RootLayout({
                     sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
                   <Image
-                    src="/LCA_Logo_Dark.png"
+                    src="/lca-cyan-dark-bg-updated.png"
                     alt="Limpopo Chess Academy"
                     fill
                     priority
