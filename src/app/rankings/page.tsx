@@ -134,7 +134,28 @@ export default function RankingsPage() {
       })
     }
 
-    rows.sort((a, b) => (b.avg_performance_rating ?? 0) - (a.avg_performance_rating ?? 0))
+    // Sort by APR using same calculation as table display (only played tournaments with valid tie breaks)
+    rows.sort((a, b) => {
+      const getDisplayAPR = (player: PlayerRanking) => {
+        const playedTournaments = player.tournaments.filter(tournament => {
+          const tieBreaks = tournament.tie_breaks || {}
+          const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
+            value !== null && value !== undefined && value !== "" && value !== 0
+          )
+          return hasValidTieBreaks && tournament.performance_rating
+        })
+
+        const validPerformanceRatings = playedTournaments
+          .map(t => t.performance_rating)
+          .filter((rating): rating is number => rating !== null && rating !== undefined)
+
+        return validPerformanceRatings.length > 0
+          ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
+          : 0
+      }
+
+      return getDisplayAPR(b) - getDisplayAPR(a)
+    })
     setData(rows)
   }, [filters, allData])
 

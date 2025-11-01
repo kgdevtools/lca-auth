@@ -335,10 +335,26 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     });
   }
 
-  // Sort by average TP (APR) descending
-  const sorted = players.sort(
-    (a, b) => (b.avg_performance_rating ?? 0) - (a.avg_performance_rating ?? 0)
-  );
+  // Sort by average TP (APR) descending using same calculation as table display
+  const getDisplayAPR = (player: PlayerRanking): number => {
+    const playedTournaments = player.tournaments.filter(tournament => {
+      const tieBreaks = tournament.tie_breaks || {}
+      const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
+        value !== null && value !== undefined && value !== "" && value !== 0
+      )
+      return hasValidTieBreaks && tournament.performance_rating
+    })
+
+    const validPerformanceRatings = playedTournaments
+      .map(t => t.performance_rating)
+      .filter((rating): rating is number => rating !== null && rating !== undefined)
+
+    return validPerformanceRatings.length > 0
+      ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
+      : 0
+  }
+
+  const sorted = players.sort((a, b) => getDisplayAPR(b) - getDisplayAPR(a));
 
   return sorted;
 }
