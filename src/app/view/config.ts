@@ -9,6 +9,10 @@ export const TOURNAMENTS = [
       name: 'LCA Launch Open 2025 Juniors',
     },
     {
+      id: 'cdc_tournament_3_2025',
+      name: 'CDC Tournament 3 2025',
+    },
+    {
       // CORRECTED: Database table names typically use underscores, not dashes.
       // This is the most likely cause of the "no games" issue for this tournament.
       id: 'cdc_jq_tournament_7_2025_u20_games',
