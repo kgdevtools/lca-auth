@@ -10,7 +10,7 @@ export const TOURNAMENTS = [
     },
     {
       id: 'cdc_tournament_3_2025_games',
-      name: 'CDC Tournament 3 2025',
+      name: 'CDC Tournament 3 2025 Games',
     },
     {
       // CORRECTED: Database table names typically use underscores, not dashes.
