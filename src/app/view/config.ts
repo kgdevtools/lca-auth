@@ -9,7 +9,7 @@ export const TOURNAMENTS = [
       name: 'LCA Launch Open 2025 Juniors',
     },
     {
-      id: 'cdc_tournament_3_2025',
+      id: 'cdc_tournament_3_2025_games',
       name: 'CDC Tournament 3 2025',
     },
     {
