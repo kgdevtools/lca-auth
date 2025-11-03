@@ -6,7 +6,7 @@
     "dev-mobile": "next dev -H 0.0.0.0",
     "dev": "next dev -p 8008",
     "build": "next build",
-    "start": "next start -H 127.0.0.1",
+    "start": "next start -p 8008",
     "lint": "next lint"
   },
   "dependencies": {

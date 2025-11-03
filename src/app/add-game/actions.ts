@@ -200,6 +200,45 @@ export async function fetchGames(tableName: TournamentId): Promise<{ games: Game
 }
 
 /**
+ * Updates an existing game in a specific tournament table.
+ */
+export async function editGame(
+  gameId: string,
+  tableName: TournamentId,
+  title: string,
+  pgn: string
+): Promise<{ success: boolean; error: string | null }> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Authentication required to edit a game.' };
+  }
+
+  if (!title.trim()) {
+    return { success: false, error: 'Title is required.' };
+  }
+
+  if (!pgn.trim()) {
+    return { success: false, error: 'PGN data is required.' };
+  }
+
+  // Update the game
+  const { error } = await supabase
+    .from(tableName)
+    .update({ title, pgn })
+    .eq('id', gameId);
+
+  if (error) {
+    console.error(`Error updating game in ${tableName}:`, error.message);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/add-game');
+  return { success: true, error: null };
+}
+
+/**
  * Deletes a game from a specific tournament table.
  */
 export async function deleteGame(id: string, tableName: TournamentId): Promise<{ success: boolean; error: string | null }> {
@@ -218,6 +257,55 @@ export async function deleteGame(id: string, tableName: TournamentId): Promise<{
 
   revalidatePath('/add-game');
   return { success: true, error: null };
+}
+
+/**
+ * Edits a tournament: renames the table and updates the entry in tournaments_meta.
+ * Uses RPC to safely execute ALTER TABLE and UPDATE operations.
+ */
+export async function editTournament(oldTableName: string, newDisplayName: string): Promise<{ success: boolean; newTableName?: string; error: string | null }> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Authentication required to edit a tournament.' };
+  }
+
+  const trimmedName = (newDisplayName || '').trim();
+  if (!trimmedName) {
+    return { success: false, error: 'Tournament name is required.' };
+  }
+
+  // Validate old table name
+  const tableNameRegex = /^[a-z0-9_]+$/;
+  if (!oldTableName || !tableNameRegex.test(oldTableName)) {
+    return { success: false, error: 'Invalid tournament table name.' };
+  }
+
+  // Normalize the new name
+  const newTableName = normalizeTournamentId(trimmedName);
+  if (!tableNameRegex.test(newTableName)) {
+    return { success: false, error: 'The generated tournament ID is invalid. Please use a simpler name.' };
+  }
+
+  // Check if trying to rename to the same name
+  if (oldTableName === newTableName) {
+    return { success: true, newTableName: oldTableName, error: null };
+  }
+
+  // Call RPC to rename the table and update tournaments_meta
+  const { error } = await supabase.rpc('rename_tournament', {
+    old_table_name: oldTableName,
+    new_table_name: newTableName
+  });
+
+  if (error) {
+    console.error('RPC rename_tournament error:', error.message);
+    return { success: false, error: `Failed to edit tournament: ${error.message}` };
+  }
+
+  revalidatePath('/add-game');
+  return { success: true, newTableName, error: null };
 }
 
 /**

@@ -11,9 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import {
   ChevronDown, ChevronUp, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Upload,
-  Plus, RefreshCcw, Undo2, FileSymlink, MousePointer, Loader2, Trash2
+  Plus, RefreshCcw, Undo2, FileSymlink, MousePointer, Loader2, Trash2, Pencil
 } from "lucide-react"
-import { fetchGames, addGameToDB, createTournament, listTournaments, deleteTournament, type GameData, type TournamentMeta } from "./actions"
+import { fetchGames, addGameToDB, editGame, createTournament, listTournaments, deleteTournament, editTournament, type GameData, type TournamentMeta } from "./actions"
 import type { TournamentId } from "./config"
 
 // --- TYPE DEFINITIONS ---
@@ -98,6 +98,28 @@ function normalizeTournamentId(input: string): string {
   if (id.length > 63) id = id.slice(0, 63);
   return id;
 }
+
+/**
+ * Helper function to convert table name to display name
+ * e.g., "cdc_tournament_3_2025_games" -> "CDC Tournament 3 2025"
+ */
+function tableNameToDisplayName(tableName: string): string {
+  if (!tableName) return '';
+
+  // Remove '_games' suffix
+  let displayName = tableName.replace(/_games$/, '');
+
+  // Replace underscores with spaces
+  displayName = displayName.replace(/_/g, ' ');
+
+  // Capitalize each word
+  displayName = displayName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  return displayName;
+}
 function useGameForm() {
   const [formState, setFormState] = useState({
     title: "",
@@ -141,6 +163,8 @@ export default function GameViewerPage() {
   const [optionSquares, setOptionSquares] = useState<Record<string, React.CSSProperties>>({});
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditingGame, setIsEditingGame] = useState(false);
+  const [gameBeingEdited, setGameBeingEdited] = useState<string | null>(null);
   const { formState, updateField, setFormState } = useGameForm();
   const { title, pgnText, event, date, white, black, result, whiteElo, blackElo, timeControl, opening } = formState;
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -168,6 +192,14 @@ export default function GameViewerPage() {
     () => !!newTournamentName.trim() && /^[a-z0-9_]+$/.test(newIdPreview.replace(/_games$/, '')) && !idConflicts,
     [newTournamentName, newIdPreview, idConflicts]
   );
+
+  // Edit Tournament modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [tournamentToEdit, setTournamentToEdit] = useState<string | null>(null);
+  const [editTournamentName, setEditTournamentName] = useState('');
+  const [isEditingTournament, setIsEditingTournament] = useState(false);
+  const [editTournamentError, setEditTournamentError] = useState<string | null>(null);
+  const editIdPreview = useMemo(() => tournamentToEdit && editTournamentName ? normalizeTournamentId(editTournamentName) : '', [editTournamentName, tournamentToEdit]);
 
   // Delete Tournament modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -237,16 +269,30 @@ export default function GameViewerPage() {
     } catch (error) { console.error("Failed to load PGN:", error); setViewerHistory({ moves: [], fenHistory: [] }); setViewerGameHeaders({}); }
   }, [currentPgn, isInteractive]);
 
+  // Auto-populate Event Name when tournament changes
+  useEffect(() => {
+    if (selectedTableName && !hasManuallyEditedFields) {
+      const displayName = tableNameToDisplayName(selectedTableName);
+      updateField('event', displayName);
+    }
+  }, [selectedTableName, hasManuallyEditedFields, updateField]);
+
   // Live preview of PGN typed in form
   useEffect(() => {
     if (!pgnText.trim() || isInteractive) { setPreviewMode(false); setPreviewPgn(""); return; }
     const validation = validatePgn(pgnText); if (!validation.valid) { setPreviewMode(false); setPreviewPgn(""); return; }
     try {
-      const headers = parsePgnHeaders(pgnText); if (!hasManuallyEditedTitle) updateField('title', generateTitleFromPgn(headers));
-      if (!hasManuallyEditedFields) { setFormState(prev => ({ ...prev, event: headers.Event || "", date: headers.Date || headers.UTCDate || "", white: headers.White || "", black: headers.Black || "", result: headers.Result || "", whiteElo: headers.WhiteElo || "", blackElo: headers.BlackElo || "", timeControl: headers.TimeControl || "", opening: headers.Opening || "" })); }
+      const headers = parsePgnHeaders(pgnText);
+      // Only auto-update title if not manually edited and not in edit mode
+      if (!hasManuallyEditedTitle && !isEditingGame) updateField('title', generateTitleFromPgn(headers));
+      // Only auto-fill fields if not manually edited and not in edit mode
+      if (!hasManuallyEditedFields && !isEditingGame) {
+        const autoEventName = selectedTableName ? tableNameToDisplayName(selectedTableName) : (headers.Event || "");
+        setFormState(prev => ({ ...prev, event: autoEventName, date: headers.Date || headers.UTCDate || "", white: headers.White || "", black: headers.Black || "", result: headers.Result || "", whiteElo: headers.WhiteElo || "", blackElo: headers.BlackElo || "", timeControl: headers.TimeControl || "", opening: headers.Opening || "" }));
+      }
       setPreviewMode(true); setPreviewPgn(pgnText); setShowValidation(true);
     } catch (error) { console.error("Failed to parse PGN:", error); setPreviewMode(false); setPreviewPgn(""); }
-  }, [pgnText, hasManuallyEditedTitle, hasManuallyEditedFields, updateField, setFormState, isInteractive]);
+  }, [pgnText, hasManuallyEditedTitle, hasManuallyEditedFields, updateField, setFormState, isInteractive, selectedTableName, isEditingGame]);
 
   // --- INTERACTIVE MODE HANDLERS ---
   const updateInteractiveGameState = useCallback(() => {
@@ -308,6 +354,40 @@ export default function GameViewerPage() {
     }
   };
   const handleGameSelect = useCallback((index: number) => { setCurrentGameIndex(index); setPreviewMode(false); setPreviewPgn(""); }, []);
+
+  const handleEditGame = useCallback((index: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const game = games[index];
+    if (!game) return;
+
+    // Parse PGN to extract headers
+    const headers = parsePgnHeaders(game.pgn);
+
+    // Pre-fill the form with game data
+    setFormState({
+      title: game.title,
+      pgnText: game.pgn,
+      event: headers.Event || '',
+      date: headers.Date || headers.UTCDate || '',
+      white: headers.White || '',
+      black: headers.Black || '',
+      result: headers.Result || '',
+      whiteElo: headers.WhiteElo || '',
+      blackElo: headers.BlackElo || '',
+      timeControl: headers.TimeControl || '',
+      opening: headers.Opening || '',
+    });
+
+    // Set editing mode
+    setIsEditingGame(true);
+    setGameBeingEdited(game.id);
+    setIsFormOpen(true);
+    setHasManuallyEditedTitle(true); // Prevent auto-override
+    setHasManuallyEditedFields(true); // Prevent auto-override
+    setCurrentGameIndex(index);
+  }, [games, setFormState]);
   const navigateToViewerMove = useCallback((index: number) => { setCurrentMoveIndex(Math.max(-1, Math.min(index, viewerHistory.moves.length - 1))) }, [viewerHistory.moves.length]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,15 +425,31 @@ export default function GameViewerPage() {
     const validation = validatePgn(finalPgn);
     if (!validation.valid) { setFormMessage({ text: `Invalid PGN: ${validation.error}`, error: true }); return; }
     setIsSubmitting(true); setFormMessage(null);
-    const formData = new FormData(e.currentTarget);
-    formData.append("pgn", finalPgn);
-    formData.append("tableName", (selectedTableName || '') as TournamentId); // IMPORTANT: actual table name
-    const apiResult = await addGameToDB({ message: "", error: false }, formData);
-    setIsSubmitting(false); setFormMessage({ text: apiResult.message, error: apiResult.error });
-    if (!apiResult.error) {
+
+    let apiResult;
+    if (isEditingGame && gameBeingEdited && selectedTableName) {
+      // Edit existing game
+      apiResult = await editGame(gameBeingEdited, selectedTableName as TournamentId, title, finalPgn);
+      setIsSubmitting(false);
+      setFormMessage({ text: apiResult.success ? 'Game updated successfully!' : (apiResult.error || 'Failed to update game'), error: !apiResult.success });
+    } else {
+      // Add new game
+      const formData = new FormData(e.currentTarget);
+      formData.append("pgn", finalPgn);
+      formData.append("tableName", (selectedTableName || '') as TournamentId);
+      const addResult = await addGameToDB({ message: "", error: false }, formData);
+      setIsSubmitting(false);
+      apiResult = { success: !addResult.error, error: addResult.error ? addResult.message : null };
+      setFormMessage({ text: addResult.message, error: addResult.error });
+    }
+
+    if (apiResult.success) {
+      // Reset form
       setFormState({ title: "", pgnText: "", event: "", date: "", white: "", black: "", result: "", whiteElo: "", blackElo: "", timeControl: "", opening: "" });
       setSelectedFile(null); setTitleTouched(false); setShowValidation(false); setHasManuallyEditedTitle(false); setHasManuallyEditedFields(false);
       setPreviewMode(false); setPreviewPgn(""); setIsFormOpen(false);
+      setIsEditingGame(false); setGameBeingEdited(null);
+      // Refresh games list
       if (selectedTableName) {
         const { games: refreshedGames } = await fetchGames(selectedTableName as TournamentId);
         setGames(refreshedGames); setCurrentGameIndex(refreshedGames.length > 0 ? 0 : -1);
@@ -388,6 +484,46 @@ export default function GameViewerPage() {
     setDynamicTournaments(prev => [{ id: createdTableName, name: createdTableName }, ...prev]);
     setSelectedTableName(createdTableName as TournamentId);
     setIsAddModalOpen(false);
+  };
+
+  // Edit tournament handlers
+  const openEditTournament = (tableName: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTournamentToEdit(tableName);
+    setEditTournamentName(tableNameToDisplayName(tableName));
+    setEditTournamentError(null);
+    setIsEditModalOpen(true);
+  };
+
+  const submitEditTournament = async () => {
+    if (!tournamentToEdit || !editTournamentName.trim()) return;
+
+    setIsEditingTournament(true);
+    setEditTournamentError(null);
+
+    const res = await editTournament(tournamentToEdit, editTournamentName);
+    setIsEditingTournament(false);
+
+    if (!res.success) {
+      setEditTournamentError(res.error || 'Failed to edit tournament.');
+      return;
+    }
+
+    // Update tournament in list
+    const newTableName = res.newTableName || tournamentToEdit;
+    setDynamicTournaments(prev =>
+      prev.map(t => t.name === tournamentToEdit ? { ...t, name: newTableName } : t)
+    );
+
+    // If the edited tournament was selected, update the selection
+    if (selectedTableName === tournamentToEdit) {
+      setSelectedTableName(newTableName as TournamentId);
+    }
+
+    setIsEditModalOpen(false);
+    setTournamentToEdit(null);
+    setEditTournamentName('');
   };
 
   // Delete tournament handlers
@@ -457,6 +593,7 @@ export default function GameViewerPage() {
               isSubmitting={isSubmitting}
               formMessage={formMessage}
               isTitleInvalid={isTitleInvalid}
+              isEditingGame={isEditingGame}
               event={event}
               date={date}
               white={white}
@@ -485,7 +622,7 @@ export default function GameViewerPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-2">
-            {!isInteractive && <GameInfo headers={viewerGameHeaders} previewMode={previewMode} previewData={{ white, black, event, result }} />}
+            {!isInteractive && <GameInfo headers={viewerGameHeaders} previewMode={previewMode || isEditingGame} previewData={{ white, black, event, result }} />}
             <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
                 <div>
                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -525,14 +662,24 @@ export default function GameViewerPage() {
                               <span className="w-5 text-right flex-shrink-0">{i + 1}.</span>
                               <span className="truncate">{t.name}</span>
                             </div>
-                            <button
-                              onClick={(e) => openDeleteTournament(t.name, e)}
-                              className="flex-shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                              title="Delete tournament"
-                              aria-label={`Delete ${t.name}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                              <button
+                                onClick={(e) => openEditTournament(t.name, e)}
+                                className="flex-shrink-0 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                title="Edit tournament"
+                                aria-label={`Edit ${t.name}`}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => openDeleteTournament(t.name, e)}
+                                className="flex-shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                title="Delete tournament"
+                                aria-label={`Delete ${t.name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
@@ -554,8 +701,16 @@ export default function GameViewerPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
                             {games.map((g, i) => (
-                              <DropdownMenuItem key={g.id} className="flex justify-between items-center cursor-pointer" onSelect={() => handleGameSelect(i)}>
-                                <span className="truncate">{i + 1}. {g.title}</span>
+                              <DropdownMenuItem key={g.id} className="flex justify-between items-center cursor-pointer group" onSelect={() => handleGameSelect(i)}>
+                                <span className="truncate flex-1">{i + 1}. {g.title}</span>
+                                <button
+                                  onClick={(e) => handleEditGame(i, e)}
+                                  className="flex-shrink-0 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                                  title="Edit game"
+                                  aria-label={`Edit ${g.title}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
                               </DropdownMenuItem>
                             ))}
                         </DropdownMenuContent>
@@ -601,6 +756,49 @@ export default function GameViewerPage() {
                 </Button>
                 <Button onClick={submitNewTournament} disabled={!isNameValid || isCreatingTournament}>
                   {isCreatingTournament ? (<span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creating...</span>) : 'Create'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Tournament Modal */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isEditingTournament && setIsEditModalOpen(false)} />
+            <div className="relative z-[101] w-full max-w-md mx-auto bg-card border border-border rounded-lg shadow-2xl p-5">
+              <h3 className="text-lg font-semibold mb-3">Edit Tournament</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tournament Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-[2px]"
+                    placeholder="e.g., CDC Tournament 8 2025"
+                    value={editTournamentName}
+                    onChange={(e) => setEditTournamentName(e.target.value)}
+                    disabled={isEditingTournament}
+                    autoFocus
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Current: <span className="font-mono text-foreground">{tournamentToEdit || '...'}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  New table ID: <span className="font-mono text-foreground">{editIdPreview || '...'}</span>
+                </div>
+                {editTournamentError && (
+                  <div className="text-sm p-2 rounded border border-destructive bg-destructive/10 text-destructive">
+                    {editTournamentError}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isEditingTournament}>
+                  Cancel
+                </Button>
+                <Button onClick={submitEditTournament} disabled={!editTournamentName.trim() || isEditingTournament}>
+                  {isEditingTournament ? (<span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving...</span>) : 'Save Changes'}
                 </Button>
               </div>
             </div>
@@ -794,7 +992,10 @@ const AddGameForm = React.memo((props: any) => {
       )}
 
       <Button type="submit" disabled={props.isSubmitting} className="w-full">
-        {props.isSubmitting ? "Adding Game..." : "Add Game"}
+        {props.isSubmitting
+          ? (props.isEditingGame ? "Updating Game..." : "Adding Game...")
+          : (props.isEditingGame ? "Update Game" : "Add Game")
+        }
       </Button>
     </form>
   )
