@@ -4,7 +4,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { TOURNAMENTS, type TournamentId } from './config'
+import { STATIC_TOURNAMENTS, type TournamentId } from './config'
 
 // Define the type for our game data
 export interface GameData {
@@ -14,12 +14,50 @@ export interface GameData {
   pgn: string;
 }
 
+// Define the type for tournament metadata
+export interface TournamentMeta {
+  id: string;   // UUID in tournaments_meta
+  name: string; // Table name for the tournament
+}
+
+// Function to fetch tournaments from tournaments_meta table
+export async function listTournaments(): Promise<{ tournaments: TournamentMeta[], error: string | null }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('tournaments_meta')
+    .select('id, name')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error loading tournaments_meta:', error.message)
+    // Return static tournaments as fallback
+    return {
+      tournaments: STATIC_TOURNAMENTS.map(t => ({ id: t.id, name: t.name })),
+      error: null
+    }
+  }
+
+  // Merge dynamic tournaments with static ones (deduplicate by name)
+  const dynamicTournaments = (data || []) as TournamentMeta[]
+  const allTournaments = [...dynamicTournaments]
+
+  // Add static tournaments that aren't already in the dynamic list
+  STATIC_TOURNAMENTS.forEach(staticT => {
+    if (!allTournaments.some(t => t.name === staticT.id)) {
+      allTournaments.push({ id: staticT.id, name: staticT.id })
+    }
+  })
+
+  return { tournaments: allTournaments, error: null }
+}
+
 // Function to fetch all games from a specific tournament table
 export async function fetchGames(tableName: TournamentId): Promise<{ games: GameData[], error: string | null }> {
-  // Validate tableName against the allowlist
-  const isValidTable = TOURNAMENTS.some(t => t.id === tableName);
-  if (!isValidTable) {
-    return { games: [], error: 'Invalid tournament specified.' };
+  // Basic validation: ensure tableName is safe (alphanumeric and underscores only)
+  const tableNameRegex = /^[a-z0-9_]+$/;
+  if (!tableName || !tableNameRegex.test(tableName)) {
+    return { games: [], error: 'Invalid tournament table name.' };
   }
 
   const supabase = await createClient()
@@ -53,9 +91,10 @@ export async function fetchGames(tableName: TournamentId): Promise<{ games: Game
 
 // Function to delete a game from a specific tournament table
 export async function deleteGame(gameId: number, tableName: TournamentId): Promise<{ success: boolean, error: string | null }> {
-  const isValidTable = TOURNAMENTS.some(t => t.id === tableName);
-  if (!isValidTable) {
-    return { success: false, error: 'Invalid tournament specified.' };
+  // Basic validation: ensure tableName is safe (alphanumeric and underscores only)
+  const tableNameRegex = /^[a-z0-9_]+$/;
+  if (!tableName || !tableNameRegex.test(tableName)) {
+    return { success: false, error: 'Invalid tournament table name.' };
   }
 
   const supabase = await createClient()

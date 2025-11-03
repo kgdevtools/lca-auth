@@ -85,17 +85,18 @@ export async function createTournament(
     return { success: false, error: 'Authentication required to create a tournament.' };
   }
 
-  // Validate the preview id
-  const previewId = normalizeTournamentId(displayName);
+  // Validate and normalize the tournament name
+  const normalizedName = normalizeTournamentId(displayName);
   const tableNameRegex = /^[a-z0-9_]+$/;
-  if (!tableNameRegex.test(previewId)) {
+  if (!tableNameRegex.test(normalizedName)) {
     return { success: false, error: 'The generated Tournament ID is invalid. Please use a simpler name.' };
   }
 
   // RPC call to create table + upsert meta
+  // Pass the already-normalized name to ensure consistency
   const { data, error } = await supabase.rpc('create_tournament', {
-    raw_name: displayName,
-    display_name: displayName,
+    raw_name: normalizedName,  // Send normalized name
+    display_name: displayName,  // Keep display name for reference
   });
 
   if (error) {
@@ -213,6 +214,38 @@ export async function deleteGame(id: string, tableName: TournamentId): Promise<{
   if (error) {
     console.error(`Error deleting game from ${tableName}:`, error.message);
     return { success: false, error: error.message };
+  }
+
+  revalidatePath('/add-game');
+  return { success: true, error: null };
+}
+
+/**
+ * Deletes a tournament: drops the table and removes the entry from tournaments_meta.
+ * Uses RPC to safely execute DROP TABLE and DELETE operations.
+ */
+export async function deleteTournament(tableName: string): Promise<{ success: boolean; error: string | null }> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Authentication required to delete a tournament.' };
+  }
+
+  // Validate table name (alphanumeric and underscores only)
+  const tableNameRegex = /^[a-z0-9_]+$/;
+  if (!tableName || !tableNameRegex.test(tableName)) {
+    return { success: false, error: 'Invalid tournament table name.' };
+  }
+
+  // Call RPC to drop the table and delete from tournaments_meta
+  const { error } = await supabase.rpc('delete_tournament', {
+    table_name: tableName
+  });
+
+  if (error) {
+    console.error('RPC delete_tournament error:', error.message);
+    return { success: false, error: `Failed to delete tournament: ${error.message}` };
   }
 
   revalidatePath('/add-game');
