@@ -27,7 +27,7 @@ function LoginContent() {
             sizes="(min-width: 1024px) 32rem, (min-width: 768px) 28rem, 24rem"
           />
           <Image
-            src="/LCA_Logo_Dark.png"
+            src="/lca-cyan-dark-bg-updated.png"
             alt="LCA Logo (dark)"
             fill
             priority

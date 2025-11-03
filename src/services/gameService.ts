@@ -15,7 +15,7 @@ export async function fetchTournamentGames(): Promise<{ games: GameData[], error
   const supabase = await createClient()
 
   const { data, error } = await supabase
-    .from('tournament-games')
+    .from('lca_launch_open_2025_games')
     .select('*')
     .order('created_at', { ascending: false })
 

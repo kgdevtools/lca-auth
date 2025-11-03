@@ -2,10 +2,10 @@
 
 // This is a shared configuration file that can be safely imported by both client and server components.
 
-// Define and export the list of available tournaments
-export const TOURNAMENTS = [
+// Static fallback list of tournaments (used if dynamic fetching fails or as a supplement)
+export const STATIC_TOURNAMENTS = [
     {
-      id: 'tournament-games',
+      id: 'lca_launch_open_2025_games',
       name: 'LCA Launch Open 2025 Juniors',
     },
     {
@@ -19,6 +19,9 @@ export const TOURNAMENTS = [
       name: 'Capricorn District Qualifying 7 u20',
     },
   ] as const;
-  
-  // Create a type for valid tournament IDs from the TOURNAMENTS constant
-  export type TournamentId = typeof TOURNAMENTS[number]['id'];
+
+  // For backwards compatibility
+  export const TOURNAMENTS = STATIC_TOURNAMENTS;
+
+  // Create a type for valid tournament IDs
+  export type TournamentId = string;

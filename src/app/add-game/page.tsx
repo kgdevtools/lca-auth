@@ -11,9 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import {
   ChevronDown, ChevronUp, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Upload,
-  Plus, RefreshCcw, Undo2, FileSymlink, MousePointer, Loader2
+  Plus, RefreshCcw, Undo2, FileSymlink, MousePointer, Loader2, Trash2
 } from "lucide-react"
-import { fetchGames, addGameToDB, createTournament, listTournaments, type GameData, type TournamentMeta } from "./actions"
+import { fetchGames, addGameToDB, createTournament, listTournaments, deleteTournament, type GameData, type TournamentMeta } from "./actions"
 import type { TournamentId } from "./config"
 
 // --- TYPE DEFINITIONS ---
@@ -168,6 +168,12 @@ export default function GameViewerPage() {
     () => !!newTournamentName.trim() && /^[a-z0-9_]+$/.test(newIdPreview.replace(/_games$/, '')) && !idConflicts,
     [newTournamentName, newIdPreview, idConflicts]
   );
+
+  // Delete Tournament modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [tournamentToDelete, setTournamentToDelete] = useState<string | null>(null);
+  const [isDeletingTournament, setIsDeletingTournament] = useState(false);
+  const [deleteTournamentError, setDeleteTournamentError] = useState<string | null>(null);
 
   const isInteractive = useMemo(() => mode === 'interactive', [mode]);
   const currentPgn = useMemo(() => { if (previewMode && previewPgn) return previewPgn; if (currentGameIndex < 0) return ""; return games[currentGameIndex]?.pgn || ""; }, [games, currentGameIndex, previewMode, previewPgn]);
@@ -384,6 +390,42 @@ export default function GameViewerPage() {
     setIsAddModalOpen(false);
   };
 
+  // Delete tournament handlers
+  const openDeleteTournament = (tableName: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTournamentToDelete(tableName);
+    setDeleteTournamentError(null);
+    setIsDeleteModalOpen(true);
+  };
+
+  const submitDeleteTournament = async () => {
+    if (!tournamentToDelete) return;
+
+    setIsDeletingTournament(true);
+    setDeleteTournamentError(null);
+
+    const res = await deleteTournament(tournamentToDelete);
+    setIsDeletingTournament(false);
+
+    if (!res.success) {
+      setDeleteTournamentError(res.error || 'Failed to delete tournament.');
+      return;
+    }
+
+    // Remove tournament from list
+    setDynamicTournaments(prev => prev.filter(t => t.name !== tournamentToDelete));
+
+    // If the deleted tournament was selected, switch to another one
+    if (selectedTableName === tournamentToDelete) {
+      const remaining = dynamicTournaments.filter(t => t.name !== tournamentToDelete);
+      setSelectedTableName(remaining.length > 0 ? remaining[0].name as TournamentId : null);
+    }
+
+    setIsDeleteModalOpen(false);
+    setTournamentToDelete(null);
+  };
+
   const selectedTournamentName = selectedTableName || 'Select Tournament';
   const selectedGameTitle = games[currentGameIndex]?.title || (games.length > 0 ? 'Select a game' : 'No games in tournament');
   const isTitleInvalid = showValidation && !title.trim();
@@ -446,16 +488,17 @@ export default function GameViewerPage() {
             {!isInteractive && <GameInfo headers={viewerGameHeaders} previewMode={previewMode} previewData={{ white, black, event, result }} />}
             <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
                 <div>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-2">
                       <h3 className="text-sm font-medium text-muted-foreground">Select Tournament</h3>
                       <Button
-                        variant="ghost"
+                        variant="outline"
+                        size="sm"
                         onClick={openAddTournament}
-                        className="h-8 w-8 p-0"
-                        title="Add New Tournament"
-                        aria-label="Add New Tournament"
+                        className="gap-1.5 flex-shrink-0"
+                        title="Create New Tournament"
                       >
                         <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">New Tournament</span>
                       </Button>
                     </div>
                     <DropdownMenu>
@@ -476,10 +519,20 @@ export default function GameViewerPage() {
                           <DropdownMenuItem
                             key={t.name}
                             onSelect={() => handleTournamentSelect(t.name as TournamentId)}
-                            className="cursor-pointer flex items-center gap-2"
+                            className="cursor-pointer flex items-center justify-between gap-2 group"
                           >
-                            <span className="w-5 text-right">{i + 1}.</span>
-                            <span className="truncate">{t.name}</span>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="w-5 text-right flex-shrink-0">{i + 1}.</span>
+                              <span className="truncate">{t.name}</span>
+                            </div>
+                            <button
+                              onClick={(e) => openDeleteTournament(t.name, e)}
+                              className="flex-shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete tournament"
+                              aria-label={`Delete ${t.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
@@ -513,9 +566,9 @@ export default function GameViewerPage() {
 
         {/* Add Tournament Modal */}
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setIsAddModalOpen(false)} />
-            <div className="relative z-10 w-full max-w-md mx-auto bg-card border border-border rounded-lg shadow-lg p-5">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)} />
+            <div className="relative z-[101] w-full max-w-md mx-auto bg-card border border-border rounded-lg shadow-2xl p-5">
               <h3 className="text-lg font-semibold mb-3">Create New Tournament</h3>
               <div className="space-y-3">
                 <div>
@@ -548,6 +601,56 @@ export default function GameViewerPage() {
                 </Button>
                 <Button onClick={submitNewTournament} disabled={!isNameValid || isCreatingTournament}>
                   {isCreatingTournament ? (<span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creating...</span>) : 'Create'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Tournament Confirmation Modal */}
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingTournament && setIsDeleteModalOpen(false)} />
+            <div className="relative z-[101] w-full max-w-md mx-auto bg-card border border-border rounded-lg shadow-2xl p-5">
+              <h3 className="text-lg font-semibold mb-3 text-destructive">Delete Tournament</h3>
+              <div className="space-y-3">
+                <p className="text-sm text-foreground">
+                  Are you sure you want to delete the tournament <span className="font-mono font-semibold">{tournamentToDelete}</span>?
+                </p>
+                <div className="text-sm p-3 rounded border border-destructive/50 bg-destructive/10 text-destructive">
+                  <p className="font-semibold mb-1">⚠️ Warning: This action cannot be undone!</p>
+                  <p>This will permanently delete:</p>
+                  <ul className="list-disc list-inside ml-2 mt-1">
+                    <li>The tournament table from the database</li>
+                    <li>All games in this tournament</li>
+                    <li>The tournament metadata</li>
+                  </ul>
+                </div>
+                {deleteTournamentError && (
+                  <div className="text-sm p-2 rounded border border-destructive bg-destructive/10 text-destructive">
+                    {deleteTournamentError}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeletingTournament}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={submitDeleteTournament}
+                  disabled={isDeletingTournament}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeletingTournament ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Deleting...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Trash2 className="w-4 h-4" /> Delete Tournament
+                    </span>
+                  )}
                 </Button>
               </div>
             </div>

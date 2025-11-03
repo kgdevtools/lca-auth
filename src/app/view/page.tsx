@@ -7,8 +7,8 @@ import { Chessboard } from "react-chessboard"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react"
-import { fetchGames, type GameData } from "./actions"
-import { TOURNAMENTS, type TournamentId } from "./config"
+import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "./actions"
+import { type TournamentId } from "./config"
 
 type UiMove = Move & { moveNumber: number }
 interface GameHistory { moves: UiMove[]; fenHistory: string[] }
@@ -16,7 +16,8 @@ interface GameHistory { moves: UiMove[]; fenHistory: string[] }
 const BOARD_CUSTOM_SQUARE_STYLES = { lastMove: { backgroundColor: "rgba(59, 130, 246, 0.4)" } }
 
 export default function ViewOnlyPage() {
-  const [selectedTournamentId, setSelectedTournamentId] = useState<TournamentId>(TOURNAMENTS[0].id);
+  const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<TournamentId | null>(null);
   const [games, setGames] = useState<GameData[]>([])
   const [currentGameIndex, setCurrentGameIndex] = useState(-1)
   
@@ -29,21 +30,52 @@ export default function ViewOnlyPage() {
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
 
+  // Load tournaments on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { tournaments: fetchedTournaments, error } = await listTournaments();
+      if (!mounted) return;
+
+      if (error) {
+        console.error('Failed to load tournaments:', error);
+      }
+
+      setTournaments(fetchedTournaments);
+
+      // Auto-select first tournament
+      if (fetchedTournaments.length > 0) {
+        setSelectedTournamentId(fetchedTournaments[0].name as TournamentId);
+      } else {
+        setIsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Load games when tournament changes
   useEffect(() => {
     async function loadGames() {
+      if (!selectedTournamentId) {
+        setGames([]);
+        setCurrentGameIndex(-1);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
 
       const { games: fetchedGames, error } = await fetchGames(selectedTournamentId);
-      
+
       if (error) {
         console.error("Error fetching games:", error);
         setGames([]);
         setCurrentGameIndex(-1);
       } else {
         setGames(fetchedGames);
-        setCurrentGameIndex(fetchedGames.length > 0 ? 0 : -1); 
+        setCurrentGameIndex(fetchedGames.length > 0 ? 0 : -1);
       }
-      
+
       setIsLoading(false);
     }
 
@@ -114,9 +146,9 @@ export default function ViewOnlyPage() {
     setCurrentMoveIndex(Math.max(-1, Math.min(index, gameHistory.moves.length - 1)))
   }, [gameHistory.moves.length])
 
-  const handleTournamentSelect = (tournamentId: TournamentId) => {
-    if (tournamentId !== selectedTournamentId) {
-        setSelectedTournamentId(tournamentId)
+  const handleTournamentSelect = (tournamentName: TournamentId) => {
+    if (tournamentName !== selectedTournamentId) {
+        setSelectedTournamentId(tournamentName)
     }
   }
 
@@ -124,7 +156,7 @@ export default function ViewOnlyPage() {
     setCurrentGameIndex(index);
   }
 
-  const selectedTournamentName = TOURNAMENTS.find(t => t.id === selectedTournamentId)?.name || 'Select a tournament';
+  const selectedTournamentName = tournaments.find(t => t.name === selectedTournamentId)?.name || selectedTournamentId || 'Select a tournament';
   const selectedGameTitle = games[currentGameIndex]?.title || (games.length > 0 ? 'Select a game' : 'No games available');
 
   return (
@@ -152,8 +184,10 @@ export default function ViewOnlyPage() {
                           </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-md bg-card p-1 border border-border">
-                          {TOURNAMENTS.map((t) => (
-                              <DropdownMenuItem key={t.id} onSelect={() => handleTournamentSelect(t.id)} className="cursor-pointer">
+                          {tournaments.length === 0 ? (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground">No tournaments available</div>
+                          ) : tournaments.map((t) => (
+                              <DropdownMenuItem key={t.name} onSelect={() => handleTournamentSelect(t.name as TournamentId)} className="cursor-pointer">
                                   {t.name}
                               </DropdownMenuItem>
                           ))}
@@ -282,14 +316,48 @@ const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) =>
   const black = headers.Black || headers.black || "N/A"
   const event = headers.Event || headers.event || "N/A"
   const result = headers.Result || headers.result || "*"
+  const date = headers.Date || headers.date || headers.UTCDate || "N/A"
+  const whiteElo = headers.WhiteElo || headers.whiteElo || ""
+  const blackElo = headers.BlackElo || headers.blackElo || ""
+
   return (
-    <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
-      <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground tracking-tight">Game Details</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
-        <div><span className="font-medium text-foreground">White:</span> {white}</div>
-        <div><span className="font-medium text-foreground">Black:</span> {black}</div>
-        <div><span className="font-medium text-foreground">Event:</span> {event}</div>
-        <div><span className="font-medium text-foreground">Result:</span> {result}</div>
+    <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-6">
+      <div>
+        <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">Game Details</h2>
+
+        {/* Players - Most prominent */}
+        <div className="space-y-4 mb-6">
+          <div className="bg-background/50 p-4 rounded-md border border-border/50">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">White</div>
+            <div className="text-xl font-bold text-foreground">{white}</div>
+            {whiteElo && <div className="text-sm text-muted-foreground mt-1">Rating: {whiteElo}</div>}
+          </div>
+
+          <div className="bg-background/50 p-4 rounded-md border border-border/50">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Black</div>
+            <div className="text-xl font-bold text-foreground">{black}</div>
+            {blackElo && <div className="text-sm text-muted-foreground mt-1">Rating: {blackElo}</div>}
+          </div>
+        </div>
+
+        {/* Event & Result */}
+        <div className="space-y-3 pt-4 border-t border-border">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Event</div>
+            <div className="text-base font-semibold text-foreground">{event}</div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Date</div>
+              <div className="text-sm font-medium text-foreground">{date}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Result</div>
+              <div className="text-sm font-bold text-foreground">{result}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
