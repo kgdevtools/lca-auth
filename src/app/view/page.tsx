@@ -130,9 +130,12 @@ export default function ViewOnlyPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-3">
-        <header className="text-center space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">View LCA Tournament Games (Viewer)</h1>
-          <p className="text-muted-foreground">Browse, replay and inspect games.</p>
+        <header className="text-center space-y-3">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Limpopo Chess Academy</h1>
+          <h2 className="text-2xl md:text-3xl font-semibold text-muted-foreground">Games Database</h2>
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+            Chess games from tournaments in and around Limpopo. Check back regularly—we update the database daily with new games!
+          </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
