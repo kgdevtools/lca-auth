@@ -162,18 +162,25 @@ export default function ViewOnlyPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-3">
-        <header className="text-center space-y-3">
+        <header className="text-center space-y-4">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Limpopo Chess Academy</h1>
           <h2 className="text-2xl md:text-3xl font-semibold text-muted-foreground">Games Database</h2>
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Chess games from tournaments in and around Limpopo. Check back regularly—we update the database daily with new games!
-          </p>
+          <div className="max-w-2xl mx-auto space-y-3">
+            <p className="text-base md:text-lg text-muted-foreground">
+              Chess games from tournaments in and around Limpopo.
+            </p>
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary/10 border-2 border-primary/30 rounded-lg shadow-sm">
+              <span className="text-xl sm:text-2xl">📅</span>
+              <p className="text-sm md:text-base font-medium text-foreground">
+                <span className="font-bold text-primary">Updated Daily!</span> New games added regularly
+              </p>
+            </div>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <GameInfo headers={gameHeaders} />
-          
-          <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
+          {/* Tournament/Game selector - shows first on mobile, second on desktop */}
+          <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4 order-2 lg:order-1">
               <div>
                   <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Tournament</h3>
                   <DropdownMenu>
@@ -216,6 +223,11 @@ export default function ViewOnlyPage() {
                       </DropdownMenuContent>
                   </DropdownMenu>
               </div>
+          </div>
+
+          {/* Game Info - shows second on mobile, first on desktop */}
+          <div className="order-1 lg:order-2">
+            <GameInfo headers={gameHeaders} />
           </div>
         </div>
 
