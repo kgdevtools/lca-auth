@@ -162,106 +162,99 @@ export default function ViewOnlyPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-3">
-        <header className="text-center space-y-4">
+        <header className="text-center space-y-3">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Limpopo Chess Academy</h1>
           <h2 className="text-2xl md:text-3xl font-semibold text-muted-foreground">Games Database</h2>
-          <div className="max-w-2xl mx-auto space-y-3">
-            <p className="text-base md:text-lg text-muted-foreground">
-              Chess games from tournaments in and around Limpopo.
-            </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary/10 border-2 border-primary/30 rounded-lg shadow-sm">
-              <span className="text-xl sm:text-2xl">📅</span>
-              <p className="text-sm md:text-base font-medium text-foreground">
-                <span className="font-bold text-primary">Updated Daily!</span> New games added regularly
-              </p>
-            </div>
-          </div>
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
+            Chess games from tournaments in and around Limpopo. Check back regularly—we update the database daily with new games!
+          </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Tournament/Game selector - shows first on mobile, second on desktop */}
-          <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4 order-2 lg:order-1">
-              <div>
-                  <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Tournament</h3>
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
-                              <span className="truncate">{selectedTournamentName}</span>
-                              <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-md bg-card p-1 border border-border">
-                          {tournaments.length === 0 ? (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">No tournaments available</div>
-                          ) : tournaments.map((t) => (
-                              <DropdownMenuItem key={t.name} onSelect={() => handleTournamentSelect(t.name as TournamentId)} className="cursor-pointer">
-                                  {t.name}
-                              </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-              </div>
-              
-              <div>
-                  <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Game</h3>
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
-                          <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
-                              <span className="truncate">{isLoading ? 'Loading games...' : selectedGameTitle}</span>
-                              <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
-                          {games.map((g, i) => (
-                              <DropdownMenuItem key={g.id} className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${i % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`} onSelect={() => handleGameSelect(i)}>
-                                  <div className="flex items-center gap-3">
-                                      <span className="text-xs font-mono text-muted-foreground tabular-nums">{i + 1}.</span>
-                                      <span className="truncate flex-1 text-foreground text-sm">{g.title}</span>
-                                  </div>
-                              </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-              </div>
-          </div>
+        {/* Tournament/Game selector - ABOVE the chessboard and game details */}
+        <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
+            <div>
+                <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Tournament</h3>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
+                            <span className="truncate">{selectedTournamentName}</span>
+                            <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-md bg-card p-1 border border-border">
+                        {tournaments.length === 0 ? (
+                            <div className="px-2 py-1.5 text-sm text-muted-foreground">No tournaments available</div>
+                        ) : tournaments.map((t) => (
+                            <DropdownMenuItem key={t.name} onSelect={() => handleTournamentSelect(t.name as TournamentId)} className="cursor-pointer">
+                                {t.name}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
 
-          {/* Game Info - shows second on mobile, first on desktop */}
-          <div className="order-1 lg:order-2">
-            <GameInfo headers={gameHeaders} />
-          </div>
+            <div>
+                <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Game</h3>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
+                        <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
+                            <span className="truncate">{isLoading ? 'Loading games...' : selectedGameTitle}</span>
+                            <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
+                        {games.map((g, i) => (
+                            <DropdownMenuItem key={g.id} className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${i % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`} onSelect={() => handleGameSelect(i)}>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-mono text-muted-foreground tabular-nums">{i + 1}.</span>
+                                    <span className="truncate flex-1 text-foreground text-sm">{g.title}</span>
+                                </div>
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-3 mt-3">
-              <div className="flex flex-col max-w-lg mx-auto lg:mx-0 w-full">
-                  <div className="w-full aspect-square bg-muted animate-pulse rounded-md" />
-                  <div className="mt-3 p-3 bg-card border border-border rounded-[2px] shadow-sm"><div className="h-10 bg-muted animate-pulse rounded-[2px]"></div></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div className="bg-muted animate-pulse rounded-md aspect-square" />
+              <div className="bg-card border border-border p-4 rounded-lg shadow-sm">
+                <div className="space-y-2">
+                  <div className="h-6 w-1/4 bg-muted rounded animate-pulse mb-4" />
+                  {Array.from({ length: 10 }).map((_, i) => (<div key={i} className="h-6 bg-muted rounded animate-pulse" />))}
+                </div>
               </div>
-              <div className="bg-card border border-border p-4 rounded-lg shadow-sm"><div className="space-y-2"><div className="h-6 w-1/4 bg-muted rounded animate-pulse mb-4" />{Array.from({ length: 10 }).map((_, i) => (<div key={i} className="h-6 bg-muted rounded animate-pulse" />))}</div></div>
           </div>
         ) : games.length === 0 ? (
           <div className="bg-card border border-border p-8 rounded-lg text-center shadow-sm mt-3">
             <p className="text-muted-foreground">No games available for this tournament.</p>
           </div>
         ) : (
-          <main className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-3">
-            <div className="flex flex-col max-w-lg mx-auto lg:mx-0 w-full">
-              <div ref={boardWrapperRef} className="w-full aspect-square shadow-lg rounded-[2px] overflow-hidden border border-border">
+          <>
+            {/* Game Details ABOVE chessboard - both in viewport */}
+            <div className="space-y-2">
+              <GameInfo headers={gameHeaders} />
+
+              <div ref={boardWrapperRef} className="w-full aspect-square shadow-lg rounded-[2px] overflow-hidden border border-border max-w-lg mx-auto">
                 {boardWidth && boardWidth > 0 ? (
                   <Chessboard boardWidth={boardWidth} position={gameHistory.fenHistory[currentMoveIndex + 1] || 'start'} arePiecesDraggable={false} customSquareStyles={lastMove ? { [lastMove.from]: BOARD_CUSTOM_SQUARE_STYLES.lastMove, [lastMove.to]: BOARD_CUSTOM_SQUARE_STYLES.lastMove } : {}}/>
                 ) : (
                   <div className="w-full h-full bg-muted animate-pulse" />
                 )}
               </div>
-              <div className="mt-3">
+
+              <div className="max-w-lg mx-auto">
                 <Controls onStart={() => navigateTo(-1)} onPrev={() => navigateTo(currentMoveIndex - 1)} onNext={() => navigateTo(currentMoveIndex + 1)} onEnd={() => navigateTo(gameHistory.moves.length - 1)} canGoBack={currentMoveIndex > -1} canGoForward={currentMoveIndex < gameHistory.moves.length - 1}/>
               </div>
-              {gameHistory.moves.length > 0 && (<div className="mt-2 text-center text-sm text-muted-foreground">Move {currentMoveIndex + 1} of {gameHistory.moves.length}</div>)}
+              {gameHistory.moves.length > 0 && (<div className="text-center text-sm text-muted-foreground">Move {currentMoveIndex + 1} of {gameHistory.moves.length}</div>)}
             </div>
-            <div className="lg:h-[calc(100vh-18rem)] lg:overflow-hidden">
-              <div className="h-full flex flex-col"><MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} /></div>
+
+            {/* Moves list below */}
+            <div className="mt-3">
+              <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} />
             </div>
-          </main>
+          </>
         )}
       </div>
     </div>
@@ -333,41 +326,39 @@ const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) =>
   const blackElo = headers.BlackElo || headers.blackElo || ""
 
   return (
-    <div className="bg-card border border-border p-6 rounded-lg shadow-sm space-y-6">
-      <div>
-        <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">Game Details</h2>
+    <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
+      <h2 className="text-xs uppercase tracking-tight text-muted-foreground font-semibold mb-2">Game Details</h2>
 
-        {/* Players - Most prominent */}
-        <div className="space-y-4 mb-6">
-          <div className="bg-background/50 p-4 rounded-md border border-border/50">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">White</div>
-            <div className="text-xl font-bold text-foreground">{white}</div>
-            {whiteElo && <div className="text-sm text-muted-foreground mt-1">Rating: {whiteElo}</div>}
-          </div>
-
-          <div className="bg-background/50 p-4 rounded-md border border-border/50">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Black</div>
-            <div className="text-xl font-bold text-foreground">{black}</div>
-            {blackElo && <div className="text-sm text-muted-foreground mt-1">Rating: {blackElo}</div>}
-          </div>
+      {/* Players - Compact */}
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="bg-background/50 p-2 rounded border border-border/50">
+          <div className="text-[10px] uppercase tracking-tight text-muted-foreground leading-none mb-0.5">White</div>
+          <div className="text-sm font-bold text-foreground leading-tight">{white}</div>
+          {whiteElo && <div className="text-xs text-muted-foreground leading-none mt-0.5">{whiteElo}</div>}
         </div>
 
-        {/* Event & Result */}
-        <div className="space-y-3 pt-4 border-t border-border">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Event</div>
-            <div className="text-base font-semibold text-foreground">{event}</div>
-          </div>
+        <div className="bg-background/50 p-2 rounded border border-border/50">
+          <div className="text-[10px] uppercase tracking-tight text-muted-foreground leading-none mb-0.5">Black</div>
+          <div className="text-sm font-bold text-foreground leading-tight">{black}</div>
+          {blackElo && <div className="text-xs text-muted-foreground leading-none mt-0.5">{blackElo}</div>}
+        </div>
+      </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Date</div>
-              <div className="text-sm font-medium text-foreground">{date}</div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Result</div>
-              <div className="text-sm font-bold text-foreground">{result}</div>
-            </div>
+      {/* Event & Result - Compact */}
+      <div className="space-y-1.5 pt-2 border-t border-border">
+        <div>
+          <div className="text-[10px] uppercase tracking-tight text-muted-foreground leading-none mb-0.5">Event</div>
+          <div className="text-sm font-semibold text-foreground leading-tight">{event}</div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-tight text-muted-foreground leading-none mb-0.5">Date</div>
+            <div className="text-xs font-medium text-foreground leading-tight">{date}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-tight text-muted-foreground leading-none mb-0.5">Result</div>
+            <div className="text-xs font-bold text-foreground leading-tight">{result}</div>
           </div>
         </div>
       </div>
