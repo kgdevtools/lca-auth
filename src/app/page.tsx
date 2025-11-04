@@ -56,6 +56,15 @@ export default function Home() {
       {/* CTA links */}
       <div className="mt-12 sm:mt-16 flex flex-col md:flex-row items-center justify-center gap-3 md:gap-8 text-center">
         <Link
+          href="/view"
+          className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium text-base sm:text-lg md:text-xl underline decoration-primary/30 underline-offset-4 hover:decoration-primary/60 transition-all duration-200"
+        >
+          View tournament games
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+        <Link
           href="/tournaments"
           className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium text-base sm:text-lg md:text-xl underline decoration-primary/30 underline-offset-4 hover:decoration-primary/60 transition-all duration-200"
         >
