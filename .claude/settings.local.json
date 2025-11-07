@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npx -y tsc --noEmit)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebSearch",
+      "WebFetch(domain:lichess.org)",
+      "Bash(mkdir:*)",
+      "Bash(\".claude/admin-dashboard/data-tables-plan.md\")",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(echo:*)",
+      "Bash(\"C:\\Users\\capri\\Desktop\\lca-auth\\src\\app\\admin\\admin-dashboard\\all-players\\server-actions.ts\")"
     ],
     "deny": [],
     "ask": []

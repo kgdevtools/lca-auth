@@ -1,22 +1,25 @@
-// src/app/admin/admin-dashboard/tournaments/page.tsx
-import { Suspense } from "react"
-import TournamentsTable from "./TournamentsTable"
+import { Suspense } from 'react'
+import ActivePlayersTableRefactored from './components/ActivePlayersTableRefactored'
 
-export default function TournamentsPage() {
+export const metadata = {
+  title: 'Active Players | Admin Dashboard',
+  description: 'View and manage active chess players',
+}
+
+export default function ActivePlayersPage() {
   return (
     <div className="px-2 py-4 lg:px-8 lg:py-8 max-w-full">
       <div className="space-y-6">
         {/* Page Header */}
         <div className="pb-4 border-b border-gray-200 dark:border-gray-700">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
-            Limpopo Chess Academy Tournaments Database
+            Active Players Database
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm tracking-tight leading-tight">
-            Tournament records from October 1, 2024 to September 30, 2025
+            Active players from August 2025 tournament season with performance metrics
           </p>
         </div>
 
-        {/* Tournaments Table */}
         <Suspense
           fallback={
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
@@ -27,21 +30,10 @@ export default function TournamentsPage() {
                   <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
                 </div>
               </div>
-              <div className="p-6">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex space-x-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/8 animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/8 animate-pulse"></div>
-                  </div>
-                ))}
-              </div>
             </div>
           }
         >
-          <TournamentsTable />
+          <ActivePlayersTableRefactored />
         </Suspense>
       </div>
     </div>
