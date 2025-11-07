@@ -2,9 +2,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, Edit2, Trash2, Eye, Users } from "lucide-react"
-import { getTournaments, deleteTournament } from "../server-actions"
+import { Search, Plus, Edit2, Trash2, Eye, Users, FileSpreadsheet, FileText, FileJson } from "lucide-react"
+import { getTournaments, deleteTournament, getAllTournamentsForExport } from "../server-actions"
 import TournamentFormModal from "./TournamentFormModal"
+import { useExport } from "@/hooks/useExport"
+import type { Tournament as TournamentType } from "@/types/admin"
 
 interface Tournament {
   id: string
@@ -31,6 +33,9 @@ export default function TournamentsTable() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null)
+
+  // Export hook
+  const { isExporting, handleExport } = useExport<TournamentType>()
 
   const itemsPerPage = 10
 
@@ -104,6 +109,78 @@ export default function TournamentsTable() {
     }
   }
 
+  // Export handlers
+  const handleExportCSV = async () => {
+    const result = await getAllTournamentsForExport(search || undefined)
+    if (result.data) {
+      await handleExport(result.data as any[], 'tournaments', {
+        format: 'csv',
+        scope: 'filtered',
+        excludeFields: ['id', 'created_at', 'source'],
+        fieldMapping: {
+          tournament_name: 'Tournament Name',
+          organizer: 'Organizer',
+          federation: 'Federation',
+          tournament_director: 'Tournament Director',
+          chief_arbiter: 'Chief Arbiter',
+          deputy_chief_arbiter: 'Deputy Chief Arbiter',
+          arbiter: 'Arbiter',
+          time_control: 'Time Control',
+          rate_of_play: 'Rate of Play',
+          location: 'Location',
+          rounds: 'Rounds',
+          tournament_type: 'Tournament Type',
+          rating_calculation: 'Rating Calculation',
+          date: 'Date',
+          average_elo: 'Average Elo',
+          average_age: 'Average Age',
+        },
+      })
+    }
+  }
+
+  const handleExportExcel = async () => {
+    const result = await getAllTournamentsForExport(search || undefined)
+    if (result.data) {
+      await handleExport(result.data as any[], 'tournaments', {
+        format: 'excel',
+        scope: 'filtered',
+        excludeFields: ['id', 'created_at', 'source'],
+        fieldMapping: {
+          tournament_name: 'Tournament Name',
+          organizer: 'Organizer',
+          federation: 'Federation',
+          tournament_director: 'Tournament Director',
+          chief_arbiter: 'Chief Arbiter',
+          deputy_chief_arbiter: 'Deputy Chief Arbiter',
+          arbiter: 'Arbiter',
+          time_control: 'Time Control',
+          rate_of_play: 'Rate of Play',
+          location: 'Location',
+          rounds: 'Rounds',
+          tournament_type: 'Tournament Type',
+          rating_calculation: 'Rating Calculation',
+          date: 'Date',
+          average_elo: 'Average Elo',
+          average_age: 'Average Age',
+        },
+      })
+    }
+  }
+
+  const handleExportJSON = async () => {
+    const result = await getAllTournamentsForExport(search || undefined)
+    if (result.data) {
+      await handleExport(result.data as any[], 'tournaments', {
+        format: 'json',
+        scope: 'filtered',
+        includeMetadata: true,
+        pretty: true,
+        excludeFields: ['id', 'created_at'],
+      })
+    }
+  }
+
   return (
     <>
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -114,25 +191,71 @@ export default function TournamentsTable() {
               <p className="text-sm text-gray-600 dark:text-gray-400">{totalCount} tournaments total</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+            <div className="flex flex-col lg:flex-row gap-3">
+              {/* Left side - Search */}
+              <div className="relative flex-shrink-0">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search tournaments..."
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent w-full sm:w-64 transition-colors"
+                  className="pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent w-full lg:w-64 text-sm tracking-tight transition-colors"
                 />
               </div>
 
-              <button
-                onClick={handleCreate}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Tournament
-              </button>
+              {/* Right side - Export & Add buttons */}
+              <div className="flex gap-2 lg:ml-auto">
+                <button
+                  onClick={handleExportCSV}
+                  disabled={isExporting || loading}
+                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
+                >
+                  {isExporting ? (
+                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 mr-1.5" />
+                      <span className="hidden sm:inline">CSV</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={isExporting || loading}
+                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
+                >
+                  {isExporting ? (
+                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+                      <span className="hidden sm:inline">Excel</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleExportJSON}
+                  disabled={isExporting || loading}
+                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
+                >
+                  {isExporting ? (
+                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <FileJson className="w-4 h-4 mr-1.5" />
+                      <span className="hidden sm:inline">JSON</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors font-medium text-sm tracking-tight"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Add Tournament
+                </button>
+              </div>
             </div>
           </div>
         </div>

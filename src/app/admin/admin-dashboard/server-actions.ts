@@ -4,6 +4,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { exportRegistrationsToExcel } from '@/services/exportToExcel'
+import { checkAdminRole } from '@/utils/auth/adminAuth'
 
 // Tournament interface
 interface Tournament {
@@ -166,8 +167,11 @@ export async function getPerformanceStatsSummary() {
 
 export async function createTournament(tournamentData: Partial<Tournament>) {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const supabase = await createClient()
-    
+
     const { data, error } = await supabase
       .from('tournaments')
       .insert([tournamentData])
@@ -182,14 +186,17 @@ export async function createTournament(tournamentData: Partial<Tournament>) {
     return { success: true, data }
   } catch (error) {
     console.error('Unexpected error in createTournament:', error)
-    return { success: false, error: 'Unexpected error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
 export async function updateTournament(id: string, tournamentData: Partial<Tournament>) {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const supabase = await createClient()
-    
+
     const { data, error } = await supabase
       .from('tournaments')
       .update(tournamentData)
@@ -205,7 +212,7 @@ export async function updateTournament(id: string, tournamentData: Partial<Tourn
     return { success: true, data }
   } catch (error) {
     console.error('Unexpected error in updateTournament:', error)
-    return { success: false, error: 'Unexpected error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
@@ -249,8 +256,11 @@ export async function getTournaments(page: number = 1, itemsPerPage: number = 10
 
 export async function deleteTournament(id: string) {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const supabase = await createClient()
-    
+
     const { error } = await supabase
       .from('tournaments')
       .delete()
@@ -264,7 +274,7 @@ export async function deleteTournament(id: string) {
     return { success: true }
   } catch (error) {
     console.error('Unexpected error in deleteTournament:', error)
-    return { success: false, error: 'Unexpected error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
@@ -293,8 +303,11 @@ export async function getTournamentRegistrations(): Promise<{ data: TournamentRe
 
 export async function deleteTournamentRegistration(id: string): Promise<{ success: boolean; error: string | null }> {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const supabase = await createClient()
-    
+
     const { error } = await supabase
       .from('lca_open_2025_registrations')
       .delete()
@@ -308,14 +321,17 @@ export async function deleteTournamentRegistration(id: string): Promise<{ succes
     return { success: true, error: null }
   } catch (error) {
     console.error('Unexpected error in deleteTournamentRegistration:', error)
-    return { success: false, error: 'Unexpected error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
 export async function updateTournamentRegistration(id: string, registrationData: Partial<TournamentRegistration>): Promise<{ success: boolean; data?: TournamentRegistration; error: string | null }> {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const supabase = await createClient()
-    
+
     const { data, error } = await supabase
       .from('lca_open_2025_registrations')
       .update(registrationData)
@@ -331,30 +347,80 @@ export async function updateTournamentRegistration(id: string, registrationData:
     return { success: true, data, error: null }
   } catch (error) {
     console.error('Unexpected error in updateTournamentRegistration:', error)
-    return { success: false, error: 'Unexpected error occurred' }
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
 // Export to Excel function
 export async function exportRegistrationsToExcelFile() {
   try {
+    // Verify admin role
+    await checkAdminRole()
+
     const { data: registrations } = await getTournamentRegistrations();
-    
+
     if (!registrations) {
       return { success: false, error: "No registrations found" };
     }
 
     const excelBuffer = exportRegistrationsToExcel(registrations);
-    
+
     // Convert Buffer to Uint8Array for client consumption
     const uint8Array = new Uint8Array(excelBuffer);
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       data: uint8Array // Return as Uint8Array instead of Buffer
     };
   } catch (error) {
     console.error("Export error:", error);
-    return { success: false, error: "Failed to export data" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to export data" };
+  }
+}
+
+/**
+ * Get all tournaments for export (with optional search filter)
+ */
+export async function getAllTournamentsForExport(search?: string): Promise<{
+  data: Tournament[] | null
+  error: string | null
+}> {
+  try {
+    // Verify admin role
+    await checkAdminRole()
+
+    const supabase = await createClient()
+
+    // Build query (no pagination for export)
+    let query = supabase
+      .from('tournaments')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    // Apply search filter if provided
+    if (search) {
+      query = query.ilike('tournament_name', `%${search}%`)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching all tournaments:', error)
+      return {
+        data: null,
+        error: error.message,
+      }
+    }
+
+    return {
+      data: data as Tournament[],
+      error: null,
+    }
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Unexpected error occurred',
+    }
   }
 }
