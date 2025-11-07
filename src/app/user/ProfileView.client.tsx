@@ -4,9 +4,11 @@ import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WarningBanner } from '@/components/warning-banner'
 import { PlayerSearchCombobox } from '@/components/ui/player-search-combobox'
+import { Loader2, Check } from 'lucide-react'
 import type { ProfilePageData } from './actions'
 import { updateProfile } from './actions'
 import type { PlayerSearchResult, ActivePlayerData } from './tournament-actions'
+import { getActivePlayerData, getPlayerStatistics } from './tournament-actions'
 
 interface Props extends ProfilePageData {}
 
@@ -75,11 +77,95 @@ export default function ProfileView({
   const roleColor = profile?.role ? getRoleColor(profile.role) : getRoleColor('student')
   const chessaIdRef = React.useRef<HTMLInputElement>(null)
 
+  // State for "Is this you?" functionality
+  const [selectedPlayer, setSelectedPlayer] = React.useState<string | null>(null)
+  const [loadingPlayer, setLoadingPlayer] = React.useState<string | null>(null)
+  const [updatedPlayerData, setUpdatedPlayerData] = React.useState<ActivePlayerData[]>(activePlayerData)
+  const [updatedPlayerStats, setUpdatedPlayerStats] = React.useState(playerStats)
+  const [confirmedMatches, setConfirmedMatches] = React.useState<Set<string>>(new Set())
+
+  // Update local state when props change
+  React.useEffect(() => {
+    setUpdatedPlayerData(activePlayerData)
+    setUpdatedPlayerStats(playerStats)
+  }, [activePlayerData, playerStats])
+
+  const handleSelectPlayer = async (playerName: string, uniqueNo: string) => {
+    setLoadingPlayer(playerName)
+
+    try {
+      // Fetch new data for the selected player
+      const newPlayerData = await getActivePlayerData(playerName)
+      const newPlayerStats = await getPlayerStatistics(playerName)
+
+      // Combine the data with existing data instead of replacing
+      if (newPlayerData && newPlayerStats && updatedPlayerStats) {
+        // Merge tournament data - remove duplicates based on tournament name and date
+        const combinedTournaments = [...updatedPlayerData]
+        newPlayerData.forEach(newTournament => {
+          const exists = combinedTournaments.some(
+            existing =>
+              existing.tournament_name === newTournament.tournament_name &&
+              existing.created_at === newTournament.created_at
+          )
+          if (!exists) {
+            combinedTournaments.push(newTournament)
+          }
+        })
+
+        // Combine player statistics
+        const maxLatestRating = Math.max(
+          typeof updatedPlayerStats.latestRating === 'number' ? updatedPlayerStats.latestRating : parseInt(updatedPlayerStats.latestRating) || 0,
+          typeof newPlayerStats.latestRating === 'number' ? newPlayerStats.latestRating : parseInt(newPlayerStats.latestRating) || 0
+        )
+        const maxHighestRating = Math.max(
+          typeof updatedPlayerStats.highestRating === 'number' ? updatedPlayerStats.highestRating : parseInt(String(updatedPlayerStats.highestRating)) || 0,
+          typeof newPlayerStats.highestRating === 'number' ? newPlayerStats.highestRating : parseInt(String(newPlayerStats.highestRating)) || 0
+        )
+        const calculatedAvgPerformance = ((
+          (typeof updatedPlayerStats.avgPerformance === 'number' ? updatedPlayerStats.avgPerformance : parseFloat(String(updatedPlayerStats.avgPerformance)) || 0) * updatedPlayerStats.tournaments
+        ) + (
+          (typeof newPlayerStats.avgPerformance === 'number' ? newPlayerStats.avgPerformance : parseFloat(String(newPlayerStats.avgPerformance)) || 0) * newPlayerStats.tournaments
+        )) / (updatedPlayerStats.tournaments + newPlayerStats.tournaments)
+
+        const combinedStats = {
+          totalGames: updatedPlayerStats.totalGames + newPlayerStats.totalGames,
+          tournaments: updatedPlayerStats.tournaments + newPlayerStats.tournaments,
+          latestRating: String(maxLatestRating),
+          highestRating: maxHighestRating,
+          avgPerformance: calculatedAvgPerformance,
+          federation: updatedPlayerStats.federation || newPlayerStats.federation,
+          chessaId: uniqueNo || updatedPlayerStats.chessaId || newPlayerStats.chessaId
+        }
+
+        // Update local state with combined data
+        setUpdatedPlayerData(combinedTournaments)
+        setUpdatedPlayerStats(combinedStats)
+        setSelectedPlayer(playerName)
+        setConfirmedMatches(prev => new Set(prev).add(playerName))
+
+        // Auto-populate Chess SA ID if available
+        if (uniqueNo && chessaIdRef.current) {
+          chessaIdRef.current.value = uniqueNo
+          const event = new Event('input', { bubbles: true })
+          chessaIdRef.current.dispatchEvent(event)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching player data:', error)
+    } finally {
+      setLoadingPlayer(null)
+    }
+  }
+
   return (
-    <main className="min-h-dvh p-4 sm:p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       <WarningBanner message="Still under development: Some services may not work." />
-      <div className="mx-auto max-w-7xl">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 lg:mb-8">My Profile</h1>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Overview</h1>
+        <p className="text-sm text-muted-foreground mt-1">View your chess profile and tournament performance</p>
+      </div>
         
         {profileError && (
           <Card className="mb-6 border-destructive">
@@ -89,12 +175,12 @@ export default function ProfileView({
           </Card>
         )}
 
-        {/* Two-column layout for desktop, single column for mobile */}
-        <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-          {/* Left Column */}
-          <div className="space-y-6">
+      {/* Two-column layout for desktop, single column for mobile */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:gap-6 lg:items-start">
+        {/* Left Column */}
+        <div className="flex flex-col gap-4">
             {/* Avatar & Role Card */}
-            <Card className={`${roleColor} text-white border-0`}>
+            <Card className={`${roleColor} text-white border-0 flex-shrink-0`}>
               <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                   <Avatar
@@ -115,9 +201,9 @@ export default function ProfileView({
             </Card>
 
             {/* Profile Details Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">Profile Information</CardTitle>
+            <Card className="flex-grow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold tracking-tight">Profile Information</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -153,27 +239,22 @@ export default function ProfileView({
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Member Since</p>
                     <p className="text-sm">{memberSince}</p>
                   </div>
-
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">User ID</p>
-                    <p className="font-mono text-xs text-muted-foreground">{user.id}</p>
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
           </div>
 
-          {/* Right Column - Stats and Matches */}
-          <div className="space-y-6">
+        {/* Right Column - Stats and Matches */}
+        <div className="flex flex-col gap-4">
 
             {/* Match Results */}
             {profile?.tournament_fullname && (matchResult.exactMatch || matchResult.closeMatches.length > 0) && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Player Match Results</CardTitle>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Found in Chess SA active players database
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold tracking-tight">Additional Player Profiles</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    We found similar names in our tournament records - select any that belong to you to combine your statistics
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -193,22 +274,68 @@ export default function ProfileView({
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                         Close Matches{!matchResult.exactMatch && ' (Similar Names)'}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {matchResult.closeMatches.map((match, idx) => (
-                          <div
-                            key={idx}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30"
-                          >
-                            <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
-                              {match.name}
-                            </span>
-                            {match.unique_no && (
-                              <span className="text-xs text-blue-600/70 dark:text-blue-400/70 font-mono">
-                                #{match.unique_no}
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                      <div className="space-y-2">
+                        {matchResult.closeMatches.map((match, idx) => {
+                          const isConfirmed = confirmedMatches.has(match.name)
+                          const isLoading = loadingPlayer === match.name
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-all ${
+                                isConfirmed
+                                  ? 'bg-green-500/10 border border-green-500/30'
+                                  : 'bg-blue-500/10 border border-blue-500/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className={`text-sm font-medium truncate ${
+                                  isConfirmed
+                                    ? 'text-green-700 dark:text-green-400'
+                                    : 'text-blue-700 dark:text-blue-400'
+                                }`}>
+                                  {match.name}
+                                </span>
+                                {match.unique_no && (
+                                  <span className={`text-xs font-mono flex-shrink-0 ${
+                                    isConfirmed
+                                      ? 'text-green-600/70 dark:text-green-400/70'
+                                      : 'text-blue-600/70 dark:text-blue-400/70'
+                                  }`}>
+                                    #{match.unique_no}
+                                  </span>
+                                )}
+                                {isConfirmed && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold flex-shrink-0">
+                                    <Check className="w-3 h-3" />
+                                    Confirmed
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectPlayer(match.name, match.unique_no || '')}
+                                disabled={isLoading || isConfirmed}
+                                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  isConfirmed
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                }`}
+                              >
+                                {isLoading ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Loading...
+                                  </span>
+                                ) : isConfirmed ? (
+                                  'Yes'
+                                ) : (
+                                  'Is this you?'
+                                )}
+                              </button>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -217,46 +344,57 @@ export default function ProfileView({
             )}
 
             {/* Player Statistics Card */}
-            {playerStats && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Player Statistics</CardTitle>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Based on tournament performance data
-                  </p>
+            {updatedPlayerStats && (
+              <Card className={loadingPlayer ? 'opacity-60 pointer-events-none' : ''}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base font-semibold tracking-tight">Player Statistics</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Based on tournament performance data
+                      </p>
+                    </div>
+                    {loadingPlayer && (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Games</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{playerStats.totalGames}</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.totalGames}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tournaments</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{playerStats.tournaments}</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.tournaments}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{playerStats.latestRating}</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.latestRating}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Highest Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{playerStats.highestRating}</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.highestRating}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Performance</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{playerStats.avgPerformance}</p>
+                      <p className="text-2xl sm:text-3xl font-bold">
+                        {typeof updatedPlayerStats.avgPerformance === 'number'
+                          ? updatedPlayerStats.avgPerformance.toFixed(1)
+                          : updatedPlayerStats.avgPerformance}
+                      </p>
                     </div>
-                    {playerStats.federation && (
+                    {updatedPlayerStats.federation && (
                       <div className="space-y-1">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Federation</p>
-                        <p className="text-xl sm:text-2xl font-bold">{playerStats.federation}</p>
+                        <p className="text-xl sm:text-2xl font-bold">{updatedPlayerStats.federation}</p>
                       </div>
                     )}
-                    {playerStats.chessaId && (
+                    {updatedPlayerStats.chessaId && (
                       <div className="col-span-2 space-y-1 pt-2 border-t">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chess SA ID</p>
-                        <p className="text-lg font-mono font-bold">{playerStats.chessaId}</p>
+                        <p className="text-lg font-mono font-bold">{updatedPlayerStats.chessaId}</p>
                       </div>
                     )}
                   </div>
@@ -264,21 +402,28 @@ export default function ProfileView({
               </Card>
             )}
 
-          </div>
         </div>
+      </div>
 
-        {/* Full Width Recent Tournaments Section */}
-        {activePlayerData && activePlayerData.length > 0 && (
-          <Card className="mt-6 lg:mt-8">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Recent Tournaments</CardTitle>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Latest performances from Chess SA database
-              </p>
+      {/* Full Width Recent Tournaments Section */}
+      {updatedPlayerData && updatedPlayerData.length > 0 && (
+        <Card className={`mt-6 ${loadingPlayer ? 'opacity-60 pointer-events-none' : ''}`}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold tracking-tight">Recent Tournaments</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Latest performances from Chess SA database
+                  </p>
+                </div>
+                {loadingPlayer && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activePlayerData.slice(0, 12).map((tournament, idx) => (
+                {updatedPlayerData.slice(0, 12).map((tournament, idx) => (
                   <div key={idx} className="border rounded-lg p-4 space-y-3 hover:bg-accent/50 transition-colors">
                     <p className="font-semibold text-sm sm:text-base line-clamp-2" title={tournament.tournament_name || 'Unknown Tournament'}>
                       {tournament.tournament_name || 'Unknown Tournament'}
@@ -304,26 +449,25 @@ export default function ProfileView({
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Show message if no tournament data */}
-        {profile?.tournament_fullname && (!activePlayerData || activePlayerData.length === 0) && !playerStats && (
-          <Card className="mt-6 lg:mt-8">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Tournament Data</CardTitle>
+      {/* Show message if no tournament data */}
+      {profile?.tournament_fullname && (!activePlayerData || activePlayerData.length === 0) && !playerStats && (
+        <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold tracking-tight">Tournament Data</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 No tournament data found for "<span className="font-semibold">{profile.tournament_fullname}</span>" in the active players database.
                 Please ensure your tournament name matches exactly with Chess SA records.
               </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </main>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 
