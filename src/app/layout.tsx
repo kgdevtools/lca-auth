@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { MobileNav } from "@/components/mobile-nav"
 import { createClient } from "@/utils/supabase/server"
 import FooterNav from "@/components/footer-nav"
+import { Toaster } from "sonner"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -190,6 +191,7 @@ export default async function RootLayout({
         </header>
         <main className="flex-1">{children}</main>
         <FooterNav />
+        <Toaster />
       </body>
     </html>
   )

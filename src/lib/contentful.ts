@@ -6,3 +6,7 @@ const client = createClient({
 })
 
 export { client }
+
+export function getContentfulClient() {
+  return client
+}

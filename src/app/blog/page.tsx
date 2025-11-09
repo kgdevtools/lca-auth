@@ -53,15 +53,15 @@ export default function BlogPage() {
       {/* Header */}
       <div className="text-center mb-12 sm:mb-16">
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-          Our{' '}
+          Limpopo Chess Academy's Staff{' '}
           <span className="text-primary bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
             Blog
           </span>
         </h1>
         <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-          Stay updated with the latest chess strategies, tournament highlights, academy news, 
-          and insights from our coaches and players.
+          Stay updated with the latest chess tournament highlights, and chess games, academy news, insights from our coaches and players as well as new and upcoming features to for the website
         </p>
+        
       </div>
 
       {/* Blog Grid */}
