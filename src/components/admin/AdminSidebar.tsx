@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   Star,
   Database,
+  FileText,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { createClient } from '@/utils/supabase/client'
@@ -27,6 +28,11 @@ const sidebarItems = [
     title: 'Tournaments',
     href: '/admin/admin-dashboard/tournaments',
     icon: Trophy,
+  },
+  {
+    title: 'Content',
+    href: '/admin/admin-dashboard/content',
+    icon: FileText,
   },
   {
     title: 'Active Players',
@@ -171,7 +177,7 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       {/* Mobile Menu Button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2 rounded-md bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
+        className="lg:hidden fixed top-20 left-4 z-40 p-2 rounded-md bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
       >
         <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
       </button>
@@ -187,8 +193,8 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       {/* Mobile Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-50
-        w-64 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700
+        fixed top-16 bottom-0 left-0 z-50
+        w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700
         transform transition-transform duration-300 ease-in-out
         lg:hidden flex flex-col
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -201,8 +207,8 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       <div
         className={`
         hidden lg:flex lg:flex-col
-        fixed inset-y-0 left-0 z-30
-        ${collapsed ? 'w-16' : 'w-64'}
+        fixed top-16 bottom-0 left-0 z-30
+        ${collapsed ? 'w-16' : 'w-72'}
         bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700
         transition-all duration-300 ease-in-out
       `}
@@ -211,7 +217,7 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       </div>
 
       {/* Desktop Sidebar Spacer */}
-      <div className={`hidden lg:block ${collapsed ? 'w-16' : 'w-64'} flex-shrink-0`} />
+      <div className={`hidden lg:block ${collapsed ? 'w-16' : 'w-72'} flex-shrink-0 transition-all duration-300`} />
     </>
   )
 }

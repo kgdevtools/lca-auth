@@ -1,17 +1,17 @@
-import { Suspense } from 'react'
+import React, { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getBlogPostBySlug } from '@/services/blogService'
+import { getBlogEnhancementBySlug, getComponentsByBlogPostId } from '@/services/blogEnhancementService'
 import { BlogPostSkeleton } from '@/components/blog-skeletons'
 import { documentToReactComponents } from '@contentful/rich-text-react-renderer'
 import { BLOCKS, MARKS, INLINES } from '@contentful/rich-text-types'
-import { LCACarousel, type CarouselImage } from '@/components/lca-carousel'
-import GameViewer from '@/components/game-viewer'
-import { fetchTournamentGames } from '@/services/gameService'
-// *** NEW: Import the ImageLightbox component ***
-import { ImageLightbox } from '@/components/image-lightbox'
+import BlogChessboard from '@/components/blog/BlogChessboard'
+import BlogGallery from '@/components/blog/BlogGallery'
+import BlogVideo from '@/components/blog/BlogVideo'
+import type { BlogComponentPlacement, ChessboardConfig, GalleryConfig, VideoConfig } from '@/types/blog-enhancement'
 
 
 interface BlogPostPageProps {
@@ -20,8 +20,30 @@ interface BlogPostPageProps {
   }>
 }
 
-// Rich text rendering options (no changes)
-const richTextRenderOptions = {
+// Helper to check if text contains a component marker
+function hasComponentMarker(text: string): boolean {
+  return /\[COMPONENT:([^:]+):(\d+)\]/i.test(text)
+}
+
+// Helper to extract component info from marker
+function parseComponentMarker(text: string): { zone: string; position: number; marker: string } | null {
+  const match = text.match(/\[COMPONENT:([^:]+):(\d+)\]/i)
+  if (!match) return null
+  return {
+    zone: match[1],
+    position: parseInt(match[2], 10),
+    marker: match[0]
+  }
+}
+
+// Helper to render component from marker - will be set per blog post
+let getComponentForMarker: ((zone: string, position: number) => React.JSX.Element | null) | null = null
+
+// Rich text rendering options with component marker support
+const createRichTextRenderOptions = (componentRenderer: (zone: string, position: number) => React.JSX.Element | null) => {
+  getComponentForMarker = componentRenderer
+
+  return {
     renderMark: {
         [MARKS.BOLD]: (text: any) => <strong className="font-semibold">{text}</strong>,
         [MARKS.ITALIC]: (text: any) => <em className="italic">{text}</em>,
@@ -29,7 +51,32 @@ const richTextRenderOptions = {
         [MARKS.CODE]: (text: any) => <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{text}</code>,
     },
     renderNode: {
-        [BLOCKS.PARAGRAPH]: (node: any, children: any) => <p className="mb-6 leading-relaxed text-foreground">{children}</p>,
+        [BLOCKS.PARAGRAPH]: (node: any, children: any) => {
+          // Check if this paragraph contains a component marker
+          const textContent = node.content?.[0]?.value || ''
+
+          if (hasComponentMarker(textContent)) {
+            const markerInfo = parseComponentMarker(textContent)
+            if (markerInfo && getComponentForMarker) {
+              const component = getComponentForMarker(markerInfo.zone, markerInfo.position)
+              if (component) {
+                // Replace the marker text with the component
+                const textBeforeMarker = textContent.substring(0, textContent.indexOf(markerInfo.marker))
+                const textAfterMarker = textContent.substring(textContent.indexOf(markerInfo.marker) + markerInfo.marker.length)
+
+                return (
+                  <>
+                    {textBeforeMarker && <p className="mb-6 leading-relaxed text-foreground">{textBeforeMarker}</p>}
+                    {component}
+                    {textAfterMarker && <p className="mb-6 leading-relaxed text-foreground">{textAfterMarker}</p>}
+                  </>
+                )
+              }
+            }
+          }
+
+          return <p className="mb-6 leading-relaxed text-foreground">{children}</p>
+        },
         [BLOCKS.HEADING_1]: (node: any, children: any) => <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-6 mt-8">{children}</h1>,
         [BLOCKS.HEADING_2]: (node: any, children: any) => <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-5 mt-7">{children}</h2>,
         [BLOCKS.HEADING_3]: (node: any, children: any) => <h3 className="text-xl sm:text-2xl font-medium text-foreground mb-4 mt-6">{children}</h3>,
@@ -56,34 +103,94 @@ const richTextRenderOptions = {
         [BLOCKS.EMBEDDED_ENTRY]: (node: any) => <div className="my-4 p-4 bg-muted/20 rounded-lg border-l-4 border-primary"><p className="text-sm text-muted-foreground">Embedded content</p></div>,
         [INLINES.EMBEDDED_ENTRY]: (node: any) => <span className="text-muted-foreground bg-muted/20 px-2 py-1 rounded">[Embedded content]</span>,
     },
+  }
 }
-
-const lcaOpenImages: CarouselImage[] = [
-  { src: '/IMG-20250927-WA0000.jpg', alt: 'LCA Open 2025 - Chess tournament action', title: 'Tournament Play', caption: 'Intense chess battles during LCA Open 2025' },
-  { src: '/IMG-20250927-WA0001.jpg', alt: 'LCA Open 2025 - Award ceremony', title: 'Award Ceremony', caption: 'Celebrating achievements at LCA Open 2025' },
-  { src: '/IMG-20250927-WA0002.jpg', alt: 'LCA Open 2025 - Outdoor academy setup', title: 'Academy Outreach', caption: 'LCA promoting chess excellence in the community' },
-  { src: '/IMG-20250927-WA0004.jpg', alt: 'LCA Open 2025 - Tournament hall', title: 'Tournament Hall', caption: 'Focused players competing in the tournament hall' },
-  { src: '/IMG-20250927-WA0005.jpg', alt: 'LCA Open 2025 - Group celebration', title: 'Winners Circle', caption: 'Proud participants celebrating their achievements' },
-  { src: '/IMG-20250927-WA0006.jpg', alt: 'LCA Open 2025 - Individual award presentation', title: 'Individual Recognition', caption: 'Honoring individual excellence in chess' },
-  { src: '/IMG-20250927-WA0007.jpg', alt: 'LCA Open 2025 - Chess competition', title: 'Competitive Spirit', caption: 'Players demonstrating skill and concentration' },
-  { src: '/IMG-20250927-WA0008.jpg', alt: 'LCA Open 2025 - Academy promotion', title: 'Community Engagement', caption: 'LCA connecting with the local chess community' },
-  { src: '/IMG-20250927-WA0010.jpg', alt: 'LCA Open 2025 - Chess match', title: 'Strategic Battles', caption: 'Tactical chess gameplay at its finest' },
-  { src: '/IMG-20250927-WA0011.jpg', alt: 'LCA Open 2025 - Tournament atmosphere', title: 'Tournament Atmosphere', caption: 'The vibrant energy of competitive chess' },
-  { src: '/IMG-20250927-WA0012.jpg', alt: 'LCA Open 2025 - Final moments', title: 'Tournament Finale', caption: 'Concluding another successful LCA Open tournament' }
-]
-
 
 async function BlogPostContent({ slug }: { slug: string }) {
   const blog = await getBlogPostBySlug(slug)
-  const { games: tournamentGames, error: gamesError } = await fetchTournamentGames();
-
-  if (gamesError) {
-    console.error("Failed to load tournament games for blog post:", gamesError);
-  }
 
   if (!blog) {
     notFound()
   }
+
+  // Fetch blog enhancement and components
+  const enhancement = await getBlogEnhancementBySlug(slug)
+  console.log('🔍 Enhancement found:', enhancement ? `ID: ${enhancement.id}` : 'No enhancement')
+
+  const components = enhancement ? await getComponentsByBlogPostId(enhancement.id) : []
+  console.log('🎯 Components found:', components.length, components)
+
+  // Group components by zone
+  const componentsByZone: Record<string, BlogComponentPlacement[]> = {}
+  components.forEach((comp) => {
+    if (!componentsByZone[comp.zone]) {
+      componentsByZone[comp.zone] = []
+    }
+    componentsByZone[comp.zone].push(comp)
+  })
+
+  // Sort by position within each zone
+  Object.keys(componentsByZone).forEach((zone) => {
+    componentsByZone[zone].sort((a, b) => a.position - b.position)
+  })
+
+  console.log('📦 Components by zone:', Object.keys(componentsByZone).map(zone => `${zone}: ${componentsByZone[zone].length}`))
+
+  // Track which components have been rendered inline
+  const renderedComponentKeys = new Set<string>()
+
+  // Helper function to render a single component
+  const renderComponent = (component: BlogComponentPlacement) => {
+    switch (component.component_type) {
+      case 'chessboard':
+        return <BlogChessboard key={component.id} config={component.config as ChessboardConfig} />
+      case 'gallery':
+        return <BlogGallery key={component.id} config={component.config as GalleryConfig} />
+      case 'video':
+        return <BlogVideo key={component.id} config={component.config as VideoConfig} />
+      default:
+        console.log(`  ⚠️ Unknown component type: ${component.component_type}`)
+        return null
+    }
+  }
+
+  // Helper to get component by zone and position for inline rendering
+  const getComponentForInlineRender = (zone: string, position: number): React.JSX.Element | null => {
+    const component = componentsByZone[zone]?.find(c => c.position === position)
+    if (!component) {
+      console.log(`⚠️ Component not found for marker [COMPONENT:${zone}:${position}]`)
+      return null
+    }
+
+    // Mark as rendered inline
+    const key = `${zone}:${position}`
+    renderedComponentKeys.add(key)
+    console.log(`✅ Rendering component inline: ${zone}:${position}`)
+
+    return renderComponent(component)
+  }
+
+  // Helper function to render components for a zone (excluding those rendered inline)
+  const renderComponentsForZone = (zone: string) => {
+    const zoneComponents = componentsByZone[zone] || []
+    console.log(`🎨 Rendering ${zoneComponents.length} components for zone: ${zone}`)
+
+    return zoneComponents.map((component) => {
+      const key = `${zone}:${component.position}`
+
+      // Skip if already rendered inline
+      if (renderedComponentKeys.has(key)) {
+        console.log(`  ⏭️ Skipping ${component.component_type} (already rendered inline): ${key}`)
+        return null
+      }
+
+      console.log(`  → Component type: ${component.component_type}, ID: ${component.id}`)
+      return renderComponent(component)
+    })
+  }
+
+  // Create rich text options with component renderer
+  const richTextOptions = createRichTextRenderOptions(getComponentForInlineRender)
 
   return (
     <article>
@@ -102,48 +209,25 @@ async function BlogPostContent({ slug }: { slug: string }) {
       {/* Title */}
       <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-8 leading-tight">{blog.title}</h1>
 
+      {/* Components - after_title zone */}
+      {renderComponentsForZone('after_title')}
+
+      {/* Components - after_intro zone */}
+      {renderComponentsForZone('after_intro')}
+
       {/* Content */}
       <div className="prose prose-lg max-w-none">
-        {documentToReactComponents(blog.content, richTextRenderOptions)}
+        {documentToReactComponents(blog.content, richTextOptions)}
       </div>
 
-      {/* Tournament Rankings - Juniors */}
-      <div className="mt-12 pt-8 border-t border-border">
-        <p className="text-sm text-muted-foreground mb-4 text-center">Top 10 LCA Launch Open Chess Championships 2025 Juniors.{' '}<Link href="/tournaments/9602fa88-8c4f-4c4b-a430-63720ed54595" className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors">View full results</Link></p>
-        
-        {/* *** UPDATED to use ImageLightbox *** */}
-        <ImageLightbox
-          srcLight="/juniors-rankings-light.png"
-          srcDark="/juniors-rankings-dark.png"
-          alt="Top 10 Juniors Rankings - LCA Launch Open 2025"
-        />
-      </div>
+      {/* Components - mid_article zone */}
+      {renderComponentsForZone('mid_article')}
 
-      {/* Tournament Rankings - Section A & B */}
-      <div className="mt-8">
-        <p className="text-sm text-muted-foreground mb-4 text-center">Top 10 LCA Launch Open Chess Championships 2025 Section A & B Combined.{' '}<Link href="/tournaments/7c2bb272-7324-4b65-9262-22b474c7a155" className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors">View results</Link></p>
-        
-        {/* *** UPDATED to use ImageLightbox *** */}
-        <ImageLightbox
-          srcLight="/section-ab-rankings-light.png"
-          srcDark="/section-ab-rankings-dark.png"
-          alt="Top 10 Section A & B Rankings - LCA Launch Open 2025"
-        />
-      </div>
+      {/* Components - before_conclusion zone */}
+      {renderComponentsForZone('before_conclusion')}
 
-      {/* LCA Open 2025 Carousel */}
-      <div className="mt-8 pt-8 border-t border-border">
-        <h2 className="text-2xl font-semibold text-foreground mb-6 text-center">LCA Open 2025 Tournament Photos</h2>
-        <LCACarousel images={lcaOpenImages} autoSlide={true} autoSlideInterval={3000} showControls={true} showDots={true} aspectRatio="video" objectFit="cover" priority={false} className="mb-4" />
-      </div>
-
-      {/* --- SECTION: Tournament Games Viewer --- */}
-      <div className="mt-12 pt-8 border-t border-border">
-        <h2 className="text-2xl font-semibold text-foreground mb-6 text-center">
-          Notable Tournament Games
-        </h2>
-        <GameViewer games={tournamentGames} />
-      </div>
+      {/* Components - after_content zone */}
+      {renderComponentsForZone('after_content')}
     </article>
   )
 }

@@ -11,7 +11,10 @@
       "Bash(npm install:*)",
       "Bash(echo:*)",
       "Bash(\"C:\\Users\\capri\\Desktop\\lca-auth\\src\\app\\admin\\admin-dashboard\\all-players\\server-actions.ts\")",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(tree:*)",
+      "Bash(findstr:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
