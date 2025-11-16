@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react"
 import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "./actions"
 import { type TournamentId } from "./config"
+import { isNewItem } from "./utils"
 
 type UiMove = Move & { moveNumber: number }
 interface GameHistory { moves: UiMove[]; fenHistory: string[] }
@@ -156,7 +157,8 @@ export default function ViewOnlyPage() {
     setCurrentGameIndex(index);
   }
 
-  const selectedTournamentName = tournaments.find(t => t.name === selectedTournamentId)?.name || selectedTournamentId || 'Select a tournament';
+  const selectedTournament = tournaments.find(t => t.name === selectedTournamentId);
+  const selectedTournamentName = selectedTournament?.display_name || selectedTournamentId || 'Select a tournament';
   const selectedGameTitle = games[currentGameIndex]?.title || (games.length > 0 ? 'Select a game' : 'No games available');
 
   return (
@@ -171,22 +173,36 @@ export default function ViewOnlyPage() {
         </header>
 
         {/* Tournament/Game selector - ABOVE the chessboard and game details */}
-        <div className="bg-card border border-border p-4 rounded-lg shadow-sm space-y-4">
+        <div className="bg-card border border-border p-3 sm:p-4 rounded-lg shadow-sm space-y-4">
             <div>
-                <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Tournament</h3>
+                <h3 className="text-sm font-semibold mb-2.5 text-muted-foreground uppercase tracking-wide">Select Tournament</h3>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
-                            <span className="truncate">{selectedTournamentName}</span>
-                            <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                        <Button
+                            variant="outline"
+                            className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-lg px-3 py-5 sm:px-4 sm:py-6 transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                            <span className="truncate text-sm sm:text-base font-medium text-foreground">{selectedTournamentName}</span>
+                            <ChevronDown className="ml-2 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-muted-foreground" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-md bg-card p-1 border border-border">
+                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg bg-card p-2 border border-border shadow-xl">
                         {tournaments.length === 0 ? (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">No tournaments available</div>
+                            <div className="px-3 py-2.5 text-sm text-muted-foreground">No tournaments available</div>
                         ) : tournaments.map((t) => (
-                            <DropdownMenuItem key={t.name} onSelect={() => handleTournamentSelect(t.name as TournamentId)} className="cursor-pointer">
-                                {t.name}
+                            <DropdownMenuItem
+                                key={t.name}
+                                onSelect={() => handleTournamentSelect(t.name as TournamentId)}
+                                className="cursor-pointer px-3 py-2.5 rounded-md hover:bg-accent/70 transition-colors duration-150 flex items-center justify-between group"
+                            >
+                                <span className="text-sm font-medium text-foreground group-hover:text-accent-foreground flex-1">
+                                    {t.display_name || t.name}
+                                </span>
+                                {isNewItem(t.created_at) && (
+                                    <span className="ml-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                                        New
+                                    </span>
+                                )}
                             </DropdownMenuItem>
                         ))}
                     </DropdownMenuContent>
@@ -194,20 +210,40 @@ export default function ViewOnlyPage() {
             </div>
 
             <div>
-                <h3 className="text-sm font-medium mb-2 text-muted-foreground">Select Game</h3>
+                <h3 className="text-sm font-semibold mb-2.5 text-muted-foreground uppercase tracking-wide">Select Game</h3>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
-                        <Button variant="outline" className="w-full flex items-center justify-between bg-card rounded-md">
-                            <span className="truncate">{isLoading ? 'Loading games...' : selectedGameTitle}</span>
-                            <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0" />
+                        <Button
+                            variant="outline"
+                            className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-lg px-3 py-5 sm:px-4 sm:py-6 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-background"
+                        >
+                            <span className="truncate text-sm sm:text-base font-medium text-foreground">
+                                {isLoading ? 'Loading games...' : selectedGameTitle}
+                            </span>
+                            <ChevronDown className="ml-2 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-muted-foreground" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[40vh] sm:max-h-60 overflow-y-auto rounded-md bg-card p-1 border border-border">
+                    <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[50vh] sm:max-h-80 overflow-y-auto rounded-lg bg-card p-2 border border-border shadow-xl">
                         {games.map((g, i) => (
-                            <DropdownMenuItem key={g.id} className={`flex justify-between items-center cursor-pointer px-2 py-1.5 rounded-md ${i % 2 === 0 ? 'bg-card' : 'bg-accent/50'}`} onSelect={() => handleGameSelect(i)}>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-mono text-muted-foreground tabular-nums">{i + 1}.</span>
-                                    <span className="truncate flex-1 text-foreground text-sm">{g.title}</span>
+                            <DropdownMenuItem
+                                key={g.id}
+                                className="cursor-pointer px-3 py-2.5 rounded-md hover:bg-accent/70 transition-colors duration-150 group mb-1 last:mb-0"
+                                onSelect={() => handleGameSelect(i)}
+                            >
+                                <div className="flex items-center justify-between w-full gap-3">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <span className="text-xs font-mono text-muted-foreground tabular-nums flex-shrink-0 w-8">
+                                            {i + 1}.
+                                        </span>
+                                        <span className="truncate text-sm font-medium text-foreground group-hover:text-accent-foreground">
+                                            {g.title}
+                                        </span>
+                                    </div>
+                                    {isNewItem(g.created_at) && (
+                                        <span className="ml-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
+                                            New
+                                        </span>
+                                    )}
                                 </div>
                             </DropdownMenuItem>
                         ))}
@@ -289,14 +325,16 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
   }, [currentMoveIndex])
 
   return (
-    <div className="bg-card border border-border p-4 rounded-lg shadow-sm h-full flex flex-col">
-      <h2 className="text-sm sm:text-base font-semibold mb-2 text-foreground tracking-tight">Moves</h2>
-      <div ref={movesListRef} className="flex-1 overflow-y-auto pr-1 text-sm min-h-[400px] lg:min-h-0">
-        <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1 items-center max-w-[300px]">
+    <div className="bg-card border border-border rounded-lg shadow-sm max-w-lg mx-auto overflow-hidden">
+      <div className="p-3 sm:p-4 border-b border-border bg-background/50">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Moves</h2>
+      </div>
+      <div ref={movesListRef} className="overflow-y-auto p-3 sm:p-4 h-[280px] sm:h-[320px] md:h-[360px] scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
           {moves.map((move, index) =>
             index % 2 === 0 ? (
               <React.Fragment key={index}>
-                <div className="text-right text-muted-foreground font-mono pr-1 text-xs">{move.moveNumber}.</div>
+                <div className="text-right text-muted-foreground font-mono pr-2 text-xs tabular-nums w-8">{move.moveNumber}.</div>
                 <MoveButton move={move} index={index} isCurrent={currentMoveIndex === index} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index ? activeMoveRef : null} />
                 {moves[index + 1] && (<MoveButton move={moves[index + 1]} index={index + 1} isCurrent={currentMoveIndex === index + 1} onMoveSelect={onMoveSelect} ref={currentMoveIndex === index + 1 ? activeMoveRef : null}/>)}
               </React.Fragment>
@@ -310,7 +348,17 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
 MovesList.displayName = "MovesList"
 
 const MoveButton = React.forwardRef<HTMLButtonElement, { move: UiMove; index: number; isCurrent: boolean; onMoveSelect: (i: number) => void }>(({ move, index, isCurrent, onMoveSelect }, ref) => (
-  <button ref={ref} onClick={() => onMoveSelect(index)} aria-current={isCurrent ? "true" : "false"} aria-label={`Move ${index + 1}: ${move.san}`} className={`w-full text-left px-2 py-1 rounded-[2px] transition-colors font-mono text-sm ${isCurrent ? "bg-primary text-primary-foreground" : "hover:bg-accent text-foreground"}`}>
+  <button
+    ref={ref}
+    onClick={() => onMoveSelect(index)}
+    aria-current={isCurrent ? "true" : "false"}
+    aria-label={`Move ${index + 1}: ${move.san}`}
+    className={`w-full text-left px-2.5 py-1.5 rounded-md transition-all duration-150 font-mono text-sm ${
+      isCurrent
+        ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+        : "hover:bg-accent/70 text-foreground hover:shadow-sm"
+    }`}
+  >
     {move.san}
   </button>
 ))

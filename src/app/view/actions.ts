@@ -5,6 +5,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { STATIC_TOURNAMENTS, type TournamentId } from './config'
+import { formatTournamentName } from './utils'
 
 // Define the type for our game data
 export interface GameData {
@@ -16,8 +17,10 @@ export interface GameData {
 
 // Define the type for tournament metadata
 export interface TournamentMeta {
-  id: string;   // UUID in tournaments_meta
-  name: string; // Table name for the tournament
+  id: string;      // UUID in tournaments_meta
+  name: string;    // Table name for the tournament
+  created_at?: string; // Timestamp when tournament was created
+  display_name?: string; // Formatted display name
 }
 
 // Function to fetch tournaments from tournaments_meta table
@@ -26,26 +29,38 @@ export async function listTournaments(): Promise<{ tournaments: TournamentMeta[]
 
   const { data, error } = await supabase
     .from('tournaments_meta')
-    .select('id, name')
+    .select('id, name, created_at')
     .order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error loading tournaments_meta:', error.message)
     // Return static tournaments as fallback
     return {
-      tournaments: STATIC_TOURNAMENTS.map(t => ({ id: t.id, name: t.name })),
+      tournaments: STATIC_TOURNAMENTS.map(t => ({
+        id: t.id,
+        name: t.name,
+        display_name: formatTournamentName(t.name)
+      })),
       error: null
     }
   }
 
   // Merge dynamic tournaments with static ones (deduplicate by name)
-  const dynamicTournaments = (data || []) as TournamentMeta[]
+  const dynamicTournaments = (data || []).map(t => ({
+    ...t,
+    display_name: formatTournamentName(t.name)
+  })) as TournamentMeta[]
+
   const allTournaments = [...dynamicTournaments]
 
   // Add static tournaments that aren't already in the dynamic list
   STATIC_TOURNAMENTS.forEach(staticT => {
     if (!allTournaments.some(t => t.name === staticT.id)) {
-      allTournaments.push({ id: staticT.id, name: staticT.id })
+      allTournaments.push({
+        id: staticT.id,
+        name: staticT.id,
+        display_name: formatTournamentName(staticT.id)
+      })
     }
   })
 
