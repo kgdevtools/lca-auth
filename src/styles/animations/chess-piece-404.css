@@ -191,6 +191,7 @@
   height: var(--chess-404-knight-size);
   animation: knightBounce var(--chess-404-animation-duration) var(--chess-404-animation-easing) infinite;
   will-change: transform;
+  filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.1));
 }
 
 /* Knight head (circular) */
@@ -241,4 +242,16 @@
   background: var(--foreground);
   border-radius: 50% 50% 0 50%;
   transform: rotate(45deg);
+}
+
+/* Dark mode support for simplified knight */
+.dark .chess-knight-simple {
+  filter: drop-shadow(0 5px 20px rgba(96, 165, 250, 0.2));
+}
+
+.dark .chess-knight-simple-head,
+.dark .chess-knight-simple-neck,
+.dark .chess-knight-simple-base,
+.dark .chess-knight-simple-ear {
+  box-shadow: 0 0 15px rgba(96, 165, 250, 0.1);
 }
