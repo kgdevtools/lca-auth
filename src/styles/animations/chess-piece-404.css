@@ -1,0 +1,244 @@
+/**
+ * 404 Page - Chess Knight Animation
+ *
+ * Pure CSS animated chess knight piece for the 404 error page.
+ * Features a gentle wiggling/bouncing animation that's delightful and playful.
+ *
+ * Theme-aware: Automatically adapts to light/dark mode
+ * Responsive: Scales appropriately across all screen sizes
+ * Accessible: Respects prefers-reduced-motion
+ */
+
+/* ============================================
+   CSS CUSTOM PROPERTIES
+   ============================================ */
+:root {
+  /* Animation timing */
+  --chess-404-animation-duration: 2s;
+  --chess-404-animation-delay: 0s;
+  --chess-404-animation-easing: ease-in-out;
+
+  /* Knight sizing - responsive */
+  --chess-404-knight-size: 140px;
+
+  /* Animation properties */
+  --chess-404-wiggle-angle: 8deg;
+  --chess-404-bounce-height: 15px;
+}
+
+/* Tablet breakpoint */
+@media (min-width: 640px) {
+  :root {
+    --chess-404-knight-size: 180px;
+    --chess-404-bounce-height: 20px;
+  }
+}
+
+/* Desktop breakpoint */
+@media (min-width: 768px) {
+  :root {
+    --chess-404-knight-size: 220px;
+    --chess-404-bounce-height: 25px;
+  }
+}
+
+/* ============================================
+   CHESS KNIGHT CONTAINER
+   ============================================ */
+.chess-knight-404 {
+  position: relative;
+  width: var(--chess-404-knight-size);
+  height: var(--chess-404-knight-size);
+  animation: knightBounce var(--chess-404-animation-duration) var(--chess-404-animation-easing) infinite;
+  will-change: transform;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.15));
+}
+
+/* ============================================
+   KNIGHT PIECE BASE (PEDESTAL)
+   ============================================ */
+.chess-knight-404::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 25%;
+  background: var(--foreground);
+  border-radius: 0 0 8px 8px;
+  clip-path: polygon(
+    20% 0%,
+    80% 0%,
+    100% 100%,
+    0% 100%
+  );
+}
+
+/* ============================================
+   KNIGHT PIECE BODY (HORSE HEAD)
+   ============================================ */
+.chess-knight-404::after {
+  content: '';
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 65%;
+  background: var(--foreground);
+  border-radius: 45% 45% 40% 40% / 50% 50% 40% 40%;
+
+  /* Create the horse head profile */
+  clip-path: path('M 10,80 Q 5,60 15,45 Q 25,30 40,25 Q 50,22 60,25 L 70,35 Q 75,45 70,55 L 65,65 Q 60,75 50,78 L 35,80 Q 20,82 10,80 Z');
+}
+
+/* ============================================
+   KNIGHT EYE DETAIL
+   ============================================ */
+.chess-knight-eye {
+  position: absolute;
+  top: 35%;
+  right: 30%;
+  width: 8%;
+  height: 8%;
+  background: var(--background);
+  border-radius: 50%;
+  animation: knightBlink 4s ease-in-out infinite;
+}
+
+/* ============================================
+   KNIGHT MANE/CROWN
+   ============================================ */
+.chess-knight-mane {
+  position: absolute;
+  top: 25%;
+  left: 35%;
+  width: 40%;
+  height: 15%;
+  background: var(--foreground);
+  border-radius: 50% 50% 0 0;
+  transform: rotate(-10deg);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Bounce and wiggle animation */
+@keyframes knightBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(calc(var(--chess-404-bounce-height) * -0.5)) rotate(calc(var(--chess-404-wiggle-angle) * -0.5));
+  }
+  50% {
+    transform: translateY(calc(var(--chess-404-bounce-height) * -1)) rotate(0deg);
+  }
+  75% {
+    transform: translateY(calc(var(--chess-404-bounce-height) * -0.5)) rotate(calc(var(--chess-404-wiggle-angle) * 0.5));
+  }
+}
+
+/* Subtle blink animation for the eye */
+@keyframes knightBlink {
+  0%, 48%, 52%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY - REDUCED MOTION
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .chess-knight-404 {
+    animation: none;
+  }
+
+  .chess-knight-eye {
+    animation: none;
+  }
+}
+
+/* ============================================
+   THEME SUPPORT
+   ============================================ */
+
+/* Dark mode - lighter knight with glow */
+.dark .chess-knight-404 {
+  filter: drop-shadow(0 10px 30px rgba(96, 165, 250, 0.2));
+}
+
+/* Optional: Add a subtle glow effect in dark mode */
+.dark .chess-knight-404::before,
+.dark .chess-knight-404::after {
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.1);
+}
+
+/* ============================================
+   SIMPLIFIED SVG-STYLE KNIGHT
+   (Alternative simpler implementation)
+   ============================================ */
+
+/* Simplified version using basic shapes */
+.chess-knight-simple {
+  position: relative;
+  width: var(--chess-404-knight-size);
+  height: var(--chess-404-knight-size);
+  animation: knightBounce var(--chess-404-animation-duration) var(--chess-404-animation-easing) infinite;
+  will-change: transform;
+}
+
+/* Knight head (circular) */
+.chess-knight-simple-head {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  height: 50%;
+  background: var(--foreground);
+  border-radius: 50% 50% 45% 40%;
+  transform-origin: bottom center;
+}
+
+/* Knight neck */
+.chess-knight-simple-neck {
+  position: absolute;
+  bottom: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 35%;
+  height: 30%;
+  background: var(--foreground);
+  border-radius: 20% 20% 0 0;
+}
+
+/* Knight base */
+.chess-knight-simple-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 25%;
+  background: var(--foreground);
+  border-radius: 8px 8px 8px 8px;
+  clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
+}
+
+/* Knight ear/mane detail */
+.chess-knight-simple-ear {
+  position: absolute;
+  top: 15%;
+  left: 55%;
+  width: 15%;
+  height: 20%;
+  background: var(--foreground);
+  border-radius: 50% 50% 0 50%;
+  transform: rotate(45deg);
+}

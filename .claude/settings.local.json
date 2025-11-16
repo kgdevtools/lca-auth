@@ -14,7 +14,8 @@
       "Bash(dir:*)",
       "Bash(tree:*)",
       "Bash(findstr:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(ren rainy-scene-implementation-plan.md not-found-page-animation-plan.md)"
     ],
     "deny": [],
     "ask": []
