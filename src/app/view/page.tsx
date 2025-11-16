@@ -6,7 +6,7 @@ import type { Move } from "chess.js"
 import { Chessboard } from "react-chessboard"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown } from "lucide-react"
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Play, Pause } from "lucide-react"
 import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "./actions"
 import { type TournamentId } from "./config"
 import { isNewItem } from "./utils"
@@ -30,6 +30,11 @@ export default function ViewOnlyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
+
+  const [isReplaying, setIsReplaying] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const replayTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const replayMoveIndexRef = useRef<number>(0)
 
   // Load tournaments on mount
   useEffect(() => {
@@ -143,9 +148,92 @@ export default function ViewOnlyPage() {
     }
   }, [currentMoveIndex, gameHistory.moves])
 
+  const stopReplay = useCallback(() => {
+    if (replayTimerRef.current) {
+      clearInterval(replayTimerRef.current)
+      replayTimerRef.current = null
+    }
+    setIsReplaying(false)
+    setIsPaused(false)
+    replayMoveIndexRef.current = -1
+  }, [])
+
+  const pauseReplay = useCallback(() => {
+    if (replayTimerRef.current) {
+      clearInterval(replayTimerRef.current)
+      replayTimerRef.current = null
+    }
+    setIsPaused(true)
+  }, [])
+
+  const resumeReplay = useCallback(() => {
+    if (!isReplaying || !isPaused) return
+
+    setIsPaused(false)
+
+    replayTimerRef.current = setInterval(() => {
+      replayMoveIndexRef.current++
+      if (replayMoveIndexRef.current >= gameHistory.moves.length) {
+        stopReplay()
+        return
+      }
+      setCurrentMoveIndex(replayMoveIndexRef.current)
+    }, 1500)
+  }, [isReplaying, isPaused, gameHistory.moves.length, stopReplay])
+
   const navigateTo = useCallback((index: number) => {
+    // Stop replay if user manually navigates
+    if (isReplaying) {
+      stopReplay()
+    }
     setCurrentMoveIndex(Math.max(-1, Math.min(index, gameHistory.moves.length - 1)))
-  }, [gameHistory.moves.length])
+  }, [gameHistory.moves.length, isReplaying, stopReplay])
+
+  const startReplay = useCallback(() => {
+    if (gameHistory.moves.length === 0) return
+
+    // Stop any existing replay
+    stopReplay()
+
+    // Start from the beginning
+    setCurrentMoveIndex(-1)
+    setIsReplaying(true)
+    setIsPaused(false)
+    replayMoveIndexRef.current = -1
+
+    replayTimerRef.current = setInterval(() => {
+      replayMoveIndexRef.current++
+      if (replayMoveIndexRef.current >= gameHistory.moves.length) {
+        stopReplay()
+        return
+      }
+      setCurrentMoveIndex(replayMoveIndexRef.current)
+    }, 1500)
+  }, [gameHistory.moves.length, stopReplay])
+
+  const toggleReplay = useCallback(() => {
+    if (!isReplaying) {
+      startReplay()
+    } else if (isPaused) {
+      resumeReplay()
+    } else {
+      pauseReplay()
+    }
+  }, [isReplaying, isPaused, startReplay, resumeReplay, pauseReplay])
+
+  // Cleanup replay on unmount or when game changes
+  useEffect(() => {
+    return () => {
+      if (replayTimerRef.current) {
+        clearInterval(replayTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Stop replay when game changes
+  useEffect(() => {
+    stopReplay()
+  }, [currentPgn, stopReplay])
 
   const handleTournamentSelect = (tournamentName: TournamentId) => {
     if (tournamentName !== selectedTournamentId) {
@@ -281,14 +369,23 @@ export default function ViewOnlyPage() {
               </div>
 
               <div className="max-w-lg mx-auto">
-                <Controls onStart={() => navigateTo(-1)} onPrev={() => navigateTo(currentMoveIndex - 1)} onNext={() => navigateTo(currentMoveIndex + 1)} onEnd={() => navigateTo(gameHistory.moves.length - 1)} canGoBack={currentMoveIndex > -1} canGoForward={currentMoveIndex < gameHistory.moves.length - 1}/>
+                <Controls
+                  onStart={() => navigateTo(-1)}
+                  onPrev={() => navigateTo(currentMoveIndex - 1)}
+                  onNext={() => navigateTo(currentMoveIndex + 1)}
+                  onEnd={() => navigateTo(gameHistory.moves.length - 1)}
+                  onReplay={toggleReplay}
+                  canGoBack={currentMoveIndex > -1}
+                  canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
+                  isReplaying={isReplaying}
+                  isPaused={isPaused}
+                />
               </div>
-              {gameHistory.moves.length > 0 && (<div className="text-center text-sm text-muted-foreground">Move {currentMoveIndex + 1} of {gameHistory.moves.length}</div>)}
-            </div>
 
-            {/* Moves list below */}
-            <div className="mt-3">
-              <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} />
+              {/* Moves list - minimal spacing */}
+              <div className="max-w-lg mx-auto">
+                <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={(i) => navigateTo(i)} />
+              </div>
             </div>
           </>
         )}
@@ -298,14 +395,38 @@ export default function ViewOnlyPage() {
 }
 
 // Sub-components (Controls, MovesList, etc.) remain unchanged from your last version. I'm including them here for completeness.
-const Controls = React.memo(({ onStart, onPrev, onNext, onEnd, canGoBack, canGoForward }: { onStart: () => void; onPrev: () => void; onNext: () => void; onEnd: () => void; canGoBack: boolean; canGoForward: boolean }) => (
-  <div className="flex justify-center items-center gap-2 p-3 bg-card border border-border rounded-[2px] shadow-sm">
-    <Button variant="outline" size="lg" onClick={onStart} disabled={!canGoBack} aria-label="Go to start" className="flex-1 rounded-[2px] bg-transparent"><ChevronsLeft className="w-5 h-5" /></Button>
-    <Button variant="outline" size="lg" onClick={onPrev} disabled={!canGoBack} aria-label="Previous move" className="flex-1 rounded-[2px] bg-transparent"><ChevronLeft className="w-5 h-5" /></Button>
-    <Button variant="outline" size="lg" onClick={onNext} disabled={!canGoForward} aria-label="Next move" className="flex-1 rounded-[2px] bg-transparent"><ChevronRight className="w-5 h-5" /></Button>
-    <Button variant="outline" size="lg" onClick={onEnd} disabled={!canGoForward} aria-label="Go to end" className="flex-1 rounded-[2px] bg-transparent"><ChevronsRight className="w-5 h-5" /></Button>
-  </div>
-))
+const Controls = React.memo(({ onStart, onPrev, onNext, onEnd, onReplay, canGoBack, canGoForward, isReplaying, isPaused }: {
+  onStart: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onEnd: () => void;
+  onReplay: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  isReplaying: boolean;
+  isPaused: boolean;
+}) => {
+  const showPauseIcon = isReplaying && !isPaused
+  const showPlayIcon = !isReplaying || isPaused
+
+  return (
+    <div className="flex justify-center items-center gap-2 p-3 bg-card border border-border rounded-[2px] shadow-sm">
+      <Button variant="outline" size="lg" onClick={onStart} disabled={!canGoBack || (isReplaying && !isPaused)} aria-label="Go to start" className="flex-1 rounded-[2px] bg-transparent"><ChevronsLeft className="w-5 h-5" /></Button>
+      <Button variant="outline" size="lg" onClick={onPrev} disabled={!canGoBack || (isReplaying && !isPaused)} aria-label="Previous move" className="flex-1 rounded-[2px] bg-transparent"><ChevronLeft className="w-5 h-5" /></Button>
+      <Button
+        variant={isReplaying && !isPaused ? "default" : "outline"}
+        size="lg"
+        onClick={onReplay}
+        aria-label={showPauseIcon ? "Pause replay" : "Play game"}
+        className="flex-1 rounded-[2px] bg-transparent"
+      >
+        {showPauseIcon ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+      </Button>
+      <Button variant="outline" size="lg" onClick={onNext} disabled={!canGoForward || (isReplaying && !isPaused)} aria-label="Next move" className="flex-1 rounded-[2px] bg-transparent"><ChevronRight className="w-5 h-5" /></Button>
+      <Button variant="outline" size="lg" onClick={onEnd} disabled={!canGoForward || (isReplaying && !isPaused)} aria-label="Go to end" className="flex-1 rounded-[2px] bg-transparent"><ChevronsRight className="w-5 h-5" /></Button>
+    </div>
+  )
+})
 Controls.displayName = "Controls"
 
 const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves: UiMove[]; currentMoveIndex: number; onMoveSelect: (i: number) => void }) => {
@@ -316,19 +437,41 @@ const MovesList = React.memo(({ moves, currentMoveIndex, onMoveSelect }: { moves
     if (activeMoveRef.current && movesListRef.current) {
       const container = movesListRef.current
       const element = activeMoveRef.current
-      const containerRect = container.getBoundingClientRect()
-      const elementRect = element.getBoundingClientRect()
-      if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
+
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        const containerRect = container.getBoundingClientRect()
+        const elementRect = element.getBoundingClientRect()
+
+        // Only scroll within the container, never scroll the page viewport
+        const elementHeight = elementRect.height
+        const visibleTop = Math.max(elementRect.top, containerRect.top)
+        const visibleBottom = Math.min(elementRect.bottom, containerRect.bottom)
+        const visibleHeight = Math.max(0, visibleBottom - visibleTop)
+        const visibilityRatio = visibleHeight / elementHeight
+
+        // Only scroll if less than 30% of the element is visible (more conservative)
+        if (visibilityRatio < 0.3) {
+          // Scroll within container only, using scrollTop for precise control
+          const containerScrollTop = container.scrollTop
+          const elementOffsetTop = element.offsetTop
+          const containerHeight = container.clientHeight
+
+          // Calculate target scroll position to center element
+          const targetScroll = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2)
+
+          // Smooth scroll within container only
+          container.scrollTo({
+            top: targetScroll,
+            behavior: "smooth"
+          })
+        }
+      })
     }
   }, [currentMoveIndex])
 
   return (
     <div className="bg-card border border-border rounded-lg shadow-sm max-w-lg mx-auto overflow-hidden">
-      <div className="p-3 sm:p-4 border-b border-border bg-background/50">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Moves</h2>
-      </div>
       <div ref={movesListRef} className="overflow-y-auto p-3 sm:p-4 h-[280px] sm:h-[320px] md:h-[360px] scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
           {moves.map((move, index) =>
