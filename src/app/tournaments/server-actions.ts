@@ -5,9 +5,22 @@ import { createClient } from "@/utils/supabase/server"
 export type Tournament = {
   id: string
   tournament_name: string | null
-  location: string | null
-  date: string | null
+  organizer: string | null
+  federation: string | null
+  tournament_director: string | null
   chief_arbiter: string | null
+  deputy_chief_arbiter: string | null
+  arbiter: string | null
+  time_control: string | null
+  rate_of_play: string | null
+  location: string | null
+  rounds: number | null
+  tournament_type: string | null
+  rating_calculation: string | null
+  date: string | null
+  average_elo: number | null
+  average_age: number | null
+  source: string | null
 }
 
 // --- normalize date strings to yyyy-mm-dd ---
@@ -37,7 +50,7 @@ export async function getTournaments() {
   const supabase = await createClient()
   const { data: tournaments, error } = await supabase
     .from("tournaments")
-    .select("id, tournament_name, location, date, chief_arbiter")
+    .select("id, tournament_name, organizer, federation, tournament_director, chief_arbiter, deputy_chief_arbiter, arbiter, time_control, rate_of_play, location, rounds, tournament_type, rating_calculation, date, average_elo, average_age, source")
 
   if (error) {
     throw new Error("Failed to fetch tournaments")

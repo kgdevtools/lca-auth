@@ -15,7 +15,14 @@
       "Bash(tree:*)",
       "Bash(findstr:*)",
       "Bash(find:*)",
-      "Bash(ren rainy-scene-implementation-plan.md not-found-page-animation-plan.md)"
+      "Bash(ren rainy-scene-implementation-plan.md not-found-page-animation-plan.md)",
+      "Bash(nul)",
+      "Bash(powershell -Command \"Remove-Item -Path ''.\\nul'' -Force\")",
+      "Bash(powershell -Command \"Remove-Item -LiteralPath ''.\\nul'' -Force\")",
+      "Bash(git clean:*)",
+      "Bash(powershell -Command \"Remove-Item -Path ''\\?\\C:\\Users\\capri\\Desktop\\lca-auth\\nul'' -Force\")",
+      "Bash(powershell -Command \"Remove-Item -Path ''\\\\?\\C:\\Users\\capri\\Desktop\\lca-auth\\nul'' -Force\")",
+      "Bash(.gitignore)"
     ],
     "deny": [],
     "ask": []
