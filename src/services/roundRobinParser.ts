@@ -1,7 +1,12 @@
 import * as XLSX from "xlsx"
 import { parseDate } from "@/lib/dateUtils"
 
-// Use original parser interfaces to maintain compatibility
+/**
+ * Round Robin Tournament Parser
+ * Handles individual round robin tournaments with cross-table format
+ * In cross-tables, numeric headers (1, 2, 3) represent opponent RANKS, not round numbers
+ */
+
 export interface TournamentMetadata {
   tournament_name?: string
   organizer?: string
@@ -27,7 +32,7 @@ export interface PlayerRanking {
   name?: string
   federation?: string
   rating: number | null
-  rounds: any[] // Array structure like original parser
+  rounds: any[]
   points: number | null
   tie_breaks: Record<string, number | null>
 }
@@ -37,7 +42,7 @@ export interface TournamentData {
   player_rankings: PlayerRanking[]
 }
 
-export class UnifiedParserService {
+export class RoundRobinParser {
   private fileName: string
 
   constructor(fileName: string) {
@@ -50,13 +55,13 @@ export class UnifiedParserService {
     const sheet = workbook.Sheets[sheetName]
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 })
 
-    console.log("=== UNIFIED PARSER DEBUG ===")
+    console.log("=== ROUND ROBIN PARSER DEBUG ===")
     console.log("Total rows:", rows.length)
     console.log("Sheet name:", sheetName)
 
-    // Print first 15 rows to analyze structure
+    // Print first 20 rows to analyze structure
     console.log("\n=== RAW EXCEL DATA ===")
-    for (let i = 0; i < Math.min(15, rows.length); i++) {
+    for (let i = 0; i < Math.min(20, rows.length); i++) {
       console.log(`Row ${i}:`, JSON.stringify(rows[i]))
     }
 
@@ -65,21 +70,19 @@ export class UnifiedParserService {
 
     console.log("\n=== FINAL RESULTS ===")
     console.log("Tournament name:", metadata.tournament_name)
-    console.log("Source:", metadata.source)
+    console.log("Tournament type:", metadata.tournament_type)
+    console.log("Date:", metadata.date)
     console.log("Players extracted:", playerRankings.length)
-    
+
     if (playerRankings.length > 0) {
       console.log("\n=== SAMPLE PLAYER DATA ===")
       const samplePlayer = playerRankings[0]
       console.log("First player:", samplePlayer.name, "Rank:", samplePlayer.rank)
       console.log("Rounds extracted:", samplePlayer.rounds.length)
       console.log("Tie-breaks extracted:", Object.keys(samplePlayer.tie_breaks).length)
-      
+
       if (samplePlayer.rounds.length > 0) {
-        console.log("First round sample:", JSON.stringify(samplePlayer.rounds[0]))
-      }
-      if (Object.keys(samplePlayer.tie_breaks).length > 0) {
-        console.log("Tie-breaks sample:", JSON.stringify(samplePlayer.tie_breaks))
+        console.log("Sample rounds:", JSON.stringify(samplePlayer.rounds.slice(0, 3), null, 2))
       }
     }
 
@@ -90,92 +93,94 @@ export class UnifiedParserService {
   }
 
   private extractMetadata(rows: any[][]): TournamentMetadata {
-    const metadata: TournamentMetadata = {}
+    const metadata: TournamentMetadata = {
+      tournament_type: "Round robin"
+    }
 
     console.log("\n=== METADATA EXTRACTION ===")
 
-    // Extract tournament name from Row 0 + Row 1
+    // Extract tournament name from first few rows
     let tournamentName = ""
-    
-    // Get Row 0 content
+
+    // Try Row 0
     if (rows.length > 0 && rows[0] && rows[0][0]) {
-      tournamentName = this.cleanCell(rows[0][0])
-      console.log(`Row 0 tournament name: "${tournamentName}"`)
+      const row0Val = this.cleanCell(rows[0][0])
+      // Skip if it's just a URL
+      if (!/^http/i.test(row0Val)) {
+        tournamentName = row0Val
+        console.log(`Row 0 tournament name: "${tournamentName}"`)
+      }
     }
-    
-    // Get Row 1 content and append if valid
+
+    // If Row 1 exists and looks like part of the name, append it
     if (rows.length > 1 && rows[1] && rows[1][0]) {
       const row1Content = this.cleanCell(rows[1][0])
-      console.log(`Row 1 content: "${row1Content}"`)
-      
-      if (row1Content && 
+      if (row1Content &&
           !row1Content.toLowerCase().includes('final') &&
           !row1Content.toLowerCase().includes('ranking') &&
           !row1Content.toLowerCase().includes('organizer') &&
+          !/^http/i.test(row1Content) &&
           row1Content.length > 0) {
         tournamentName += ` ${row1Content}`
         console.log(`Appending Row 1 to tournament name`)
       }
     }
-    
+
     metadata.tournament_name = tournamentName
     console.log(`Final tournament name: "${metadata.tournament_name}"`)
 
-    // Look for other metadata starting from Row 2 onwards
-    for (let i = 2; i < rows.length; i++) {
+    // Look for metadata fields in early rows
+    for (let i = 0; i < Math.min(30, rows.length); i++) {
       const row = rows[i]
       if (!row || row.length === 0) continue
-      
+
       const firstCell = this.cleanCell(row[0])
       if (!firstCell) continue
-      
-      // Stop when we hit "Final ranking" - that's the start of player data
-      if (firstCell.toLowerCase().includes('final ranking')) {
-        console.log(`Stopping metadata search at row ${i} (Final ranking found)`)
+
+      // Stop when we hit ranking section or header row
+      const lowerCell = firstCell.toLowerCase()
+      if (lowerCell.includes('final ranking') ||
+          lowerCell.includes('ranking crosstable') ||
+          lowerCell.includes('crosstable') ||
+          lowerCell.includes('final standing') ||
+          /^(rank|rk\.?)$/i.test(firstCell)) {
+        console.log(`Stopping metadata search at row ${i}`)
         break
       }
-      
+
       const fullRowText = row.join(' ')
-      
-      // Extract metadata fields with colon separators
+
+      // Extract metadata fields
       if (/organizer/i.test(firstCell)) {
         metadata.organizer = this.extractAfterColon(fullRowText)
         console.log(`Organizer: ${metadata.organizer}`)
       }
-      
+
       if (/federation/i.test(firstCell)) {
         metadata.federation = this.extractAfterColon(fullRowText)
         console.log(`Federation: ${metadata.federation}`)
       }
-      
-      if (/tournament director/i.test(firstCell)) {
-        metadata.tournament_director = this.extractAfterColon(fullRowText)
-        console.log(`Tournament director: ${metadata.tournament_director}`)
-      }
-      
+
       if (/chief arbiter/i.test(firstCell) && !/deputy/i.test(firstCell)) {
         metadata.chief_arbiter = this.extractAfterColon(fullRowText)
         console.log(`Chief arbiter: ${metadata.chief_arbiter}`)
       }
-      
+
       if (/deputy chief arbiter/i.test(firstCell)) {
         metadata.deputy_chief_arbiter = this.extractAfterColon(fullRowText)
         console.log(`Deputy chief arbiter: ${metadata.deputy_chief_arbiter}`)
       }
-      
-      if (/location/i.test(firstCell)) {
-        metadata.location = this.extractAfterColon(fullRowText)
-        console.log(`Location: ${metadata.location}`)
+
+      if (/tournament director/i.test(firstCell)) {
+        metadata.tournament_director = this.extractAfterColon(fullRowText)
+        console.log(`Tournament director: ${metadata.tournament_director}`)
       }
-      
-      if (/date/i.test(firstCell)) {
-        const rawDate = this.extractAfterColon(fullRowText)
-        if (rawDate) {
-          metadata.date = parseDate(rawDate)
-          console.log(`Date: ${metadata.date}`)
-        }
+
+      if (/arbiter/i.test(firstCell) && !/chief|deputy/i.test(firstCell)) {
+        metadata.arbiter = this.extractAfterColon(fullRowText)
+        console.log(`Arbiter: ${metadata.arbiter}`)
       }
-      
+
       if (/time control/i.test(firstCell)) {
         const timeInfo = this.extractAfterColon(fullRowText)
         if (timeInfo) {
@@ -189,7 +194,20 @@ export class UnifiedParserService {
           console.log(`Time control: ${metadata.time_control}, Rate: ${metadata.rate_of_play}`)
         }
       }
-      
+
+      if (/location/i.test(firstCell) || /town/i.test(firstCell)) {
+        metadata.location = this.extractAfterColon(fullRowText)
+        console.log(`Location: ${metadata.location}`)
+      }
+
+      if (/date/i.test(firstCell)) {
+        const rawDate = this.extractAfterColon(fullRowText)
+        if (rawDate) {
+          metadata.date = parseDate(rawDate)
+          console.log(`Date: raw="${rawDate}", parsed="${metadata.date}"`)
+        }
+      }
+
       if (/rounds/i.test(firstCell) && /\d+/.test(firstCell)) {
         const roundMatch = firstCell.match(/(\d+)/)
         if (roundMatch) {
@@ -219,148 +237,167 @@ export class UnifiedParserService {
   }
 
   private extractPlayers(rows: any[][]): PlayerRanking[] {
-    console.log("\n=== PLAYER EXTRACTION ===")
-    
+    console.log("\n=== PLAYER EXTRACTION (ROUND ROBIN CROSS-TABLE) ===")
+
     const headerRowIndex = this.findPlayerHeaderRow(rows)
     if (headerRowIndex === -1) {
       console.log("ERROR: Could not find player header row!")
       return []
     }
-    
+
     console.log(`Player header row found at index: ${headerRowIndex}`)
     const headers = rows[headerRowIndex].map((h: any) => this.cleanCell(h))
-    
+
     const columnMap = this.buildColumnMap(headers)
-    console.log(`Column mapping complete. Rounds: ${columnMap.roundColumns.length}, Tie-breaks: ${columnMap.tieBreakColumns.length}`)
-    
+    console.log(`Column mapping complete. Opponent rank columns: ${columnMap.opponentRankColumns.length}`)
+
+    // First pass: Extract basic player info
     const players: PlayerRanking[] = []
-    let sampleCount = 0
-    
-    // Process player rows
     for (let i = headerRowIndex + 1; i < rows.length; i++) {
       const row = rows[i]
       if (!row || row.length === 0) continue
-      
-      // Stop at footer
       if (this.isFooterRow(row)) break
-      
-      const player = this.buildPlayerFromRow(row, columnMap)
+
+      const player = this.buildPlayerFromRow(row, columnMap, [])
       if (player) {
         players.push(player)
-        
-        // Show sample for first 2 players
-        if (sampleCount < 2) {
-          console.log(`\n--- SAMPLE PLAYER ${sampleCount + 1} ---`)
-          console.log(`Name: ${player.name}, Rank: ${player.rank}`)
-          console.log(`Rounds: ${player.rounds.length}, Tie-breaks: ${Object.keys(player.tie_breaks).length}`)
-          sampleCount++
+      }
+    }
+
+    console.log(`\nExtracted ${players.length} players`)
+
+    // Second pass: Extract rounds with opponent rank mapping
+    for (let i = 0; i < players.length; i++) {
+      const player = players[i]
+      const rowIndex = headerRowIndex + 1 + i
+      const row = rows[rowIndex]
+
+      if (!row) continue
+
+      // Extract rounds from opponent rank columns
+      for (const opponentCol of columnMap.opponentRankColumns || []) {
+        const cellValue = this.cleanCell(row[opponentCol.columnIndex] || '')
+
+        // Skip if it's an asterisk (player vs themselves)
+        if (cellValue === '*') {
+          console.log(`Player ${player.rank} vs opponent rank ${opponentCol.opponentRank}: SELF (skipped)`)
+          continue
+        }
+
+        // Parse the cell to get result
+        const roundData = this.parseRoundRobinCell(cellValue, opponentCol.opponentRank, players)
+        if (roundData) {
+          player.rounds.push(roundData)
+        }
+      }
+
+      if (i < 2) {
+        console.log(`\n--- SAMPLE PLAYER ${i + 1}: ${player.name} ---`)
+        console.log(`Rank: ${player.rank}, Rounds: ${player.rounds.length}`)
+        if (player.rounds.length > 0) {
+          console.log(`Sample round:`, JSON.stringify(player.rounds[0]))
         }
       }
     }
-    
+
     return players
   }
 
   private findPlayerHeaderRow(rows: any[][]): number {
-    // Find "Final ranking" first
+    // Find ranking section first (various formats)
     let searchStart = 0
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
-      if (row && row[0] && this.cleanCell(row[0]).toLowerCase().includes('final ranking')) {
-        searchStart = i + 1
-        console.log(`Found "Final ranking" at row ${i}, searching headers from row ${searchStart}`)
-        break
+      if (row && row[0]) {
+        const cell = this.cleanCell(row[0]).toLowerCase()
+        // Look for various ranking text patterns
+        if (cell.includes('final ranking') ||
+            cell.includes('ranking crosstable') ||
+            cell.includes('crosstable') ||
+            cell.includes('final standing')) {
+          searchStart = i + 1
+          console.log(`Found ranking section at row ${i}: "${cell}", searching headers from row ${searchStart}`)
+          break
+        }
       }
     }
-    
-    // Look for header row with required columns
-    for (let i = searchStart; i < Math.min(searchStart + 5, rows.length); i++) {
+
+    // Look for header row
+    for (let i = searchStart; i < Math.min(searchStart + 10, rows.length); i++) {
       const row = rows[i]
       if (!row || row.length < 4) continue
-      
+
       const cells = row.map((c: any) => this.cleanCell(c).toLowerCase())
       const hasRank = cells.some((c: string) => /^(rank|rk\.?)$/.test(c))
       const hasName = cells.some((c: string) => c === 'name')
-      const hasFed = cells.some((c: string) => c === 'fed')
-      
-      if (hasRank && hasName && hasFed) {
+
+      if (hasRank && hasName) {
         console.log(`Header row confirmed at index ${i}`)
         return i
       }
     }
-    
+
     return -1
   }
 
   private buildColumnMap(headers: string[]): any {
     const map: any = {
-      roundColumns: [],
+      opponentRankColumns: [], // Cross-table opponent columns
       tieBreakColumns: []
     }
-    
-    console.log("\n=== COLUMN MAPPING ===")
-    
+
+    console.log("\n=== COLUMN MAPPING (CROSS-TABLE) ===")
+
     for (let i = 0; i < headers.length; i++) {
       const header = this.cleanCell(headers[i]).toLowerCase()
-      
+
       // Basic columns
       if (/^(rank|rk\.?)$/.test(header)) map.rank = i
-      if (/^(sno\.?|no\.?)$/.test(header)) map.playerNumber = i  
+      if (/^(sno\.?|no\.?)$/.test(header)) map.playerNumber = i
       if (header === 'name') map.name = i
       if (/^(rtg|rating)$/.test(header)) map.rating = i
       if (/^(fed|federation)$/.test(header)) map.federation = i
       if (/^(pts\.?|points)$/.test(header)) map.points = i
-      
-      // Round columns (merged cells spanning 3 columns each)
-      if (/^\d+\.rd\.?$/i.test(header)) {
-        const roundMatch = header.match(/(\d+)/)
-        if (roundMatch) {
-          const roundNum = parseInt(roundMatch[0])
-          map.roundColumns.push({
-            roundNumber: roundNum,
-            opponentIndex: i,
-            colorIndex: i + 1,
-            resultIndex: i + 2
-          })
-          console.log(`Round ${roundNum} mapped: opponent=${i}, color=${i+1}, result=${i+2}`)
-        }
+
+      // In round robin cross-tables, numeric-only headers represent opponent RANKS
+      // NOT round numbers like in Swiss tournaments
+      if (/^\d+$/.test(header)) {
+        const opponentRank = parseInt(header)
+        map.opponentRankColumns.push({
+          opponentRank,      // The rank of the opponent (1, 2, 3, etc.)
+          columnIndex: i     // Column position in Excel
+        })
+        console.log(`Opponent rank ${opponentRank} mapped to column ${i}`)
       }
-      
-      // Tie-break columns with specific mappings
-      if (/^ratp$/i.test(header)) {
-        map.tieBreakColumns.push({ index: i, name: "TB5" })
-        console.log(`TB5 (Performance Rating) at column ${i}`)
-      }
-      else if (/^res\.?$/i.test(header)) {
+
+      // Tie-break columns
+      if (/^(sb|sonneborn)/i.test(header)) {
         map.tieBreakColumns.push({ index: i, name: "TB1" })
-        console.log(`TB1 (Direct Encounter) at column ${i}`)
-      }
-      else if (/^win\/p$/i.test(header)) {
-        map.tieBreakColumns.push({ index: i, name: "TB4" })  
-        console.log(`TB4 (Number of Wins) at column ${i}`)
-      }
-      else if (/^bh:gp$/i.test(header)) {
+      } else if (/^(bh|buchholz)/i.test(header)) {
         map.tieBreakColumns.push({ index: i, name: "TB2" })
-        console.log(`TB2 (Buchholz) at column ${i}`)
-      }
-      else if (/^tb\d+$/i.test(header)) {
+      } else if (/^(de|direct encounter)/i.test(header)) {
+        map.tieBreakColumns.push({ index: i, name: "TB3" })
+      } else if (/^ratp$/i.test(header)) {
+        map.tieBreakColumns.push({ index: i, name: "TB5" })
+      } else if (/^(aro|average rating)/i.test(header)) {
+        map.tieBreakColumns.push({ index: i, name: "ARO" })
+      } else if (/^tb\d+$/i.test(header)) {
         const tbMatch = header.match(/tb(\d+)/i)
         if (tbMatch) {
           map.tieBreakColumns.push({ index: i, name: `TB${tbMatch[1]}` })
-          console.log(`Generic TB${tbMatch[1]} at column ${i}`)
         }
       }
     }
-    
+
     return map
   }
 
-  private buildPlayerFromRow(row: any[], columnMap: any): PlayerRanking | null {
+  private buildPlayerFromRow(row: any[], columnMap: any, players: PlayerRanking[]): PlayerRanking | null {
     const rank = columnMap.rank !== undefined ? this.parseNumber(row[columnMap.rank]) : null
     const name = columnMap.name !== undefined ? this.cleanCell(row[columnMap.name]) : ''
-    
+
     if (!rank && !name) return null
-    
+
     const player: PlayerRanking = {
       rank: rank || 0,
       name: name || undefined,
@@ -370,56 +407,57 @@ export class UnifiedParserService {
       rounds: [],
       tie_breaks: {}
     }
-    
-    // Extract rounds
-    for (const roundCol of columnMap.roundColumns || []) {
-      const opponent = this.cleanCell(row[roundCol.opponentIndex] || '')
-      const color = this.cleanCell(row[roundCol.colorIndex] || '')
-      const result = this.cleanCell(row[roundCol.resultIndex] || '')
-      
-      const roundData = this.parseRound(opponent, color, result)
-      if (roundData) {
-        player.rounds.push(roundData)
-      }
-    }
-    
-    // Extract tie-breaks  
+
+    // Extract tie-breaks
     for (const tbCol of columnMap.tieBreakColumns || []) {
       const value = this.parseFloat(row[tbCol.index])
       if (value !== null) {
         player.tie_breaks[tbCol.name] = value
       }
     }
-    
+
     return player
   }
 
-  private parseRound(opponent: string, color: string, result: string) {
-    if (!opponent || opponent === '-') {
-      return {
-        opponent: null,
-        color: null, 
-        result: "bye",
-        raw: `${opponent}|${color}|${result}`
-      }
+  /**
+   * Parse a round robin cross-table cell
+   * @param cellValue - The cell value (e.g., "1", "0", "½", "+", "-", "w", "d", "l")
+   * @param opponentRank - The rank of the opponent (from column header)
+   * @param players - All players to look up opponent details
+   */
+  private parseRoundRobinCell(cellValue: string, opponentRank: number, players: PlayerRanking[]): any {
+    if (!cellValue || cellValue === '' || cellValue === '-') {
+      return null // No game
     }
-    
-    if (!/^\d+$/.test(opponent)) return null
-    
-    let parsedColor: "white" | "black" | null = null
-    if (color.toLowerCase() === 'w') parsedColor = "white"
-    else if (color.toLowerCase() === 'b') parsedColor = "black"
-    
-    let parsedResult: "win" | "loss" | "draw" | null = null
-    if (result === '1') parsedResult = "win"
-    else if (result === '0') parsedResult = "loss"
-    else if (result === '½' || result === '0.5') parsedResult = "draw"
-    
+
+    // Find opponent by rank
+    const opponent = players.find(p => p.rank === opponentRank)
+
+    // Parse result from cell
+    let result: "win" | "loss" | "draw" | null = null
+
+    // Common formats in round robin cross-tables:
+    // "1" or "+" or "w" = win
+    // "0" or "-" or "l" = loss
+    // "½" or "=" or "d" = draw
+
+    const lowerCell = cellValue.toLowerCase()
+
+    if (cellValue === '1' || lowerCell === '+' || lowerCell === 'w' || lowerCell === 'win') {
+      result = "win"
+    } else if (cellValue === '0' || lowerCell === '-' || lowerCell === 'l' || lowerCell === 'loss') {
+      result = "loss"
+    } else if (cellValue === '½' || cellValue === '0.5' || lowerCell === '=' || lowerCell === 'd' || lowerCell === 'draw') {
+      result = "draw"
+    }
+
+    // Build round data
     return {
-      opponent,
-      color: parsedColor,
-      result: parsedResult,
-      raw: `${opponent}${color}${result}`
+      opponent: opponent ? opponent.name : `Rank ${opponentRank}`, // Opponent name or rank reference
+      opponentRating: opponent ? opponent.rating : null,           // Opponent's rating
+      color: null,                                                  // No color info in cross-table
+      result,
+      raw: cellValue
     }
   }
 
@@ -430,8 +468,8 @@ export class UnifiedParserService {
 
   private isFooterRow(row: any[]): boolean {
     const text = row.map(cell => this.cleanCell(cell)).join(' ').toLowerCase()
-    return text.includes('program') || 
-           text.includes('swiss-manager') || 
+    return text.includes('program') ||
+           text.includes('swiss-manager') ||
            text.includes('chess-results') ||
            text.includes('http')
   }
@@ -455,7 +493,7 @@ export class UnifiedParserService {
   }
 }
 
-export function parseUnifiedExcelToJson(buffer: Buffer, fileName = "uploaded.xlsx"): TournamentData {
-  const parser = new UnifiedParserService(fileName)
+export function parseRoundRobinExcelToJson(buffer: Buffer, fileName = "uploaded.xlsx"): TournamentData {
+  const parser = new RoundRobinParser(fileName)
   return parser.parse(buffer)
 }

@@ -12,12 +12,21 @@ interface Tournament {
   id: string
   tournament_name: string | null
   organizer: string | null
+  federation: string | null
+  tournament_director: string | null
+  chief_arbiter: string | null
+  deputy_chief_arbiter: string | null
+  arbiter: string | null
+  time_control: string | null
+  rate_of_play: string | null
   location: string | null
-  date: string | null
   rounds: number | null
+  tournament_type: string | null
+  rating_calculation: string | null
+  date: string | null
   average_elo: number | null
   average_age: number | null
-  tournament_type: string | null
+  source: string | null
   created_at: string
 }
 
