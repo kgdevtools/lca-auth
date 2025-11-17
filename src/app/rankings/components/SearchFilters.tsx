@@ -3,6 +3,12 @@
 import * as React from "react"
 import { Search } from "lucide-react"
 
+// Period definitions (same as tournaments)
+const PERIODS = [
+  { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
+  { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
+]
+
 export interface SearchFiltersState {
   name: string
   fed: string
@@ -10,6 +16,7 @@ export interface SearchFiltersState {
   gender: string
   ageGroup: string
   events: string
+  period: string
 }
 
 interface SearchFiltersProps {
@@ -24,6 +31,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
   const [gender, setGender] = React.useState("ALL")
   const [ageGroup, setAgeGroup] = React.useState("ALL")
   const [events, setEvents] = React.useState("ALL")
+  const [period, setPeriod] = React.useState("ALL")
 
   const apply = React.useCallback(
     (next: Partial<SearchFiltersState> = {}) => {
@@ -34,11 +42,12 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
         gender,
         ageGroup,
         events,
+        period,
         ...next,
       }
       onSearch(payload)
     },
-    [name, fed, rating, gender, ageGroup, events, onSearch],
+    [name, fed, rating, gender, ageGroup, events, period, onSearch],
   )
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,7 +62,8 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
     setGender("ALL")
     setAgeGroup("ALL")
     setEvents("ALL")
-    onSearch({ name: "", fed: "ALL", rating: "ALL", gender: "ALL", ageGroup: "ALL", events: "ALL" })
+    setPeriod("ALL")
+    onSearch({ name: "", fed: "ALL", rating: "ALL", gender: "ALL", ageGroup: "ALL", events: "ALL", period: "ALL" })
   }
 
   // Debounce name input
@@ -109,6 +119,32 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
 
         {/* Filters Row */}
         <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground">Period:</span>
+            <Chip
+              active={period === "ALL"}
+              onClick={() => {
+                setPeriod("ALL")
+                apply({ period: "ALL" })
+              }}
+            >
+              ALL
+            </Chip>
+            {PERIODS.map((p) => (
+              <Chip
+                key={p.value}
+                active={period === p.value}
+                onClick={() => {
+                  const next = period === p.value ? "ALL" : p.value
+                  setPeriod(next)
+                  apply({ period: next })
+                }}
+              >
+                {p.label}
+              </Chip>
+            ))}
+          </div>
+
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground">Rating:</span>
             <Chip

@@ -1,7 +1,39 @@
 "use client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { PlayerRanking } from "../server-actions"
+import type { PlayerRanking, TournamentEntry } from "../server-actions"
+
+// Period definitions (same as tournaments)
+const PERIODS = [
+  { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
+  { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
+]
+
+// Helper function to normalize date format to YYYY-MM-DD
+function normalizeDate(date: string): string {
+  // Replace all slashes with dashes
+  return date.replace(/\//g, '-')
+}
+
+// Helper function to check if tournament date is in period
+function isInPeriod(date: string | null, periodValue: string): boolean {
+  if (!date) return false
+
+  const period = PERIODS.find(p => p.value === periodValue)
+  if (!period) return false
+
+  // Normalize the date format before comparison
+  const normalizedDate = normalizeDate(date)
+  return normalizedDate >= period.start && normalizedDate <= period.end
+}
+
+// Helper function to filter tournaments by period
+function filterTournamentsByPeriod(tournaments: TournamentEntry[], periodValue: string): TournamentEntry[] {
+  if (!periodValue || periodValue === "ALL") {
+    return tournaments
+  }
+  return tournaments.filter(t => isInPeriod(t.tournament_date, periodValue))
+}
 
 function formatClassification(className: string): string {
   if (className === "RATING_RELATED") return "PERFORMANCE"
@@ -11,19 +43,36 @@ function formatClassification(className: string): string {
 interface PerformanceDetailsModalProps {
   player: PlayerRanking | null
   open: boolean
+  period: string
   onClose: () => void
 }
 
-export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDetailsModalProps) {
+export function PerformanceDetailsModal({ player, open, period, onClose }: PerformanceDetailsModalProps) {
   if (!player) return null
 
   // Always display TB1-TB6 columns
   const allTieBreakColumns = ['TB1', 'TB2', 'TB3', 'TB4', 'TB5', 'TB6']
 
+  // Filter tournaments by period first
+  const filteredByPeriod = filterTournamentsByPeriod(player.tournaments, period)
+
+  // Debug logging - only log when modal is actually open
+  if (open) {
+    console.log('[PerformanceDetailsModal] Player:', player.display_name)
+    console.log('[PerformanceDetailsModal] Period filter:', period)
+    console.log('[PerformanceDetailsModal] Total tournaments:', player.tournaments.length)
+    console.log('[PerformanceDetailsModal] Filtered by period:', filteredByPeriod.length)
+    console.log('[PerformanceDetailsModal] Filtered tournaments:', filteredByPeriod.map(t => ({
+      name: t.tournament_name,
+      date: t.tournament_date,
+      inPeriod: period === "ALL" ? true : isInPeriod(t.tournament_date, period)
+    })))
+  }
+
   // Calculate tournaments actually played (excluding those where all TB values are 0 or null)
-  const playedTournaments = player.tournaments.filter(tournament => {
+  const playedTournaments = filteredByPeriod.filter(tournament => {
     const tieBreaks = tournament.tie_breaks || {}
-    const hasValidTieBreaks = Object.values(tieBreaks).some(value => 
+    const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
       value !== null && value !== undefined && value !== "" && value !== 0
     )
     return hasValidTieBreaks
@@ -31,26 +80,32 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
 
   const tournamentsPlayedCount = playedTournaments.length
 
-  // Calculate average performance rating only from played tournaments
+  // Calculate average performance rating only from played tournaments in the period
   const validPerformanceRatings = playedTournaments
     .map(t => t.performance_rating)
     .filter((rating): rating is number => rating !== null && rating !== undefined)
-  
-  const avgPerformanceRating = validPerformanceRatings.length > 0 
+
+  const avgPerformanceRating = validPerformanceRatings.length > 0
     ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
     : null
+
+  const activePeriod = PERIODS.find(p => p.value === period)
+  const periodLabel = activePeriod ? activePeriod.label : 'All Time'
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent size="wide" className="border-2 border-border bg-card text-card-foreground flex flex-col rounded-md">
         <DialogHeader className="flex-shrink-0 pb-3 px-2 sm:px-4">
-          <DialogTitle className="text-xl sm:text-2xl font-bold flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+          <DialogTitle className="text-xl sm:text-2xl font-bold flex flex-col gap-2">
             <span className="text-foreground truncate">{player.display_name}</span>
-            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
-              <span className="text-base sm:text-lg font-semibold text-muted-foreground whitespace-nowrap">
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 text-base sm:text-lg font-semibold text-muted-foreground">
+              <span className="whitespace-nowrap">
+                Period: <span className="text-primary">{periodLabel}</span>
+              </span>
+              <span className="whitespace-nowrap">
                 Tournaments Played: {tournamentsPlayedCount}
               </span>
-              <span className="text-base sm:text-lg font-semibold text-muted-foreground whitespace-nowrap">
+              <span className="whitespace-nowrap">
                 Avg Performance: {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
               </span>
             </div>
@@ -64,6 +119,9 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead className="font-bold uppercase text-xs text-muted-foreground min-w-[260px] w-[260px]">
                     Tournament
+                  </TableHead>
+                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
+                    Date
                   </TableHead>
                   <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px]">
                     Rating
@@ -85,12 +143,12 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {player.tournaments.map((t, idx) => {
+                {filteredByPeriod.map((t, idx) => {
                   const tieBreaks = t.tie_breaks || {}
-                  const hasValidTieBreaks = Object.values(tieBreaks).some(value => 
+                  const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
                     value !== null && value !== undefined && value !== "" && value !== 0
                   )
-                  
+
                   return (
                     <TableRow key={`${t.tournament_id}-${idx}`} className={`hover:bg-muted/30 ${!hasValidTieBreaks ? 'opacity-50' : ''}`}>
                       <TableCell className="text-sm font-medium text-foreground min-w-[260px] w-[260px] break-words leading-tight py-3">
@@ -98,6 +156,9 @@ export function PerformanceDetailsModal({ player, open, onClose }: PerformanceDe
                         {!hasValidTieBreaks && (
                           <span className="text-xs text-muted-foreground ml-2">(Registered)</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
+                        {t.tournament_date ?? "-"}
                       </TableCell>
                       <TableCell className="text-sm text-center text-muted-foreground w-[80px]">
                         {t.player_rating ?? "-"}
