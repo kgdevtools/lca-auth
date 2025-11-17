@@ -1,7 +1,8 @@
 "use server"
 
 import { parseExcelToJson } from "@/services/parserService" // Original parser
-import { parseUnifiedExcelToJson } from "@/services/parserService-2" // New parser
+import { parseUnifiedExcelToJson } from "@/services/parserService-2" // Enhanced parser
+import { parseRoundRobinExcelToJson } from "@/services/roundRobinParser" // Round robin parser
 import { saveTournamentNormalized } from "@/repositories/tournamentRepo"
 
 export async function uploadTournamentAction(_prevState: any, formData: FormData) {
@@ -17,11 +18,16 @@ export async function uploadTournamentAction(_prevState: any, formData: FormData
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    
+
     // Choose parser based on selection
-    const parsed = parserType === "enhanced" 
-      ? parseUnifiedExcelToJson(buffer, file.name)
-      : parseExcelToJson(buffer, file.name)
+    let parsed
+    if (parserType === "enhanced") {
+      parsed = parseUnifiedExcelToJson(buffer, file.name)
+    } else if (parserType === "roundrobin") {
+      parsed = parseRoundRobinExcelToJson(buffer, file.name)
+    } else {
+      parsed = parseExcelToJson(buffer, file.name)
+    }
 
 
 const normalizedParsed = Array.isArray(parsed)

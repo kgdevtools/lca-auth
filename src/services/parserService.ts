@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx"
+import { parseDate } from "@/lib/dateUtils"
 
 export interface TournamentMetadata {
   tournament_name?: string
@@ -134,12 +135,12 @@ export class ParserService {
         metadata.rating_calculation = row[0].split(":").pop()?.trim()
       }
 
-      // Date: now we just grab the raw string and keep it
+      // Date: parse with shared utility (handles ranges and Excel serial numbers)
       if (/date/i.test(cell)) {
         const rawDatePart = row[0].split(":").pop()?.trim()
         if (rawDatePart) {
-          metadata.date = rawDatePart
-          console.log("Date set as raw text:", metadata.date)
+          metadata.date = parseDate(rawDatePart)
+          console.log("Date parsed:", metadata.date)
         }
       }
 

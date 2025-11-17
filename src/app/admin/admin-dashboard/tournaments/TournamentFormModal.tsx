@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Calendar, MapPin, Users, Trophy, Clock } from 'lucide-react'
+import { X, Calendar, MapPin, Users, Trophy, Clock, Save, AlertCircle } from 'lucide-react'
 import { createTournament, updateTournament } from '../server-actions'
 
 interface Tournament {
@@ -33,11 +33,15 @@ interface TournamentFormModalProps {
   onSuccess: () => void
 }
 
-export default function TournamentFormModal({ 
-  isOpen, 
-  onClose, 
-  tournament, 
-  onSuccess 
+const inputClasses = "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-colors"
+const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+const errorClasses = "text-red-500 dark:text-red-400 text-xs mt-1"
+
+export default function TournamentFormModal({
+  isOpen,
+  onClose,
+  tournament,
+  onSuccess
 }: TournamentFormModalProps) {
   const [formData, setFormData] = useState<Tournament>({
     tournament_name: '',
@@ -111,7 +115,7 @@ export default function TournamentFormModal({
       ...prev,
       [field]: value
     }))
-    
+
     // Clear error for this field
     if (errors[field]) {
       setErrors(prev => ({
@@ -154,7 +158,7 @@ export default function TournamentFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) return
 
     setLoading(true)
@@ -162,8 +166,8 @@ export default function TournamentFormModal({
       const submissionData = {
         ...formData,
         rounds: formData.rounds === null ? null : Number(formData.rounds),
-average_elo: formData.average_elo === null ? null : Number(formData.average_elo),
-average_age: formData.average_age === null ? null : Number(formData.average_age),
+        average_elo: formData.average_elo === null ? null : Number(formData.average_elo),
+        average_age: formData.average_age === null ? null : Number(formData.average_age),
       }
 
       let result
@@ -190,56 +194,56 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isEdit ? 'Edit Tournament' : 'Create Tournament'}
-          </h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-800">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+              <Trophy className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+              {isEdit ? 'Edit Tournament' : 'Create Tournament'}
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {isEdit ? 'Update tournament information' : 'Add a new tournament to the system'}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 bg-gray-50 dark:bg-gray-900">
           {/* Basic Information */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <Trophy className="w-5 h-5 mr-2" />
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+              <Trophy className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
               Basic Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className={labelClasses}>
                   Tournament Name *
                 </label>
                 <input
                   type="text"
                   value={formData.tournament_name || ''}
                   onChange={(e) => handleInputChange('tournament_name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.tournament_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.tournament_name ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="Enter tournament name"
                 />
-                {errors.tournament_name && (
-                  <p className="text-red-500 text-xs mt-1">{errors.tournament_name}</p>
-                )}
+                {errors.tournament_name && <p className={errorClasses}>{errors.tournament_name}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tournament Type
-                </label>
+                <label className={labelClasses}>Tournament Type</label>
                 <select
                   value={formData.tournament_type || ''}
                   onChange={(e) => handleInputChange('tournament_type', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                 >
                   <option value="">Select type</option>
                   <option value="Swiss">Swiss</option>
@@ -250,7 +254,7 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <label className={`${labelClasses} flex items-center`}>
                   <MapPin className="w-4 h-4 mr-1" />
                   Location *
                 </label>
@@ -258,18 +262,14 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
                   type="text"
                   value={formData.location || ''}
                   onChange={(e) => handleInputChange('location', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.location ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.location ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="Enter location"
                 />
-                {errors.location && (
-                  <p className="text-red-500 text-xs mt-1">{errors.location}</p>
-                )}
+                {errors.location && <p className={errorClasses}>{errors.location}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <label className={`${labelClasses} flex items-center`}>
                   <Calendar className="w-4 h-4 mr-1" />
                   Date *
                 </label>
@@ -277,79 +277,63 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
                   type="date"
                   value={formData.date || ''}
                   onChange={(e) => handleInputChange('date', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.date ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.date ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                 />
-                {errors.date && (
-                  <p className="text-red-500 text-xs mt-1">{errors.date}</p>
-                )}
+                {errors.date && <p className={errorClasses}>{errors.date}</p>}
               </div>
             </div>
           </div>
 
           {/* Tournament Details */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <Users className="w-5 h-5 mr-2" />
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+              <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
               Tournament Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Organizer
-                </label>
+                <label className={labelClasses}>Organizer</label>
                 <input
                   type="text"
                   value={formData.organizer || ''}
                   onChange={(e) => handleInputChange('organizer', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter organizer name"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Federation
-                </label>
+                <label className={labelClasses}>Federation</label>
                 <input
                   type="text"
                   value={formData.federation || ''}
                   onChange={(e) => handleInputChange('federation', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter federation"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rounds
-                </label>
+                <label className={labelClasses}>Rounds</label>
                 <input
                   type="number"
                   min="1"
                   value={formData.rounds || ''}
                   onChange={(e) => handleInputChange('rounds', e.target.value ? parseInt(e.target.value) : null)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.rounds ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.rounds ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="Number of rounds"
                 />
-                {errors.rounds && (
-                  <p className="text-red-500 text-xs mt-1">{errors.rounds}</p>
-                )}
+                {errors.rounds && <p className={errorClasses}>{errors.rounds}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rating Calculation
-                </label>
+                <label className={labelClasses}>Rating Calculation</label>
                 <select
                   value={formData.rating_calculation || ''}
                   onChange={(e) => handleInputChange('rating_calculation', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                 >
-                  <option value="">Select calculation method</option>
+                  <option value="">Select method</option>
                   <option value="ELO">ELO</option>
                   <option value="FIDE">FIDE</option>
                   <option value="USCF">USCF</option>
@@ -360,59 +344,52 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
           </div>
 
           {/* Officials */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+              <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
               Tournament Officials
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tournament Director
-                </label>
+                <label className={labelClasses}>Tournament Director</label>
                 <input
                   type="text"
                   value={formData.tournament_director || ''}
                   onChange={(e) => handleInputChange('tournament_director', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter tournament director"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Chief Arbiter
-                </label>
+                <label className={labelClasses}>Chief Arbiter</label>
                 <input
                   type="text"
                   value={formData.chief_arbiter || ''}
                   onChange={(e) => handleInputChange('chief_arbiter', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter chief arbiter"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Deputy Chief Arbiter
-                </label>
+                <label className={labelClasses}>Deputy Chief Arbiter</label>
                 <input
                   type="text"
                   value={formData.deputy_chief_arbiter || ''}
                   onChange={(e) => handleInputChange('deputy_chief_arbiter', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter deputy chief arbiter"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Arbiter
-                </label>
+                <label className={labelClasses}>Arbiter</label>
                 <input
                   type="text"
                   value={formData.arbiter || ''}
                   onChange={(e) => handleInputChange('arbiter', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="Enter arbiter"
                 />
               </div>
@@ -420,33 +397,29 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
           </div>
 
           {/* Time Control & Statistics */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <Clock className="w-5 h-5 mr-2" />
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center pb-3 border-b border-gray-200 dark:border-gray-700">
+              <Clock className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
               Time Control & Statistics
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Time Control
-                </label>
+                <label className={labelClasses}>Time Control</label>
                 <input
                   type="text"
                   value={formData.time_control || ''}
                   onChange={(e) => handleInputChange('time_control', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                   placeholder="e.g., 90+30"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rate of Play
-                </label>
+                <label className={labelClasses}>Rate of Play</label>
                 <select
                   value={formData.rate_of_play || ''}
                   onChange={(e) => handleInputChange('rate_of_play', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`${inputClasses} border-gray-300 dark:border-gray-600`}
                 >
                   <option value="">Select rate</option>
                   <option value="Rapid">Rapid</option>
@@ -457,72 +430,58 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Average ELO
-                </label>
+                <label className={labelClasses}>Average ELO</label>
                 <input
                   type="number"
                   min="0"
                   value={formData.average_elo || ''}
                   onChange={(e) => handleInputChange('average_elo', e.target.value ? parseInt(e.target.value) : null)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.average_elo ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.average_elo ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="Enter average rating"
                 />
-                {errors.average_elo && (
-                  <p className="text-red-500 text-xs mt-1">{errors.average_elo}</p>
-                )}
+                {errors.average_elo && <p className={errorClasses}>{errors.average_elo}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Average Age
-                </label>
+                <label className={labelClasses}>Average Age</label>
                 <input
                   type="number"
                   min="0"
                   value={formData.average_age || ''}
                   onChange={(e) => handleInputChange('average_age', e.target.value ? parseInt(e.target.value) : null)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.average_age ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`${inputClasses} ${errors.average_age ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
                   placeholder="Enter average age"
                 />
-                {errors.average_age && (
-                  <p className="text-red-500 text-xs mt-1">{errors.average_age}</p>
-                )}
+                {errors.average_age && <p className={errorClasses}>{errors.average_age}</p>}
               </div>
             </div>
           </div>
 
           {/* Source */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Source
-            </label>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <label className={labelClasses}>Source</label>
             <input
               type="text"
               value={formData.source || ''}
               onChange={(e) => handleInputChange('source', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`${inputClasses} border-gray-300 dark:border-gray-600`}
               placeholder="Enter data source (optional)"
             />
           </div>
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky bottom-0 p-6 rounded-b-lg">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-5 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              className="px-6 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center font-medium shadow-sm"
             >
               {loading ? (
                 <>
@@ -530,7 +489,10 @@ average_age: formData.average_age === null ? null : Number(formData.average_age)
                   {isEdit ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
-                isEdit ? 'Update Tournament' : 'Create Tournament'
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {isEdit ? 'Update Tournament' : 'Create Tournament'}
+                </>
               )}
             </button>
           </div>
