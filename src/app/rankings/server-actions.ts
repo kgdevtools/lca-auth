@@ -6,6 +6,7 @@ export interface TournamentEntry {
   raw_name: string;
   tournament_id: string | null;
   tournament_name: string | null;
+  tournament_date: string | null;
   player_rating: number | null;
   performance_rating: number | null;
   confidence: string | null;
@@ -37,6 +38,7 @@ export interface RankingFilters {
   rating?: string;
   gender?: string;
   events?: string;
+  period?: string;
 }
 
 function safeNumber(v: any): number | null {
@@ -231,6 +233,32 @@ export async function getRankings(): Promise<PlayerRanking[]> {
   }
   console.log("[rankings] total rows fetched:", rows.length);
 
+  // Fetch tournament dates for all unique tournament IDs
+  const tournamentIds = Array.from(new Set(
+    rows
+      .map(r => r["tournament_id"])
+      .filter((id): id is string => id != null && id !== "")
+  ));
+
+  const tournamentDatesMap = new Map<string, string>();
+  if (tournamentIds.length > 0) {
+    const { data: tournamentData, error: tournamentError } = await supabase
+      .from("tournaments")
+      .select("id, date")
+      .in("id", tournamentIds);
+
+    if (tournamentError) {
+      console.error("[rankings] Error fetching tournament dates:", tournamentError);
+    } else if (tournamentData) {
+      for (const t of tournamentData) {
+        if (t.id && t.date) {
+          tournamentDatesMap.set(t.id, t.date);
+        }
+      }
+      console.log("[rankings] fetched dates for", tournamentDatesMap.size, "tournaments");
+    }
+  }
+
   // Group strictly by UNIQUE_NO
   const groups = new Map<string, any[]>();
   for (const r of rows) {
@@ -264,17 +292,23 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     const gr = groups.get(key)!;
 
     // Build per-tournament entries (keep raw rows for the details modal)
-    const tournaments: TournamentEntry[] = gr.map((r) => ({
-      raw_name: String(r["name"] ?? ""),
-      tournament_id: (r["tournament_id"] ?? null) as string | null,
-      tournament_name: (r["tournament_name"] ?? null) as string | null,
-      player_rating: safeNumber(r["player_rating"]) ?? safeNumber(r["RATING"]),
-      performance_rating: safeNumber(r["performance_rating"]) ?? 0, // treat null as 0
-      confidence: (r["confidence"] ?? null) as string | null,
-      tie_breaks: tryParseJSON<Record<string, number | string>>(r["tie_breaks"], {}),
-      classifications: tryParseJSON<Record<string, string>>(r["classifications"], {}),
-      created_at: (r["created_at"] ?? null) as string | null,
-    }));
+    const tournaments: TournamentEntry[] = gr.map((r) => {
+      const tournamentId = (r["tournament_id"] ?? null) as string | null;
+      const tournamentDate = tournamentId ? (tournamentDatesMap.get(tournamentId) ?? null) : null;
+
+      return {
+        raw_name: String(r["name"] ?? ""),
+        tournament_id: tournamentId,
+        tournament_name: (r["tournament_name"] ?? null) as string | null,
+        tournament_date: tournamentDate,
+        player_rating: safeNumber(r["player_rating"]) ?? safeNumber(r["RATING"]),
+        performance_rating: safeNumber(r["performance_rating"]) ?? 0, // treat null as 0
+        confidence: (r["confidence"] ?? null) as string | null,
+        tie_breaks: tryParseJSON<Record<string, number | string>>(r["tie_breaks"], {}),
+        classifications: tryParseJSON<Record<string, string>>(r["classifications"], {}),
+        created_at: (r["created_at"] ?? null) as string | null,
+      };
+    });
 
     // Sort tournaments by created_at descending when available
     tournaments.sort((a, b) => {

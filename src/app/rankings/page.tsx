@@ -2,10 +2,52 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { getRankings, type PlayerRanking, type RankingFilters } from "./server-actions"
+import { getRankings, type PlayerRanking, type RankingFilters, type TournamentEntry } from "./server-actions"
 import { SearchFilters } from "./components/SearchFilters"
 import { RankingsTable } from "./components/RankingsTable"
 import { PerformanceDetailsModal } from "./components/PerformanceDetailsModal"
+
+// Period definitions (same as tournaments)
+const PERIODS = [
+  { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
+  { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
+]
+
+// Helper function to normalize date format to YYYY-MM-DD
+function normalizeDate(date: string): string {
+  // Replace all slashes with dashes
+  return date.replace(/\//g, '-')
+}
+
+// Helper function to check if tournament date is in period
+function isInPeriod(date: string | null, periodValue: string): boolean {
+  if (!date) return false
+
+  const period = PERIODS.find(p => p.value === periodValue)
+  if (!period) return false
+
+  // Normalize the date format before comparison
+  const normalizedDate = normalizeDate(date)
+  return normalizedDate >= period.start && normalizedDate <= period.end
+}
+
+// Helper function to filter tournaments by period and check if played
+function getFilteredTournaments(tournaments: TournamentEntry[], periodValue: string): TournamentEntry[] {
+  // Filter by period if not "ALL"
+  let filtered = tournaments
+  if (periodValue && periodValue !== "ALL") {
+    filtered = tournaments.filter(t => isInPeriod(t.tournament_date, periodValue))
+  }
+
+  // Only return tournaments that were actually played (have valid tie breaks)
+  return filtered.filter(tournament => {
+    const tieBreaks = tournament.tie_breaks || {}
+    const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
+      value !== null && value !== undefined && value !== "" && value !== 0
+    )
+    return hasValidTieBreaks && tournament.performance_rating
+  })
+}
 
 export default function RankingsPage() {
   const [allData, setAllData] = React.useState<Array<PlayerRanking>>([])
@@ -25,6 +67,7 @@ export default function RankingsPage() {
     gender: "ALL" as any,
     ageGroup: "ALL" as any,
     events: "ALL" as any,
+    period: "ALL" as any,
   })
 
   React.useEffect(() => {
@@ -41,7 +84,7 @@ export default function RankingsPage() {
   // Apply client-side filters (no extra network requests)
   React.useEffect(() => {
     let rows = [...allData]
-    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL", events = "ALL" } = filters
+    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL", events = "ALL", period = "ALL" } = filters
 
     if (name && name.trim().length > 0) {
       const q = name.trim().toLowerCase()
@@ -66,9 +109,15 @@ export default function RankingsPage() {
 
     if (rating && rating !== ("ALL" as any)) {
       if (rating === ("RATED" as any)) {
-        rows = rows.filter((p) => (p.avg_performance_rating ?? 0) > 0)
+        rows = rows.filter((p) => {
+          const filteredTournaments = getFilteredTournaments(p.tournaments, period)
+          return filteredTournaments.length > 0
+        })
       } else {
-        rows = rows.filter((p) => (p.avg_performance_rating ?? 0) <= 0)
+        rows = rows.filter((p) => {
+          const filteredTournaments = getFilteredTournaments(p.tournaments, period)
+          return filteredTournaments.length === 0
+        })
       }
     }
 
@@ -114,7 +163,8 @@ export default function RankingsPage() {
 
     if (events && events !== ("ALL" as any)) {
       rows = rows.filter((p) => {
-        const count = p.tournaments_count
+        const filteredTournaments = getFilteredTournaments(p.tournaments, period)
+        const count = filteredTournaments.length
         switch (events) {
           case "1":
             return count === 1
@@ -134,18 +184,12 @@ export default function RankingsPage() {
       })
     }
 
-    // Sort by APR using same calculation as table display (only played tournaments with valid tie breaks)
+    // Sort by APR using same calculation as table display (only played tournaments with valid tie breaks and within period)
     rows.sort((a, b) => {
       const getDisplayAPR = (player: PlayerRanking) => {
-        const playedTournaments = player.tournaments.filter(tournament => {
-          const tieBreaks = tournament.tie_breaks || {}
-          const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
-            value !== null && value !== undefined && value !== "" && value !== 0
-          )
-          return hasValidTieBreaks && tournament.performance_rating
-        })
+        const filteredTournaments = getFilteredTournaments(player.tournaments, period)
 
-        const validPerformanceRatings = playedTournaments
+        const validPerformanceRatings = filteredTournaments
           .map(t => t.performance_rating)
           .filter((rating): rating is number => rating !== null && rating !== undefined)
 
@@ -186,6 +230,7 @@ export default function RankingsPage() {
           <RankingsTable
             data={data}
             loading={loading}
+            period={filters.period ?? "ALL"}
             onSelectPlayer={(p) => {
               setSelected(p)
               setOpen(true)
@@ -205,7 +250,7 @@ export default function RankingsPage() {
             </div>
           </div> */}
 
-          <PerformanceDetailsModal player={selected} open={open} onClose={() => setOpen(false)} />
+          <PerformanceDetailsModal player={selected} open={open} period={filters.period ?? "ALL"} onClose={() => setOpen(false)} />
         </div>
       </div>
     </div>
