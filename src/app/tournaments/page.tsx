@@ -54,6 +54,7 @@ export default function TournamentsPage() {
   const [data, setData] = React.useState<Tournament[]>([])
   const [loading, setLoading] = React.useState(true)
   const [currentPage, setCurrentPage] = React.useState(1)
+  const tournamentsGridRef = React.useRef<HTMLDivElement>(null)
 
   // Responsive page sizes
   const [pageSize, setPageSize] = React.useState(25)
@@ -80,6 +81,8 @@ export default function TournamentsPage() {
     location: "ALL",
     period: "ALL",
   })
+
+  const prevFiltersRef = React.useRef<TournamentFiltersState>(filters)
 
   React.useEffect(() => {
     setLoading(true)
@@ -118,7 +121,17 @@ export default function TournamentsPage() {
     }
 
     setData(rows)
-    setCurrentPage(1) // Reset to first page when filters change
+
+    // Only reset to page 1 if filters actually changed
+    const filtersChanged =
+      prevFiltersRef.current.search !== filters.search ||
+      prevFiltersRef.current.location !== filters.location ||
+      prevFiltersRef.current.period !== filters.period
+
+    if (filtersChanged) {
+      setCurrentPage(1)
+      prevFiltersRef.current = filters
+    }
   }, [filters, allData])
 
   const handleSearch = (next: Partial<TournamentFiltersState>) => {
@@ -133,7 +146,6 @@ export default function TournamentsPage() {
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)))
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   if (loading) {
@@ -193,7 +205,7 @@ export default function TournamentsPage() {
           <p className="text-muted-foreground">Try adjusting your filters</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div ref={tournamentsGridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {tournamentsPage.map((t: Tournament) => (
             <Link
               key={t.id}
@@ -268,7 +280,11 @@ export default function TournamentsPage() {
         <div className="flex items-center justify-between mt-8 gap-4">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => goToPage(1)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                goToPage(1)
+              }}
               disabled={currentPage === 1}
               className={`inline-flex items-center justify-center h-9 w-9 rounded-md border shadow-sm transition-colors ${
                 currentPage === 1
@@ -280,7 +296,11 @@ export default function TournamentsPage() {
               <ChevronsLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => goToPage(currentPage - 1)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                goToPage(currentPage - 1)
+              }}
               disabled={currentPage === 1}
               className={`inline-flex items-center justify-center h-9 px-3 rounded-md border shadow-sm transition-colors ${
                 currentPage === 1
@@ -299,7 +319,11 @@ export default function TournamentsPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => goToPage(currentPage + 1)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                goToPage(currentPage + 1)
+              }}
               disabled={currentPage === totalPages}
               className={`inline-flex items-center justify-center h-9 px-3 rounded-md border shadow-sm transition-colors ${
                 currentPage === totalPages
@@ -311,7 +335,11 @@ export default function TournamentsPage() {
               <ChevronRight className="h-4 w-4 ml-1" />
             </button>
             <button
-              onClick={() => goToPage(totalPages)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                goToPage(totalPages)
+              }}
               disabled={currentPage === totalPages}
               className={`inline-flex items-center justify-center h-9 w-9 rounded-md border shadow-sm transition-colors ${
                 currentPage === totalPages
