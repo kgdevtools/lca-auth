@@ -111,21 +111,22 @@ export function RankingsTable({ data, loading = false, period, onSelectPlayer }:
   return (
     <div className="w-full">
       <div className="rounded-md border-2 border-border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-[50px] text-left font-semibold text-muted-foreground pl-4">Rank</TableHead>
-              <TableHead className="w-[25%] font-semibold text-muted-foreground">Name</TableHead>
-              <TableHead className="w-[8%] text-center font-semibold text-muted-foreground">Gender</TableHead>
-              <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">Age Group</TableHead>
-              <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">No of Events</TableHead>
-              <TableHead className="w-[10%] text-center font-semibold text-muted-foreground">Fed</TableHead>
-              <TableHead className="w-[15%] text-center font-semibold text-muted-foreground">Rating</TableHead>
-              <TableHead className="w-[22%] text-left font-semibold text-muted-foreground pl-0">
-                <div className="text-balance">APR</div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
+        <div className="overflow-auto max-h-[calc(100vh-280px)]">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+              <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
+                <TableHead className="w-[50px] text-left font-semibold text-muted-foreground pl-4 bg-muted/50">Rank</TableHead>
+                <TableHead className="w-[25%] font-semibold text-muted-foreground bg-muted/50">Name</TableHead>
+                <TableHead className="w-[8%] text-center font-semibold text-muted-foreground bg-muted/50">Gender</TableHead>
+                <TableHead className="w-[10%] text-center font-semibold text-muted-foreground bg-muted/50">Age Group</TableHead>
+                <TableHead className="w-[10%] text-center font-semibold text-muted-foreground bg-muted/50">No of Events</TableHead>
+                <TableHead className="w-[10%] text-center font-semibold text-muted-foreground bg-muted/50">Fed</TableHead>
+                <TableHead className="w-[15%] text-center font-semibold text-muted-foreground bg-muted/50">Rating</TableHead>
+                <TableHead className="w-[22%] text-left font-semibold text-muted-foreground pl-0 bg-muted/50">
+                  <div className="text-balance">APR</div>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
@@ -188,6 +189,7 @@ export function RankingsTable({ data, loading = false, period, onSelectPlayer }:
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
     </div>
   )
