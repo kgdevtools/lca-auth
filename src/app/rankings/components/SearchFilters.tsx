@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search } from "lucide-react"
+import { Search, ChevronDown, ChevronUp, Filter } from "lucide-react"
 
 // Period definitions (same as tournaments)
 const PERIODS = [
@@ -32,6 +32,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
   const [ageGroup, setAgeGroup] = React.useState("ALL")
   const [events, setEvents] = React.useState("ALL")
   const [period, setPeriod] = React.useState("ALL")
+  const [isExpanded, setIsExpanded] = React.useState(false)
 
   const apply = React.useCallback(
     (next: Partial<SearchFiltersState> = {}) => {
@@ -84,41 +85,91 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
     </button>
   )
 
+  // Count active filters
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0
+    if (name.trim()) count++
+    if (fed !== "ALL") count++
+    if (rating !== "ALL") count++
+    if (gender !== "ALL") count++
+    if (ageGroup !== "ALL") count++
+    if (events !== "ALL") count++
+    if (period !== "ALL") count++
+    return count
+  }, [name, fed, rating, gender, ageGroup, events, period])
+
   return (
-    <div className="w-full bg-card border-2 border-border rounded-md p-3">
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search players by name, federation, or ID..."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 py-1.5 text-sm border-2 border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-              />
-              <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            </div>
+    <div className="w-full bg-card border-2 border-border rounded-lg shadow-md overflow-hidden">
+      {/* Sticky Header Stub */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-card to-muted/30 hover:from-muted/40 hover:to-muted/50 transition-all duration-200 cursor-pointer group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <Filter className="h-4 w-4 text-primary" />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 px-4 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 whitespace-nowrap"
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-3 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
-            >
-              Reset
-            </button>
+          <div className="flex flex-col items-start">
+            <span className="text-sm font-semibold text-foreground">Search & Filter Rankings</span>
+            <span className="text-xs text-muted-foreground">
+              {activeFiltersCount > 0 ? `${activeFiltersCount} active filter${activeFiltersCount > 1 ? 's' : ''}` : 'Click to expand filters'}
+            </span>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          {activeFiltersCount > 0 && (
+            <span className="px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+              {activeFiltersCount}
+            </span>
+          )}
+          {isExpanded ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          )}
+        </div>
+      </button>
 
-        {/* Filters Row */}
-        <div className="space-y-2">
+      {/* Collapsible Content */}
+      <div
+        className={`transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+        } overflow-hidden`}
+      >
+        <form onSubmit={handleSubmit} className="p-4 space-y-3 border-t-2 border-border">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search players by name, federation, or ID..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 py-1.5 text-sm border-2 border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                />
+                <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 px-4 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 whitespace-nowrap"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Filters Row */}
+          <div className="space-y-2.5">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-muted-foreground">Period:</span>
             <Chip
@@ -261,7 +312,8 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
             ))}
           </div>
         </div>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }
