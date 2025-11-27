@@ -32,10 +32,41 @@ export const metadata: Metadata = {
     "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
   icons: {
     icon: [
-      { url: '/favicon.ico' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/lca-cyan-dark-bg-updated.png', type: 'image/png' },
+      { url: '/lca-cyan-dark-bg-updated.png', sizes: '32x32', type: 'image/png' },
+      { url: '/lca-cyan-dark-bg-updated.png', sizes: '16x16', type: 'image/png' },
     ],
+    apple: [
+      { url: '/lca-cyan-dark-bg-updated.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      {
+        rel: 'icon',
+        url: '/lca-cyan-dark-bg-updated.png',
+      },
+    ],
+  },
+  openGraph: {
+    title: "Limpopo Chess Academy",
+    description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+    url: "https://limpopochessacademy.co.za",
+    siteName: "Limpopo Chess Academy",
+    images: [
+      {
+        url: '/lca-cyan-dark-bg-updated.png',
+        width: 1200,
+        height: 630,
+        alt: 'Limpopo Chess Academy Logo',
+      },
+    ],
+    locale: 'en_ZA',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Limpopo Chess Academy",
+    description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+    images: ['/lca-cyan-dark-bg-updated.png'],
   },
 }
 
