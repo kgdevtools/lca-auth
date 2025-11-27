@@ -89,10 +89,16 @@ export default function RankingsPage() {
     if (name && name.trim().length > 0) {
       const q = name.trim().toLowerCase()
       rows = rows.filter(
-        (p) =>
-          p.display_name.toLowerCase().includes(q) ||
-          (p.name_key ?? "").toLowerCase().includes(q) ||
-          (p.fed ?? "").toLowerCase().includes(q),
+        (p) => {
+          const displayName = p.display_name.toLowerCase()
+          const reversedName = `${p.surname.toLowerCase()} ${p.name.toLowerCase()}`.trim()
+          return (
+            displayName.includes(q) ||
+            reversedName.includes(q) ||
+            (p.name_key ?? "").toLowerCase().includes(q) ||
+            (p.fed ?? "").toLowerCase().includes(q)
+          )
+        }
       )
     }
 
