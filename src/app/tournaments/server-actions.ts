@@ -48,6 +48,8 @@ function parseValidDate(str: string | null): Date | null {
 
 export async function getTournaments() {
   const supabase = await createClient()
+
+  // Fetch individual tournaments
   const { data: tournaments, error } = await supabase
     .from("tournaments")
     .select("id, tournament_name, organizer, federation, tournament_director, chief_arbiter, deputy_chief_arbiter, arbiter, time_control, rate_of_play, location, rounds, tournament_type, rating_calculation, date, average_elo, average_age, source")
@@ -56,7 +58,41 @@ export async function getTournaments() {
     throw new Error("Failed to fetch tournaments")
   }
 
-  const tournamentsSorted = (tournaments ?? [])
+  // Fetch team tournaments
+  const { data: teamTournaments, error: teamError } = await supabase
+    .from("team_tournaments")
+    .select("id, tournament_name, organizer, chief_arbiter, deputy_chief_arbiter, tournament_director, arbiter, location, date, rounds, tournament_type, source")
+
+  if (teamError) {
+    console.error("Failed to fetch team tournaments:", teamError)
+  }
+
+  // Combine both types, converting team tournaments to match the Tournament type
+  const allTournaments: Tournament[] = [
+    ...(tournaments ?? []),
+    ...(teamTournaments ?? []).map(tt => ({
+      id: tt.id,
+      tournament_name: tt.tournament_name,
+      organizer: tt.organizer,
+      federation: null, // team tournaments don't have federation
+      tournament_director: tt.tournament_director,
+      chief_arbiter: tt.chief_arbiter,
+      deputy_chief_arbiter: tt.deputy_chief_arbiter,
+      arbiter: tt.arbiter,
+      time_control: null, // team tournaments don't have time_control
+      rate_of_play: null, // team tournaments don't have rate_of_play
+      location: tt.location,
+      rounds: tt.rounds,
+      tournament_type: tt.tournament_type || 'Team',
+      rating_calculation: null, // team tournaments don't have rating_calculation
+      date: tt.date,
+      average_elo: null, // could calculate this later if needed
+      average_age: null, // could calculate this later if needed
+      source: tt.source,
+    }))
+  ]
+
+  const tournamentsSorted = allTournaments
     .slice()
     .sort((a, b) => {
       const aDate = parseValidDate(a.date)

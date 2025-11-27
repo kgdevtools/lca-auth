@@ -28,10 +28,20 @@ export function parseDate(rawDate: string | null | undefined): string | undefine
     return parseDate(startDate)
   }
 
-  // Strategy 2: Excel serial number detection
+  // Strategy 2: YYYY-MM-DD or YYYY/MM/DD format (check this BEFORE Excel serial)
+  // This handles formats like: "2025/08/23", "2025-08-23"
+  const dateMatch = dateStr.match(/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/)
+  if (dateMatch) {
+    const isoDate = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
+    console.log(`Date parsed from YYYY-MM-DD format: ${isoDate}`)
+    return isoDate
+  }
+
+  // Strategy 3: Excel serial number detection
   // Excel stores dates as numbers (days since 1900-01-01)
+  // Only treat as serial if it's NOT a 4-digit year (to avoid confusing "2025" with a serial)
   const serialNumber = parseFloat(dateStr)
-  if (!isNaN(serialNumber) && serialNumber > 0 && serialNumber < 100000) {
+  if (!isNaN(serialNumber) && serialNumber > 10000 && serialNumber < 100000) {
     // Excel epoch: January 1, 1900
     const excelEpoch = new Date(1900, 0, 1)
     const jsDate = new Date(excelEpoch.getTime() + (serialNumber - 1) * 24 * 60 * 60 * 1000)
@@ -44,14 +54,6 @@ export function parseDate(rawDate: string | null | undefined): string | undefine
 
     const isoDate = jsDate.toISOString().split('T')[0]
     console.log(`Excel serial number ${serialNumber} converted to: ${isoDate}`)
-    return isoDate
-  }
-
-  // Strategy 3: YYYY-MM-DD or YYYY/MM/DD format
-  const dateMatch = dateStr.match(/(\d{4})[\/\-](\d{2})[\/\-](\d{2})/)
-  if (dateMatch) {
-    const isoDate = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
-    console.log(`Date parsed from YYYY-MM-DD format: ${isoDate}`)
     return isoDate
   }
 

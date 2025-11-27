@@ -242,8 +242,14 @@ export async function getRankings(): Promise<PlayerRanking[]> {
 
   const tournamentDatesMap = new Map<string, string>();
   if (tournamentIds.length > 0) {
+    // Fetch from both tournaments and team_tournaments tables
     const { data: tournamentData, error: tournamentError } = await supabase
       .from("tournaments")
+      .select("id, date")
+      .in("id", tournamentIds);
+
+    const { data: teamTournamentData, error: teamTournamentError } = await supabase
+      .from("team_tournaments")
       .select("id, date")
       .in("id", tournamentIds);
 
@@ -255,7 +261,18 @@ export async function getRankings(): Promise<PlayerRanking[]> {
           tournamentDatesMap.set(t.id, t.date);
         }
       }
-      console.log("[rankings] fetched dates for", tournamentDatesMap.size, "tournaments");
+      console.log("[rankings] fetched dates for", tournamentDatesMap.size, "individual tournaments");
+    }
+
+    if (teamTournamentError) {
+      console.error("[rankings] Error fetching team tournament dates:", teamTournamentError);
+    } else if (teamTournamentData) {
+      for (const t of teamTournamentData) {
+        if (t.id && t.date) {
+          tournamentDatesMap.set(t.id, t.date);
+        }
+      }
+      console.log("[rankings] fetched dates for", teamTournamentData.length, "team tournaments");
     }
   }
 
