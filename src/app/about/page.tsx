@@ -146,6 +146,114 @@ export default function AboutPage() {
           </Card>
         </div>
 
+        {/* Our Team */}
+        <div className="space-y-4">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">Our Team</h2>
+            <p className="text-muted-foreground">
+              Meet the passionate coaches dedicated to chess excellence
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Coach Kgaogelo */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
+              <div className="relative w-full aspect-square overflow-hidden">
+                <img
+                  src="https://i.ibb.co/GzyZvGj/20250512-215848.jpg"
+                  alt="Coach Kgaogelo"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+                {/* Certificate Badge */}
+                <a
+                  href="https://i.ibb.co/Vck1JPrY/IMG-20250610-WA0012.jpg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
+                  title="View Certificate"
+                >
+                  <img
+                    src="https://i.ibb.co/Vck1JPrY/IMG-20250610-WA0012.jpg"
+                    alt="Kgaogelo Certificate"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              </div>
+              <div className="py-6 text-center">
+                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
+                  Coach Kgaogelo
+                </h3>
+              </div>
+            </div>
+
+            {/* Coach Tebogo */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
+              <div className="relative w-full aspect-square overflow-hidden">
+                <img
+                  src="https://i.ibb.co/kV317DXj/IMG-20250613-WA0001.jpg"
+                  alt="Coach Tebogo"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+                {/* Certificate Badge */}
+                <a
+                  href="https://i.ibb.co/DHSHwH4B/IMG-20250610-WA0014.jpg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
+                  title="View Certificate"
+                >
+                  <img
+                    src="https://i.ibb.co/DHSHwH4B/IMG-20250610-WA0014.jpg"
+                    alt="Tebogo Certificate"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              </div>
+              <div className="py-6 text-center">
+                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
+                  Coach Tebogo
+                </h3>
+              </div>
+            </div>
+
+            {/* Coach Joe */}
+            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
+              <div className="relative w-full aspect-square overflow-hidden">
+                <img
+                  src="https://i.ibb.co/RTDZx7fc/Screenshot-20250609-224422-You-Tube.jpg"
+                  alt="Coach Joe"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+                {/* Certificate Badge */}
+                <a
+                  href="https://i.ibb.co/Nnb9MXSF/IMG-20250610-WA0006.jpg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
+                  title="View Certificate"
+                >
+                  <img
+                    src="https://i.ibb.co/Nnb9MXSF/IMG-20250610-WA0006.jpg"
+                    alt="Joe Certificate"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              </div>
+              <div className="py-6 text-center">
+                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
+                  Coach Joe
+                </h3>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Why Choose Us */}
         <Card className="bg-card border-border">
           <CardHeader className="border-b border-border">

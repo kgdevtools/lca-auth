@@ -25,7 +25,9 @@
       "Bash(.gitignore)",
       "Bash(npm run dev:*)",
       "Bash(copy \"C:\\Users\\capri\\Desktop\\lca-auth\\public\\LCA_Logo_Dark.png\" \"C:\\Users\\capri\\Desktop\\lca-auth\\src\\app\\icon.png\")",
-      "Bash(copy \"C:\\Users\\capri\\Desktop\\lca-auth\\public\\LCA_Logo_Dark.png\" \"C:\\Users\\capri\\Desktop\\lca-auth\\src\\app\\apple-icon.png\")"
+      "Bash(copy \"C:\\Users\\capri\\Desktop\\lca-auth\\public\\LCA_Logo_Dark.png\" \"C:\\Users\\capri\\Desktop\\lca-auth\\src\\app\\apple-icon.png\")",
+      "Bash(taskkill:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
