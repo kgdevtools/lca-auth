@@ -22,26 +22,85 @@ export function RankingsCard() {
         // Filter all rankings by Limpopo federations first
         const limpopoRankings = allRankings.filter(p => FEDERATIONS.includes(p.fed || ''))
 
-        // Randomly select a filter type (removed Overall, only specific filters)
-        const filterType = Math.random()
-        let filtered: PlayerRanking[] = []
-        let label = ''
+        const filterOptions = [
+          () => {
+            const randomAge = AGE_GROUPS[Math.floor(Math.random() * AGE_GROUPS.length)]
+            return {
+              filtered: limpopoRankings.filter(p => p.age_group === randomAge),
+              label: `Top 10 ${randomAge} Limpopo Players`,
+            }
+          },
+          () => {
+            const randomGender = GENDERS[Math.floor(Math.random() * GENDERS.length)]
+            return {
+              filtered: limpopoRankings.filter(p => p.sex === randomGender),
+              label: randomGender === 'M' ? 'Top 10 Male Limpopo Players' : 'Top 10 Female Limpopo Players',
+            }
+          },
+          () => {
+            return {
+              filtered: limpopoRankings,
+              label: 'Top 10 Limpopo Players',
+            }
+          },
+          () => {
+            const age16AndUnder = limpopoRankings.filter(p => {
+              const age = p.age_years
+              return age != null && age <= 16
+            })
+            return {
+              filtered: age16AndUnder,
+              label: 'Top 10 Limpopo U16 Players',
+            }
+          },
+          () => {
+            const veterans = limpopoRankings.filter(p => {
+              const age = p.age_years
+              return age != null && age >= 60
+            })
+            return {
+              filtered: veterans,
+              label: 'Top 10 Limpopo Veterans',
+            }
+          },
+          () => {
+            const seniors = limpopoRankings.filter(p => {
+              const age = p.age_years
+              return age != null && age >= 50
+            })
+            return {
+              filtered: seniors,
+              label: 'Top 10 Limpopo Seniors',
+            }
+          },
+          () => {
+            const u10 = limpopoRankings.filter(p => {
+              const age = p.age_years
+              return age != null && age <= 10
+            })
+            return {
+              filtered: u10,
+              label: 'Top 10 Limpopo U10 Players',
+            }
+          },
+          () => {
+            const females = limpopoRankings.filter(p => p.sex === 'F')
+            return {
+              filtered: females,
+              label: 'Top 10 Limpopo Female Players',
+            }
+          },
+          () => {
+            const males = limpopoRankings.filter(p => p.sex === 'M')
+            return {
+              filtered: males,
+              label: 'Top 10 Limpopo Male Players',
+            }
+          },
+        ]
 
-        if (filterType < 0.33) {
-          // Filter by age group from Limpopo players
-          const randomAge = AGE_GROUPS[Math.floor(Math.random() * AGE_GROUPS.length)]
-          filtered = limpopoRankings.filter(p => p.age_group === randomAge)
-          label = `Top 10 ${randomAge} Limpopo Players`
-        } else if (filterType < 0.66) {
-          // Filter by gender from Limpopo players
-          const randomGender = GENDERS[Math.floor(Math.random() * GENDERS.length)]
-          filtered = limpopoRankings.filter(p => p.sex === randomGender)
-          label = randomGender === 'M' ? 'Top 10 Male Limpopo Players' : 'Top 10 Female Limpopo Players'
-        } else {
-          // Explicitly show Top 10 Limpopo Players (if other filters don't yield results)
-          filtered = limpopoRankings
-          label = 'Top 10 Limpopo Players'
-        }
+        const randomFilter = filterOptions[Math.floor(Math.random() * filterOptions.length)]
+        const { filtered, label } = randomFilter()
 
         // Sort by average performance rating and take top 10
         const sorted = filtered
@@ -98,11 +157,12 @@ export function RankingsCard() {
   return (
     <div className="aspect-square rounded-lg border border-border bg-card overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col">
       <div className="px-4 py-3 border-b border-border flex-shrink-0">
-        <Link href="/rankings" className="group">
+        <Link href="/rankings" className="group flex items-center justify-between">
           <h2 className="text-lg font-bold text-primary group-hover:text-primary/80 flex items-center gap-2">
             {categoryLabel}
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </h2>
+          <span className="text-sm font-semibold text-blue-500 dark:text-blue-400">2025</span>
         </Link>
       </div>
 
