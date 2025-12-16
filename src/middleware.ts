@@ -26,11 +26,11 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Guard only /admin/** and /user/** routes
-  if ((pathname.startsWith('/admin') || pathname.startsWith('/user')) && !user) {
+  // Guard /admin/**, /user/**, and /academy/** routes
+  if ((pathname.startsWith('/admin') || pathname.startsWith('/user') || pathname.startsWith('/academy')) && !user) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set('redirectedFrom', pathname)
+    redirectUrl.search = '' // Clear any query parameters
     return NextResponse.redirect(redirectUrl)
   }
 

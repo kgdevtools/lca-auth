@@ -1,56 +1,85 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Home,
-  Trophy,
-  Gamepad2,
-  UserCircle,
+  BookOpen,
+  ClipboardCheck,
+  Puzzle,
+  BarChart3,
+  Users,
   Menu,
   ChevronLeft,
   Loader2,
-  GraduationCap,
+  Home,
+  Settings,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { createClient } from '@/utils/supabase/client'
 import Image from 'next/image'
 
-const sidebarItems = [
+interface SidebarItem {
+  title: string
+  href: string
+  icon: any
+  roles?: string[] // If specified, only show for these roles
+}
+
+// Navigation items for all roles
+const baseSidebarItems: SidebarItem[] = [
   {
-    title: 'Overview',
-    href: '/user/overview',
-    icon: Home,
-  },
-  {
-    title: 'Academy',
+    title: 'Dashboard',
     href: '/academy',
-    icon: GraduationCap,
-  },
-  {
-    title: 'Tournaments',
-    href: '/user/tournaments',
-    icon: Trophy,
-  },
-  {
-    title: 'Tournament Games',
-    href: '/user/tournament-games',
-    icon: Gamepad2,
-  },
-  {
-    title: 'Profile',
-    href: '/user/profile',
-    icon: UserCircle,
+    icon: Home,
   },
 ]
 
-interface UserSidebarProps {
+// Student/everyone items
+const studentItems: SidebarItem[] = [
+  {
+    title: 'Lessons',
+    href: '/academy/lessons',
+    icon: BookOpen,
+  },
+  {
+    title: 'Tests',
+    href: '/academy/tests',
+    icon: ClipboardCheck,
+  },
+  {
+    title: 'Puzzles',
+    href: '/academy/puzzles',
+    icon: Puzzle,
+  },
+  {
+    title: 'My Reports',
+    href: '/academy/reports',
+    icon: BarChart3,
+  },
+]
+
+// Coach-specific items
+const coachItems: SidebarItem[] = [
+  {
+    title: 'My Students',
+    href: '/academy/students',
+    icon: Users,
+    roles: ['coach', 'admin'],
+  },
+  {
+    title: 'Create Content',
+    href: '/academy/admin',
+    icon: Settings,
+    roles: ['coach', 'admin'],
+  },
+]
+
+interface AcademySidebarProps {
   collapsed?: boolean
   onToggleCollapse?: () => void
 }
 
-export default function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebarProps) {
+export default function AcademySidebar({ collapsed = false, onToggleCollapse }: AcademySidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -82,6 +111,23 @@ export default function UserSidebar({ collapsed = false, onToggleCollapse }: Use
     setLoadingRoute(null)
   }, [pathname])
 
+  // Build navigation items based on user role
+  const getSidebarItems = () => {
+    const items = [...baseSidebarItems]
+
+    // Add student items (everyone can access)
+    items.push(...studentItems)
+
+    // Add coach items if user is coach or admin
+    if (profile?.role === 'coach' || profile?.role === 'admin') {
+      items.push(...coachItems)
+    }
+
+    return items
+  }
+
+  const sidebarItems = getSidebarItems()
+
   const SidebarContent = () => (
     <>
       {/* Header */}
@@ -109,10 +155,10 @@ export default function UserSidebar({ collapsed = false, onToggleCollapse }: Use
               {/* Text */}
               <div className="flex-1 min-w-0">
                 <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tighter leading-tight">
-                  Limpopo Chess Academy
+                  LCA Academy
                 </h1>
                 <p className="text-xs text-gray-600 dark:text-gray-400 tracking-tighter leading-tight">
-                  My Profile
+                  Learning Platform
                 </p>
               </div>
             </div>
@@ -156,7 +202,7 @@ export default function UserSidebar({ collapsed = false, onToggleCollapse }: Use
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {sidebarItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href || (item.href !== '/academy' && pathname.startsWith(item.href))
           const isLoading = loadingRoute === item.href
 
           return (
@@ -177,7 +223,7 @@ export default function UserSidebar({ collapsed = false, onToggleCollapse }: Use
                 transition-all duration-150
                 ${
                   isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                 }
                 ${collapsed ? 'justify-center' : ''}
@@ -221,8 +267,8 @@ export default function UserSidebar({ collapsed = false, onToggleCollapse }: Use
               <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate tracking-tight leading-tight">
                 {profile?.full_name || 'User'}
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 truncate tracking-tight leading-tight">
-                {user?.email}
+              <p className="text-xs text-gray-600 dark:text-gray-400 truncate tracking-tight leading-tight capitalize">
+                {profile?.role || 'Student'}
               </p>
             </div>
           )}
