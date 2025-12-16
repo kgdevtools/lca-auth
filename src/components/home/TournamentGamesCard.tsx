@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { Chess } from "chess.js"
 import { Chessboard } from "react-chessboard"
-import { fetchGames, listTournaments, type GameData } from "@/app/view/actions"
+import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "@/app/view/actions"
 import Link from "next/link"
 
 export function TournamentGamesCard() {
@@ -13,29 +13,47 @@ export function TournamentGamesCard() {
   const [gameHeaders, setGameHeaders] = useState<Record<string, string | null>>({})
   const [fenHistory, setFenHistory] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedTournament, setSelectedTournament] = useState<TournamentMeta | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
+
+  const chessRef = useRef(new Chess())
 
   // Load a random tournament and its games
   useEffect(() => {
     async function loadRandomTournamentGames() {
       try {
-        const { tournaments } = await listTournaments()
-        if (tournaments.length === 0) {
-          setLoading(false)
-          return
+        let tournamentToUse: TournamentMeta | null = null
+        const storedTournament = localStorage.getItem('dailyTournament')
+        const storedDate = localStorage.getItem('dailyTournamentDate')
+        const today = new Date().toDateString()
+
+        if (storedTournament && storedDate === today) {
+          tournamentToUse = JSON.parse(storedTournament) as TournamentMeta
+        } else {
+          const { tournaments } = await listTournaments()
+          if (tournaments.length === 0) {
+            setLoading(false)
+            return
+          }
+
+          const randomTournament = tournaments[Math.floor(Math.random() * tournaments.length)]
+          localStorage.setItem('dailyTournament', JSON.stringify(randomTournament))
+          localStorage.setItem('dailyTournamentDate', today)
+          tournamentToUse = randomTournament
         }
 
-        // Select a random tournament
-        const randomTournament = tournaments[Math.floor(Math.random() * tournaments.length)]
-        const { games: fetchedGames } = await fetchGames(randomTournament.name as any)
+        setSelectedTournament(tournamentToUse)
 
-        if (fetchedGames.length > 0) {
-          // Randomly shuffle games for variety
-          const shuffled = [...fetchedGames].sort(() => Math.random() - 0.5)
-          setGames(shuffled)
-          setCurrentGameIndex(0)
+        if (tournamentToUse) {
+          const { games: fetchedGames } = await fetchGames(tournamentToUse.name as any)
+
+          if (fetchedGames.length > 0) {
+            const shuffled = [...fetchedGames].sort(() => Math.random() - 0.5)
+            setGames(shuffled)
+            setCurrentGameIndex(0)
+          }
         }
       } catch (error) {
         console.error("Error loading tournament games:", error)
@@ -55,14 +73,13 @@ export function TournamentGamesCard() {
     if (!currentGame?.pgn) return
 
     try {
-      const chess = new Chess()
-      chess.loadPgn(currentGame.pgn)
+      chessRef.current.loadPgn(currentGame.pgn)
 
-      const headers = chess.header()
+      const headers = chessRef.current.header()
       setGameHeaders(headers)
 
       // Build FEN history
-      const history = chess.history({ verbose: true })
+      const history = chessRef.current.history({ verbose: true })
       const temp = new Chess()
       const fens: string[] = [temp.fen()]
       history.forEach((move) => {
@@ -106,11 +123,12 @@ export function TournamentGamesCard() {
 
         // If we've reached the end of the game
         if (nextIndex >= fenHistory.length - 1) {
-          // Move to next game after 2 seconds
+          // Move to next game after 2 seconds and reset move index for the new game
           setTimeout(() => {
             setCurrentGameIndex((prevGameIndex) => (prevGameIndex + 1) % games.length)
+            setCurrentMoveIndex(-1) // Reset move index for the next game
           }, 2000)
-          return -1 // Reset to start
+          return prev // Keep the last move shown until the next game starts
         }
 
         return nextIndex
@@ -162,6 +180,30 @@ export function TournamentGamesCard() {
 
   const currentFen = fenHistory[currentMoveIndex + 1] || fenHistory[0] || "start"
 
+  const getCustomSquareStyles = () => {
+    if (currentMoveIndex < 0 || fenHistory.length === 0) return {}
+
+    try {
+      const tempChess = new Chess()
+      tempChess.load(fenHistory[currentMoveIndex + 1] || fenHistory[0])
+
+      const history = chessRef.current.history({ verbose: true })
+      if (currentMoveIndex >= history.length) return {}
+
+      const lastMove = history[currentMoveIndex]
+      if (!lastMove) return {}
+
+      return {
+        [lastMove.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }, // Light mode yellow
+        [lastMove.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },   // Light mode yellow
+        // You can add dark mode specific colors here using CSS variables or theme context
+      }
+    } catch (error) {
+      console.error("Error getting custom square styles:", error)
+      return {}
+    }
+  }
+
   return (
     <Link
       href="/view"
@@ -169,6 +211,16 @@ export function TournamentGamesCard() {
     >
       {/* Game Info - Compact header */}
       <div className="bg-muted/30 border-b border-border/50 px-2 py-1.5 flex-shrink-0">
+        {selectedTournament && (
+          <div className="flex flex-col items-center gap-1 mb-1">
+            <div className="text-sm font-bold text-foreground leading-tight">
+              {selectedTournament.display_name}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(selectedTournament.created_at || '').toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <div className="flex-1 min-w-0">
             <div className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">White</div>
@@ -195,7 +247,12 @@ export function TournamentGamesCard() {
       {/* Chessboard */}
       <div ref={boardWrapperRef} className="w-full aspect-square overflow-hidden bg-card">
         {boardWidth && boardWidth > 0 ? (
-          <Chessboard boardWidth={boardWidth} position={currentFen} arePiecesDraggable={false} />
+          <Chessboard
+            boardWidth={boardWidth}
+            position={currentFen}
+            arePiecesDraggable={false}
+            customSquareStyles={getCustomSquareStyles()}
+          />
         ) : (
           <div className="w-full h-full bg-muted animate-pulse" />
         )}

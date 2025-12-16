@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import UserSidebar from '@/components/user/UserSidebar'
+import AcademySidebar from '@/components/academy/AcademySidebar'
 
-export default function UserLayout({
+export default function AcademyLayout({
   children,
 }: {
   children: React.ReactNode
@@ -12,7 +12,7 @@ export default function UserLayout({
 
   return (
     <div className="flex pt-16 min-h-screen bg-gray-50 dark:bg-gray-900">
-      <UserSidebar
+      <AcademySidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(!collapsed)}
       />

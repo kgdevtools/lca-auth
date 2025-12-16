@@ -19,24 +19,27 @@ export function RankingsCard() {
       try {
         const allRankings = await getRankings()
 
+        // Filter all rankings by Limpopo federations first
+        const limpopoRankings = allRankings.filter(p => FEDERATIONS.includes(p.fed || ''))
+
         // Randomly select a filter type (removed Overall, only specific filters)
         const filterType = Math.random()
         let filtered: PlayerRanking[] = []
         let label = ''
 
         if (filterType < 0.33) {
-          // Filter by age group
+          // Filter by age group from Limpopo players
           const randomAge = AGE_GROUPS[Math.floor(Math.random() * AGE_GROUPS.length)]
-          filtered = allRankings.filter(p => p.age_group === randomAge)
-          label = `Top 10 ${randomAge} Players`
+          filtered = limpopoRankings.filter(p => p.age_group === randomAge)
+          label = `Top 10 ${randomAge} Limpopo Players`
         } else if (filterType < 0.66) {
-          // Filter by gender
+          // Filter by gender from Limpopo players
           const randomGender = GENDERS[Math.floor(Math.random() * GENDERS.length)]
-          filtered = allRankings.filter(p => p.sex === randomGender)
-          label = randomGender === 'M' ? 'Top 10 Male Players' : 'Top 10 Female Players'
+          filtered = limpopoRankings.filter(p => p.sex === randomGender)
+          label = randomGender === 'M' ? 'Top 10 Male Limpopo Players' : 'Top 10 Female Limpopo Players'
         } else {
-          // Filter by Limpopo federation
-          filtered = allRankings.filter(p => FEDERATIONS.includes(p.fed || ''))
+          // Explicitly show Top 10 Limpopo Players (if other filters don't yield results)
+          filtered = limpopoRankings
           label = 'Top 10 Limpopo Players'
         }
 

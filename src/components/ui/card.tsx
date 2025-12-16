@@ -29,4 +29,8 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
   return <div className={clsx("p-6 pt-0", className)} {...props} />
 }
 
+export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={clsx("flex items-center p-6 pt-0", className)} {...props} />
+}
+
 

@@ -44,3 +44,36 @@ next-env.d.ts
 #toml file
 config.toml
 nul
+
+# SQL files in root directory (keep migrations in subdirectories)
+/*.sql
+
+#AI md files
+*.ai.md
+*.ai.mdx
+.DOCS
+.ai
+.ai/
+.AI
+docs/
+DOCS/
+docs.ai/
+DOCS.ai/
+.ai.md
+.ai.mdx
+.claude/
+.antigravity
+.codex/
+.gpt/
+.chat/
+.chatml/
+.gptml/
+.cursor/
+
+# Scripts that im still working on
+/scripts
+/scripts/*
+
+# Features still working on
+/academy/*
+/chess-puzzles/*
