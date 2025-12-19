@@ -101,7 +101,7 @@ export async function fetchGames(tableName: TournamentId): Promise<{ games: Game
       pgn: pgnString,
     };
   });
-  
+
   return { games: processedGames, error: null }
 }
 

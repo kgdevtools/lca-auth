@@ -1,10 +1,10 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import Image from "next/image"
-import { BlogCard } from "@/components/home/BlogCard"
+import { BlogCardServer } from "@/components/home/BlogCardServer"
 import { TournamentsCard } from "@/components/home/TournamentsCard"
-import { RankingsCard } from "@/components/home/RankingsCard"
-import { TournamentGamesCard } from "@/components/home/TournamentGamesCard"
+import { RankingsCardServer } from "@/components/home/RankingsCardServer"
+import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer"
 
 export const metadata: Metadata = {
   title: "Home",
@@ -57,16 +57,16 @@ export default function Home() {
       {/* Feature Cards Grid - Responsive: 1 column on mobile, 2 on larger screens */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Tournament Games Card - Auto-replaying board */}
-        <TournamentGamesCard />
+        <TournamentGamesCardServer />
 
         {/* Latest Tournament Card */}
         <TournamentsCard />
 
         {/* Rankings Card - Random category */}
-        <RankingsCard />
+        <RankingsCardServer />
 
         {/* Blog Card - Latest post */}
-        <BlogCard />
+        <BlogCardServer />
       </div>
     </section>
   )

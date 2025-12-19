@@ -69,6 +69,7 @@ DOCS.ai/
 .chatml/
 .gptml/
 .cursor/
+.qwen/
 
 # Scripts that im still working on
 /scripts
