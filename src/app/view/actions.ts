@@ -19,6 +19,7 @@ export interface GameData {
 export interface TournamentMeta {
   id: string;      // UUID in tournaments_meta
   name: string;    // Table name for the tournament
+  alias?: string;  // Human-readable alias for the tournament (e.g., "CDC Tournament 1 2025")
   created_at?: string; // Timestamp when tournament was created
   display_name?: string; // Formatted display name
 }
@@ -29,7 +30,7 @@ export async function listTournaments(): Promise<{ tournaments: TournamentMeta[]
 
   const { data, error } = await supabase
     .from('tournaments_meta')
-    .select('id, name, created_at')
+    .select('id, name, alias, created_at')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -48,7 +49,7 @@ export async function listTournaments(): Promise<{ tournaments: TournamentMeta[]
   // Merge dynamic tournaments with static ones (deduplicate by name)
   const dynamicTournaments = (data || []).map(t => ({
     ...t,
-    display_name: formatTournamentName(t.name)
+    display_name: t.alias || formatTournamentName(t.name)
   })) as TournamentMeta[]
 
   const allTournaments = [...dynamicTournaments]
