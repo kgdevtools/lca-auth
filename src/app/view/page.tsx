@@ -107,8 +107,15 @@ export default function ViewOnlyPage() {
     }
 
     try {
+      // Apply the same fix for TimeControl headers when loading for display
+      let displayPgn = currentPgn;
+      displayPgn = displayPgn.replace(/\[TimeControl\s+"([^"]*'[^"]*)""\]/g, (match, fullValue) => {
+        const fixedValue = fullValue.replace(/'/g, '+');
+        return `[TimeControl "${fixedValue}"]`;
+      });
+
       const chess = new Chess()
-      chess.loadPgn(currentPgn)
+      chess.loadPgn(displayPgn)
       const headers = chess.header() as Record<string, string>
       setGameHeaders(headers)
 
@@ -250,7 +257,7 @@ export default function ViewOnlyPage() {
   }
 
   const selectedTournament = tournaments.find((t) => t.name === selectedTournamentId)
-  const selectedTournamentName = selectedTournament?.display_name || selectedTournamentId || "Select a tournament"
+  const selectedTournamentName = selectedTournament?.alias || selectedTournament?.display_name || selectedTournamentId || "Select a tournament"
   const selectedGameTitle =
     games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
 
@@ -258,9 +265,9 @@ export default function ViewOnlyPage() {
     <div className="min-h-screen bg-background text-foreground p-3 md:p-4 lg:p-6">
       <div className="max-w-6xl mx-auto space-y-2">
         <header className="text-center space-y-1 mb-2">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">Games Database</h1>
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-            Chess games from Limpopo tournaments. Updated daily.
+            Chess games from tournaments in and around Limpopo. Updated regularly.
           </p>
         </header>
 
@@ -281,15 +288,25 @@ export default function ViewOnlyPage() {
                 {tournaments.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">No tournaments available</div>
                 ) : (
-                  tournaments.map((t) => (
+                  tournaments.map((t, i) => (
                     <DropdownMenuItem
                       key={t.name}
                       onSelect={() => handleTournamentSelect(t.name as TournamentId)}
-                      className="cursor-pointer px-3 py-2 rounded-md hover:bg-accent/70 transition-colors duration-150 flex items-center justify-between group"
+                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? 'bg-accent/30' : ''}`}
                     >
-                      <span className="text-sm font-medium text-foreground group-hover:text-accent-foreground flex-1">
-                        {t.display_name || t.name}
-                      </span>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
+                            {t.alias || t.display_name || t.name}
+                          </span>
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5 font-mono">
+                            {t.name}
+                          </span>
+                        </div>
+                      </div>
                       {isNewItem(t.created_at) && (
                         <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
                           New
@@ -317,27 +334,39 @@ export default function ViewOnlyPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[50vh] sm:max-h-72 overflow-y-auto rounded-lg bg-card p-1.5 border border-border shadow-xl">
-                {games.map((g, i) => (
+                {games.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No games available</div>
+                ) : games.map((g, i) => (
                   <DropdownMenuItem
                     key={g.id}
-                    className="cursor-pointer px-3 py-2 rounded-md hover:bg-accent/70 transition-colors duration-150 group"
+                    className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? 'bg-accent/30' : ''}`}
                     onSelect={() => handleGameSelect(i)}
                   >
-                    <div className="flex items-center justify-between w-full gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xs font-mono text-muted-foreground tabular-nums flex-shrink-0 w-6">
-                          {i + 1}.
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
+                          {(() => {
+                            // Extract player names from PGN headers for cleaner display
+                            const whiteMatch = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m);
+                            const blackMatch = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m);
+                            const white = whiteMatch ? whiteMatch[1] : "Unknown";
+                            const black = blackMatch ? blackMatch[1] : "Unknown";
+                            return `${white} vs ${black}`;
+                          })()}
                         </span>
-                        <span className="truncate text-sm font-medium text-foreground group-hover:text-accent-foreground">
+                        <span className="block text-xs text-muted-foreground truncate mt-0.5">
                           {g.title}
                         </span>
                       </div>
-                      {isNewItem(g.created_at) && (
-                        <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
-                          New
-                        </span>
-                      )}
                     </div>
+                    {isNewItem(g.created_at) && (
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
+                        New
+                      </span>
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
