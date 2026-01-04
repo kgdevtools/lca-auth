@@ -504,7 +504,20 @@ export default function GameViewerPage() {
       const validGames = [];
 
       for (let i = 0; i < parsedGames.length; i++) {
-        const game = parsedGames[i];
+        let game = parsedGames[i];
+
+        // Apply the same PGN fixes that are used elsewhere in the code
+        let fixedPgn = game.pgn;
+        // Handle TimeControl with prime symbols: [TimeControl "30'+30""] should become [TimeControl "30+30"]
+        fixedPgn = fixedPgn.replace(/\[TimeControl\s+"([^"]*'[^"]*)""\]/g, (match, fullValue) => {
+          // Replace prime symbols with regular + for time controls like "30'+30" -> "30+30"
+          const fixedValue = fullValue.replace(/'/g, '+');
+          return `[TimeControl "${fixedValue}"]`;
+        });
+
+        // Update the game with the fixed PGN
+        game = { ...game, pgn: fixedPgn };
+
         const validation = validatePgn(game.pgn);
         if (!validation.valid) {
           errors.push(`Game ${i + 1} (Title: ${game.title || 'N/A'}): Invalid PGN format - ${validation.error}`);
