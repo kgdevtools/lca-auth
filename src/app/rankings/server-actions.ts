@@ -149,8 +149,7 @@ async function fetchAllProfilesBatched(supabase: any, pageSize = 1000): Promise<
     if (batch.length < pageSize) break;
     from += pageSize;
   }
-  console.log(`[rankings] fetched all rows in ${requests} request(s). total=${all.length}`);
-  return all;
+    return all;
 }
 
 async function fetchViaRPC(supabase: any): Promise<any[] | null> {
@@ -207,8 +206,7 @@ async function fetchViaRPC(supabase: any): Promise<any[] | null> {
         }
       }
     }
-    console.log('[rankings] RPC returned players:', (data as any[]).length, 'expanded rows:', expanded.length);
-    return expanded;
+        return expanded;
   } catch (e) {
     console.warn('[rankings] RPC call threw:', e);
     return null;
@@ -231,8 +229,7 @@ export async function getRankings(): Promise<PlayerRanking[]> {
       return [];
     }
   }
-  console.log("[rankings] total rows fetched:", rows.length);
-
+  
   // Fetch tournament dates for all unique tournament IDs
   const tournamentIds = Array.from(new Set(
     rows
@@ -261,8 +258,7 @@ export async function getRankings(): Promise<PlayerRanking[]> {
           tournamentDatesMap.set(t.id, t.date);
         }
       }
-      console.log("[rankings] fetched dates for", tournamentDatesMap.size, "individual tournaments");
-    }
+          }
 
     if (teamTournamentError) {
       console.error("[rankings] Error fetching team tournament dates:", teamTournamentError);
@@ -272,8 +268,7 @@ export async function getRankings(): Promise<PlayerRanking[]> {
           tournamentDatesMap.set(t.id, t.date);
         }
       }
-      console.log("[rankings] fetched dates for", teamTournamentData.length, "team tournaments");
-    }
+          }
   }
 
   // Group strictly by UNIQUE_NO
@@ -284,25 +279,8 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     const arr = groups.get(key);
     if (arr) arr.push(r); else groups.set(key, [r]);
   }
-  console.log("[rankings] total groups by UNIQUE_NO:", groups.size);
-
-  // Debug: target UNIQUE_NO
-  const TARGET = '2170314942';
-  const preMatches = rows.filter((r) => normalizeUniqueNo(r["UNIQUE_NO"]) === TARGET);
-  console.log(`[rankings][debug] UNIQUE_NO ${TARGET} pre-group rows:`, preMatches.length);
-  if (preMatches.length > 0) {
-    const names = Array.from(new Set(preMatches.map((r) => `${r["FIRSTNAME"] ?? ''} ${r["SURNAME"] ?? ''}`.trim())));
-    const tn = preMatches.map((r) => r["tournament_name"]).filter(Boolean);
-    console.log(`[rankings][debug] ${TARGET} names:`, names);
-    console.log(`[rankings][debug] ${TARGET} tournaments:`, tn);
-  }
-
+  
   const groupKeys = Array.from(groups.keys());
-  if (groups.has(TARGET)) {
-    console.log(`[rankings][debug] ${TARGET} grouped rows:`, groups.get(TARGET)!.length);
-  } else {
-    console.log(`[rankings][debug] ${TARGET} not found in groups`);
-  }
 
   // Aggregate each group into a single player record (one instance)
   const players: PlayerRanking[] = groupKeys.map((key) => {
@@ -372,19 +350,6 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     return p;
   });
 
-  console.log("[rankings] aggregated players:", players.length);
-
-  // Additional debug: aggregated view for target
-  const targetAgg = players.find((p) => p.name_key === '2170314942');
-  if (targetAgg) {
-    console.log('[rankings][debug] aggregated target:', {
-      key: targetAgg.name_key,
-      name: targetAgg.display_name,
-      tournaments_count: targetAgg.tournaments_count,
-      tournaments: targetAgg.tournaments.map((t) => t.tournament_name).filter(Boolean),
-      avg_performance_rating: targetAgg.avg_performance_rating,
-    });
-  }
 
   // Sort by average TP (APR) descending using same calculation as table display
   const getDisplayAPR = (player: PlayerRanking): number => {
