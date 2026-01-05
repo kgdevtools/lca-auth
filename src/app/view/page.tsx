@@ -262,8 +262,8 @@ export default function ViewOnlyPage() {
     games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-3 md:p-4 lg:p-6">
-      <div className="max-w-6xl mx-auto space-y-2">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-6xl mx-auto space-y-2 p-2 md:p-3">
         <header className="text-center space-y-1 mb-2">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto">
@@ -271,7 +271,7 @@ export default function ViewOnlyPage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-card border border-border p-2 rounded-lg shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-card border border-border p-2 rounded-lg shadow-sm">
           <div>
             <h3 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Tournament</h3>
             <DropdownMenu>
@@ -375,8 +375,8 @@ export default function ViewOnlyPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px] gap-2">
-            <div className="max-w-md md:max-w-none mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_320px] gap-1">
+            <div className="w-full">
               <div className="bg-muted animate-pulse rounded-md aspect-square" />
             </div>
             <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
@@ -393,12 +393,12 @@ export default function ViewOnlyPage() {
             <p className="text-muted-foreground">No games available for this tournament.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] lg:grid-cols-[minmax(0,1fr)_340px] gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_320px] gap-1">
             {/* Left column: Chessboard + Controls */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div
                 ref={boardWrapperRef}
-                className="w-full max-w-md md:max-w-none lg:max-w-lg xl:max-w-xl mx-auto aspect-square shadow-lg rounded-sm overflow-hidden border border-border"
+                className="w-full aspect-square shadow-lg rounded-sm overflow-hidden border border-border"
               >
                 {boardWidth && boardWidth > 0 ? (
                   <Chessboard
@@ -419,7 +419,7 @@ export default function ViewOnlyPage() {
                 )}
               </div>
 
-              <div className="max-w-md md:max-w-none lg:max-w-lg xl:max-w-xl mx-auto">
+              <div className="w-full">
                 <Controls
                   onStart={() => navigateTo(-1)}
                   onPrev={() => navigateTo(currentMoveIndex - 1)}
@@ -435,7 +435,7 @@ export default function ViewOnlyPage() {
             </div>
 
             {/* Right column: Game Info + Moves List stacked */}
-            <div className="space-y-1.5 md:flex md:flex-col">
+            <div className="space-y-1 md:flex md:flex-col">
               <GameInfo headers={gameHeaders} />
               <MovesList
                 moves={gameHistory.moves}
@@ -476,7 +476,7 @@ const Controls = React.memo(
     const showPlayIcon = !isReplaying || isPaused
 
     return (
-      <div className="flex justify-center items-center gap-1.5 p-2 bg-card border border-border rounded-sm shadow-sm">
+      <div className="flex justify-center items-center gap-1 p-1 bg-card border border-border rounded-sm shadow-sm">
         <Button
           variant="outline"
           size="sm"
@@ -574,7 +574,7 @@ const MovesList = React.memo(
       <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden md:flex-1 md:min-h-0">
         <div
           ref={movesListRef}
-          className="overflow-y-auto p-2.5 h-[200px] md:h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          className="overflow-y-auto p-2 h-[200px] md:h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
         >
           <div className="grid grid-cols-[auto_1fr_1fr] gap-x-1.5 gap-y-1 items-center">
             {moves.map((move, index) =>
@@ -640,9 +640,9 @@ const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) =>
   const blackElo = headers.BlackElo || headers.blackElo || ""
 
   return (
-    <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
+    <div className="bg-card border border-border p-2 rounded-lg shadow-sm">
       {/* Players - Primary focus with larger, bolder text */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">White</div>
           <div className="text-base font-bold text-foreground leading-snug truncate">{white}</div>

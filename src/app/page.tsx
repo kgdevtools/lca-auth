@@ -18,7 +18,7 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 lg:gap-10 items-center mb-12 sm:mb-16">
         {/* Logos - responsive, swap for theme */}
         <div className="w-full md:col-span-2 bg-white dark:bg-slate-950">
-          <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[5/3] lg:aspect-[3/1] md:min-h-[220px] lg:min-h-[260px] xl:min-h-[300px]">
+          <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[2/1] lg:aspect-[16/9] md:min-h-[350px] lg:min-h-[400px] xl:min-h-[450px]">
             <Image
               src="/Picture1.png"
               alt="Limpopo Chess Academy logo (light)"
@@ -39,7 +39,7 @@ export default function Home() {
         </div>
 
         {/* Copy */}
-        <div className="space-y-6 text-left md:col-span-3">
+        <div className="space-y-6 text-left md:col-span-3 flex flex-col justify-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-balance">
             Welcome to{" "}
             <span className="text-primary font-extrabold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
