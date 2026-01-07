@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Clock, MapPin, Phone, CreditCard } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { registerPlayer } from "./server-actions"
 
 type ExperienceLevel = "beginner" | "intermediate" | "advanced"
 
@@ -50,9 +51,21 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setSubmitting(false)
-    onSuccess()
+
+    try {
+      const result = await registerPlayer(form)
+      
+      if (result.success) {
+        onSuccess()
+      } else {
+        setError(result.error || 'Failed to submit registration')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Form submission error:', err)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function update<K extends keyof PlayerRegistrationPayload>(key: K, value: PlayerRegistrationPayload[K]) {
@@ -96,7 +109,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">First name</label>
                   <input
                     required
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.firstName}
                     onChange={(e) => update("firstName", e.target.value)}
                   />
@@ -105,7 +118,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Last name</label>
                   <input
                     required
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.lastName}
                     onChange={(e) => update("lastName", e.target.value)}
                   />
@@ -115,7 +128,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <input
                     type="date"
                     required
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.dob}
                     onChange={(e) => update("dob", e.target.value)}
                   />
@@ -123,7 +136,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Experience</label>
                   <select
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.experience}
                     onChange={(e) => update("experience", e.target.value as ExperienceLevel)}
                   >
@@ -135,7 +148,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">FIDE ID (optional)</label>
                   <input
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.fideId ?? ""}
                     onChange={(e) => update("fideId", e.target.value)}
                   />
@@ -143,7 +156,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">ChessSA ID (optional)</label>
                   <input
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.chessSaId ?? ""}
                     onChange={(e) => update("chessSaId", e.target.value)}
                   />
@@ -152,7 +165,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Rating (optional)</label>
                   <input
                     type="number"
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.rating ?? ""}
                     onChange={(e) => {
                       const val = e.target.value
@@ -170,7 +183,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     Parent/Guardian name (optional)
                   </label>
                   <input
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.parentName ?? ""}
                     onChange={(e) => update("parentName", e.target.value)}
                   />
@@ -180,7 +193,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     Parent/Guardian contact (optional)
                   </label>
                   <input
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.parentContact ?? ""}
                     onChange={(e) => update("parentContact", e.target.value)}
                   />
@@ -189,7 +202,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Emergency contact name</label>
                   <input
                     required
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.emergencyContact}
                     onChange={(e) => update("emergencyContact", e.target.value)}
                   />
@@ -198,7 +211,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-1.5">Emergency phone</label>
                   <input
                     required
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value={form.emergencyPhone}
                     onChange={(e) => update("emergencyPhone", e.target.value)}
                   />
@@ -279,7 +292,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">Select Program</label>
                     <select
-                      className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                      className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                       value={form.selectedProgram ?? ""}
                       onChange={(e) =>
                         update("selectedProgram", e.target.value as "polokwane" | "limpopo" | "both" | undefined)
@@ -297,7 +310,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-2">Lesson Type</label>
                       <select
-                        className="w-full rounded-sm bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                        className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                         value={form.lessonType ?? "physical"}
                         onChange={(e) => update("lessonType", e.target.value as "physical" | "online" | "both")}
                       >
@@ -328,7 +341,7 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
                   <label className="block text-sm font-medium text-foreground mb-2">Comments (optional)</label>
                   <textarea
                     rows={4}
-                    className="w-full rounded-sm bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
+                    className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
                     placeholder="Any additional information, special requirements, or questions..."
                     value={form.comments ?? ""}
                     onChange={(e) => update("comments", e.target.value)}
