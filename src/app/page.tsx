@@ -50,7 +50,7 @@ export default function Home() {
           </h1>
 
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
-            Join our community of chess enthusiasts and take your game to the next level
+            Join our community of chess enthusiasts and take your game to the next level. Follow latest and upcoming chess tournaments.
           </p>
         </div>
       </div>
