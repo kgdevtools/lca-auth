@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Forms & Registrations",
-  description: "Register players for the Limpopo Chess Academy.",
+  description: "Register players for Limpopo Chess Academy.",
 }
 
 export default function FormsPage() {
@@ -15,14 +15,14 @@ export default function FormsPage() {
       </div>
 
       {/* Centering Container */}
-      <div className="mt-6 flex justify-center">
-        {/* Academy Registration Card */}
-        <section className="group w-full max-w-md">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        {/* Player Registration Card */}
+        <section className="group w-full max-w-md mx-auto">
           <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-primary/30">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-foreground">LCA Academy Registrations</h3>
-                <p className="text-sm text-muted-foreground mt-1">Register as a player for the Limpopo Chess Academy.</p>
+                <p className="text-sm text-muted-foreground mt-1">Register as a player for Limpopo Chess Academy.</p>
               </div>
             </div>
             <Link
@@ -30,6 +30,24 @@ export default function FormsPage() {
               className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse-subtle"
             >
               LCA Registration
+            </Link>
+          </div>
+        </section>
+        
+        {/* Tournament Creation Card */}
+        <section className="group w-full max-w-md mx-auto">
+          <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-primary/30">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Tournament Creation</h3>
+                <p className="text-sm text-muted-foreground mt-1">Create an upcoming tournament listing.</p>
+              </div>
+            </div>
+            <Link
+              href="/forms/upcoming-tournament"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+            >
+              Create Tournament
             </Link>
           </div>
         </section>

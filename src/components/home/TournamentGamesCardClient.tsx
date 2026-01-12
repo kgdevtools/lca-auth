@@ -176,8 +176,8 @@ export function TournamentGamesCardClient({
         </div>
       </div>
 
-      {/* Chessboard */}
-      <div ref={boardWrapperRef} className="w-full aspect-square overflow-hidden bg-card">
+       {/* Chessboard */}
+      <div ref={boardWrapperRef} className="w-full aspect-square overflow-hidden bg-card flex-shrink-0">
         {boardWidth > 0 ? (
           <Chessboard
             boardWidth={boardWidth}

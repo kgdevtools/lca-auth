@@ -2,7 +2,8 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import Image from "next/image"
 import { BlogCardServer } from "@/components/home/BlogCardServer"
-import { TournamentsCard } from "@/components/home/TournamentsCard"
+import { CompactTournamentsCard } from "@/components/home/CompactTournamentsCard"
+import { UpcomingTournamentCardServer } from "@/components/home/UpcomingTournamentCard"
 import { RankingsCardServer } from "@/components/home/RankingsCardServer"
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer"
 
@@ -59,8 +60,11 @@ export default function Home() {
         {/* Tournament Games Card - Auto-replaying board */}
         <TournamentGamesCardServer />
 
-        {/* Latest Tournament Card */}
-        <TournamentsCard />
+        {/* Tournament Section - Stacked cards */}
+        <div className="flex flex-col gap-6 lg:gap-8 h-fit">
+          <CompactTournamentsCard />
+          <UpcomingTournamentCardServer />
+        </div>
 
         {/* Rankings Card - Random category */}
         <RankingsCardServer />
