@@ -301,11 +301,11 @@ export default function ViewOnlyPage() {
     games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
 
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{zoom: pixelRatio > 1.5 ? '0.9' : '1'}}>
-      <div className="max-w-7xl xl:max-w-6xl 2xl:max-w-5xl mx-auto space-y-2 p-2 md:p-3 xl:p-2 2xl:p-2">
-        <header className="text-center space-y-1 mb-2">
-          <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
-          <p className="text-xs md:text-sm text-muted-foreground max-w-xl mx-auto">
+    <div className="min-h-screen bg-background text-foreground" style={{zoom: pixelRatio > 1.5 ? '0.8' : pixelRatio > 2 ? '0.7' : '0.9'}}>
+      <div className="max-w-6xl 2xl:max-w-5xl 3xl:max-w-4xl 4xl:max-w-3xl mx-auto space-y-2 p-1 md:p-2 xl:p-1 2xl:p-1">
+        <header className="text-center space-y-1 mb-1">
+          <h1 className="text-lg md:text-xl lg:text-2xl xl:text-3xl 2xl:text-3xl 3xl:text-4xl 4xl:text-5xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
+          <p className="text-xs md:text-sm text-muted-foreground max-w-lg mx-auto">
             Chess games from tournaments in and around Limpopo. Updated regularly.
           </p>
         </header>
@@ -415,12 +415,12 @@ export default function ViewOnlyPage() {
 
         {isLoading ? (
           <div className="grid grid-cols-1 
-                     md:grid-cols-[minmax(0,1fr)_280px] 
-                     lg:grid-cols-[minmax(0,1fr)_320px]
-                     xl:grid-cols-[minmax(0,1fr)_340px]
-                     2xl:grid-cols-[minmax(0,1fr)_360px]
-                     3xl:grid-cols-[minmax(0,1fr)_380px]
-                     4xl:grid-cols-[minmax(0,1fr)_400px]
+                     md:grid-cols-[minmax(0,1fr)_260px] 
+                     lg:grid-cols-[minmax(0,1fr)_280px]
+                     xl:grid-cols-[minmax(0,1fr)_300px]
+                     2xl:grid-cols-[minmax(0,1fr)_320px]
+                     3xl:grid-cols-[minmax(0,1fr)_340px]
+                     4xl:grid-cols-[minmax(0,1fr)_360px]
                      gap-1">
             <div className="w-full">
               <div className="bg-muted animate-pulse rounded-md aspect-square" />
@@ -440,18 +440,18 @@ export default function ViewOnlyPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 
-                     md:grid-cols-[minmax(0,1fr)_280px] 
-                     lg:grid-cols-[minmax(0,1fr)_320px]
-                     xl:grid-cols-[minmax(0,1fr)_340px]
-                     2xl:grid-cols-[minmax(0,1fr)_360px]
-                     3xl:grid-cols-[minmax(0,1fr)_380px]
-                     4xl:grid-cols-[minmax(0,1fr)_400px]
+                     md:grid-cols-[minmax(0,1fr)_260px] 
+                     lg:grid-cols-[minmax(0,1fr)_280px]
+                     xl:grid-cols-[minmax(0,1fr)_300px]
+                     2xl:grid-cols-[minmax(0,1fr)_320px]
+                     3xl:grid-cols-[minmax(0,1fr)_340px]
+                     4xl:grid-cols-[minmax(0,1fr)_360px]
                      gap-1">
             {/* Left column: Chessboard + Controls */}
             <div className="space-y-1">
               <div
                 ref={boardWrapperRef}
-                className={`w-full max-w-[350px] md:max-w-[400px] lg:max-w-[450px] xl:max-w-[500px] 2xl:max-w-[550px] 3xl:max-w-[600px] 4xl:max-w-[650px] aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? 'ring-2 ring-primary/50' : ''}`}
+                className={`w-full max-w-[300px] md:max-w-[350px] lg:max-w-[400px] xl:max-w-[450px] 2xl:max-w-[500px] 3xl:max-w-[550px] 4xl:max-w-[600px] aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? 'ring-2 ring-primary/50' : ''}`}
               >
                 {boardWidth && boardWidth > 0 ? (
                   <Chessboard
