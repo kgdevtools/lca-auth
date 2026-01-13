@@ -6,7 +6,7 @@ import type { Move } from "chess.js"
 import { Chessboard } from "react-chessboard"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Play, Pause } from "lucide-react"
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Play, Pause, Expand } from "lucide-react"
 import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "./actions"
 import type { TournamentId } from "./config"
 import { isNewItem } from "./utils"
@@ -33,6 +33,9 @@ export default function ViewOnlyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
+  const [isResizing, setIsResizing] = useState(false)
+  const [userBoardWidth, setUserBoardWidth] = useState<number | null>(null)
+  const [pixelRatio, setPixelRatio] = useState(1)
 
   const [isReplaying, setIsReplaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -142,15 +145,27 @@ export default function ViewOnlyPage() {
   }, [currentPgn])
 
   useEffect(() => {
+    setPixelRatio(window.devicePixelRatio || 1)
+  }, [])
+
+  useEffect(() => {
     function handleResize() {
       if (boardWrapperRef.current) {
-        setBoardWidth(boardWrapperRef.current.offsetWidth)
+        const containerWidth = boardWrapperRef.current.offsetWidth
+        
+        if (!userBoardWidth) {
+          setBoardWidth(containerWidth)
+        } else if (userBoardWidth <= containerWidth) {
+          setBoardWidth(userBoardWidth)
+        } else {
+          setBoardWidth(containerWidth)
+        }
       }
     }
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [isLoading])
+  }, [isLoading, userBoardWidth])
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
@@ -246,6 +261,30 @@ export default function ViewOnlyPage() {
     stopReplay()
   }, [currentPgn, stopReplay])
 
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+    
+    const startX = e.clientX
+    const startWidth = boardWidth || boardWrapperRef.current?.offsetWidth || 400
+    
+    function handleMouseMove(e: MouseEvent) {
+      const deltaX = e.clientX - startX
+      const newWidth = Math.max(200, Math.min(startWidth + deltaX, 800)) // Min 200px, Max 800px
+      setBoardWidth(newWidth)
+      setUserBoardWidth(newWidth)
+    }
+    
+    function handleMouseUp() {
+      setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+    
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [boardWidth])
+
   const handleTournamentSelect = (tournamentName: TournamentId) => {
     if (tournamentName !== selectedTournamentId) {
       setSelectedTournamentId(tournamentName)
@@ -262,11 +301,11 @@ export default function ViewOnlyPage() {
     games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-6xl mx-auto space-y-2 p-2 md:p-3">
+    <div className="min-h-screen bg-background text-foreground" style={{zoom: pixelRatio > 1.5 ? '0.9' : '1'}}>
+      <div className="max-w-7xl xl:max-w-6xl 2xl:max-w-5xl mx-auto space-y-2 p-2 md:p-3 xl:p-2 2xl:p-2">
         <header className="text-center space-y-1 mb-2">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
-          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+          <h1 className="text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-4xl 3xl:text-5xl 4xl:text-6xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
+          <p className="text-xs md:text-sm text-muted-foreground max-w-xl mx-auto">
             Chess games from tournaments in and around Limpopo. Updated regularly.
           </p>
         </header>
@@ -375,7 +414,14 @@ export default function ViewOnlyPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_320px] gap-1">
+          <div className="grid grid-cols-1 
+                     md:grid-cols-[minmax(0,1fr)_280px] 
+                     lg:grid-cols-[minmax(0,1fr)_320px]
+                     xl:grid-cols-[minmax(0,1fr)_340px]
+                     2xl:grid-cols-[minmax(0,1fr)_360px]
+                     3xl:grid-cols-[minmax(0,1fr)_380px]
+                     4xl:grid-cols-[minmax(0,1fr)_400px]
+                     gap-1">
             <div className="w-full">
               <div className="bg-muted animate-pulse rounded-md aspect-square" />
             </div>
@@ -393,16 +439,23 @@ export default function ViewOnlyPage() {
             <p className="text-muted-foreground">No games available for this tournament.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_320px] gap-1">
+          <div className="grid grid-cols-1 
+                     md:grid-cols-[minmax(0,1fr)_280px] 
+                     lg:grid-cols-[minmax(0,1fr)_320px]
+                     xl:grid-cols-[minmax(0,1fr)_340px]
+                     2xl:grid-cols-[minmax(0,1fr)_360px]
+                     3xl:grid-cols-[minmax(0,1fr)_380px]
+                     4xl:grid-cols-[minmax(0,1fr)_400px]
+                     gap-1">
             {/* Left column: Chessboard + Controls */}
             <div className="space-y-1">
               <div
                 ref={boardWrapperRef}
-                className="w-full aspect-square shadow-lg rounded-sm overflow-hidden border border-border"
+                className={`w-full max-w-[350px] md:max-w-[400px] lg:max-w-[450px] xl:max-w-[500px] 2xl:max-w-[550px] 3xl:max-w-[600px] 4xl:max-w-[650px] aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? 'ring-2 ring-primary/50' : ''}`}
               >
                 {boardWidth && boardWidth > 0 ? (
                   <Chessboard
-                    boardWidth={boardWidth}
+                    boardWidth={boardWidth || boardWrapperRef.current?.offsetWidth || 400}
                     position={gameHistory.fenHistory[currentMoveIndex + 1] || "start"}
                     arePiecesDraggable={false}
                     customSquareStyles={
@@ -417,6 +470,16 @@ export default function ViewOnlyPage() {
                 ) : (
                   <div className="w-full h-full bg-muted animate-pulse" />
                 )}
+                
+                {/* Resize Handle */}
+                <button
+                  className="absolute bottom-2 right-2 w-5 h-5 bg-muted/80 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+                  style={{ cursor: isResizing ? 'se-resize' : 'se-resize' }}
+                  onMouseDown={handleResizeStart}
+                  aria-label="Resize board"
+                >
+                  <Expand className="w-3 h-3 text-muted-foreground" />
+                </button>
               </div>
 
               <div className="w-full">
