@@ -31,6 +31,12 @@ export const metadata: Metadata = {
   },
   description:
     "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
   icons: {
     icon: [
       { url: '/lca-cyan-dark-bg-updated.png', type: 'image/png' },
