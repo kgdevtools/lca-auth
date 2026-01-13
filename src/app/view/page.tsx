@@ -33,9 +33,9 @@ export default function ViewOnlyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const boardWrapperRef = useRef<HTMLDivElement>(null)
   const [boardWidth, setBoardWidth] = useState<number>()
+  const [boardContainerWidth, setBoardContainerWidth] = useState<number>(500) // Start at reasonable default
   const [isResizing, setIsResizing] = useState(false)
-  const [userBoardWidth, setUserBoardWidth] = useState<number | null>(null)
-  const [pixelRatio, setPixelRatio] = useState(1)
+  const leftColumnRef = useRef<HTMLDivElement>(null)
 
   const [isReplaying, setIsReplaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -111,11 +111,11 @@ export default function ViewOnlyPage() {
 
     try {
       // Apply the same fix for TimeControl headers when loading for display
-      let displayPgn = currentPgn;
+      let displayPgn = currentPgn
       displayPgn = displayPgn.replace(/\[TimeControl\s+"([^"]*'[^"]*)""\]/g, (match, fullValue) => {
-        const fixedValue = fullValue.replace(/'/g, '+');
-        return `[TimeControl "${fixedValue}"]`;
-      });
+        const fixedValue = fullValue.replace(/'/g, "+")
+        return `[TimeControl "${fixedValue}"]`
+      })
 
       const chess = new Chess()
       chess.loadPgn(displayPgn)
@@ -145,27 +145,16 @@ export default function ViewOnlyPage() {
   }, [currentPgn])
 
   useEffect(() => {
-    setPixelRatio(window.devicePixelRatio || 1)
-  }, [])
-
-  useEffect(() => {
     function handleResize() {
       if (boardWrapperRef.current) {
         const containerWidth = boardWrapperRef.current.offsetWidth
-        
-        if (!userBoardWidth) {
-          setBoardWidth(containerWidth)
-        } else if (userBoardWidth <= containerWidth) {
-          setBoardWidth(userBoardWidth)
-        } else {
-          setBoardWidth(containerWidth)
-        }
+        setBoardWidth(containerWidth)
       }
     }
     handleResize()
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [isLoading, userBoardWidth])
+  }, [isLoading, boardContainerWidth])
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
@@ -261,29 +250,32 @@ export default function ViewOnlyPage() {
     stopReplay()
   }, [currentPgn, stopReplay])
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-    
-    const startX = e.clientX
-    const startWidth = boardWidth || boardWrapperRef.current?.offsetWidth || 400
-    
-    function handleMouseMove(e: MouseEvent) {
-      const deltaX = e.clientX - startX
-      const newWidth = Math.max(200, Math.min(startWidth + deltaX, 800)) // Min 200px, Max 800px
-      setBoardWidth(newWidth)
-      setUserBoardWidth(newWidth)
-    }
-    
-    function handleMouseUp() {
-      setIsResizing(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-    
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [boardWidth])
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      setIsResizing(true)
+
+      const startX = e.clientX
+      const startWidth = boardContainerWidth
+
+      function handleMouseMove(e: MouseEvent) {
+        const deltaX = e.clientX - startX
+        // Allow resize from 250px to 650px
+        const newWidth = Math.max(250, Math.min(startWidth + deltaX, 650))
+        setBoardContainerWidth(newWidth)
+      }
+
+      function handleMouseUp() {
+        setIsResizing(false)
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+      }
+
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+    },
+    [boardContainerWidth],
+  )
 
   const handleTournamentSelect = (tournamentName: TournamentId) => {
     if (tournamentName !== selectedTournamentId) {
@@ -296,21 +288,24 @@ export default function ViewOnlyPage() {
   }
 
   const selectedTournament = tournaments.find((t) => t.name === selectedTournamentId)
-  const selectedTournamentName = selectedTournament?.alias || selectedTournament?.display_name || selectedTournamentId || "Select a tournament"
+  const selectedTournamentName =
+    selectedTournament?.alias || selectedTournament?.display_name || selectedTournamentId || "Select a tournament"
   const selectedGameTitle =
     games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
 
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{zoom: pixelRatio > 1.5 ? '0.8' : pixelRatio > 2 ? '0.7' : '0.9'}}>
-      <div className="max-w-6xl 2xl:max-w-5xl 3xl:max-w-4xl 4xl:max-w-3xl mx-auto space-y-2 p-1 md:p-2 xl:p-1 2xl:p-1">
-        <header className="text-center space-y-1 mb-1">
-          <h1 className="text-lg md:text-xl lg:text-2xl xl:text-3xl 2xl:text-3xl 3xl:text-4xl 4xl:text-5xl font-bold tracking-tight">Limpopo Chess Academy Games Database</h1>
-          <p className="text-xs md:text-sm text-muted-foreground max-w-lg mx-auto">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-7xl mx-auto space-y-4 p-2 md:p-4">
+        <header className="text-center space-y-2 mb-4">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
+            Limpopo Chess Academy Games Database
+          </h1>
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Chess games from tournaments in and around Limpopo. Updated regularly.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-card border border-border p-2 rounded-lg shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-card border border-border p-3 rounded-lg shadow-sm">
           <div>
             <h3 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Tournament</h3>
             <DropdownMenu>
@@ -331,7 +326,7 @@ export default function ViewOnlyPage() {
                     <DropdownMenuItem
                       key={t.name}
                       onSelect={() => handleTournamentSelect(t.name as TournamentId)}
-                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? 'bg-accent/30' : ''}`}
+                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? "bg-accent/30" : ""}`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
@@ -375,54 +370,47 @@ export default function ViewOnlyPage() {
               <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[50vh] sm:max-h-72 overflow-y-auto rounded-lg bg-card p-1.5 border border-border shadow-xl">
                 {games.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">No games available</div>
-                ) : games.map((g, i) => (
-                  <DropdownMenuItem
-                    key={g.id}
-                    className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? 'bg-accent/30' : ''}`}
-                    onSelect={() => handleGameSelect(i)}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
-                          {(() => {
-                            // Extract player names from PGN headers for cleaner display
-                            const whiteMatch = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m);
-                            const blackMatch = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m);
-                            const white = whiteMatch ? whiteMatch[1] : "Unknown";
-                            const black = blackMatch ? blackMatch[1] : "Unknown";
-                            return `${white} vs ${black}`;
-                          })()}
+                ) : (
+                  games.map((g, i) => (
+                    <DropdownMenuItem
+                      key={g.id}
+                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? "bg-accent/30" : ""}`}
+                      onSelect={() => handleGameSelect(i)}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
+                          {i + 1}
                         </span>
-                        <span className="block text-xs text-muted-foreground truncate mt-0.5">
-                          {g.title}
-                        </span>
+                        <div className="min-w-0">
+                          <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
+                            {(() => {
+                              // Extract player names from PGN headers for cleaner display
+                              const whiteMatch = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m)
+                              const blackMatch = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m)
+                              const white = whiteMatch ? whiteMatch[1] : "Unknown"
+                              const black = blackMatch ? blackMatch[1] : "Unknown"
+                              return `${white} vs ${black}`
+                            })()}
+                          </span>
+                          <span className="block text-xs text-muted-foreground truncate mt-0.5">{g.title}</span>
+                        </div>
                       </div>
-                    </div>
-                    {isNewItem(g.created_at) && (
-                      <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
-                        New
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                      {isNewItem(g.created_at) && (
+                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
+                          New
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 
-                     md:grid-cols-[minmax(0,1fr)_260px] 
-                     lg:grid-cols-[minmax(0,1fr)_280px]
-                     xl:grid-cols-[minmax(0,1fr)_300px]
-                     2xl:grid-cols-[minmax(0,1fr)_320px]
-                     3xl:grid-cols-[minmax(0,1fr)_340px]
-                     4xl:grid-cols-[minmax(0,1fr)_360px]
-                     gap-1">
-            <div className="w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,500px)_minmax(250px,1fr)] gap-4">
+            <div className="w-full max-w-full mx-auto lg:mx-0">
               <div className="bg-muted animate-pulse rounded-md aspect-square" />
             </div>
             <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
@@ -439,23 +427,31 @@ export default function ViewOnlyPage() {
             <p className="text-muted-foreground">No games available for this tournament.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 
-                     md:grid-cols-[minmax(0,1fr)_260px] 
-                     lg:grid-cols-[minmax(0,1fr)_280px]
-                     xl:grid-cols-[minmax(0,1fr)_300px]
-                     2xl:grid-cols-[minmax(0,1fr)_320px]
-                     3xl:grid-cols-[minmax(0,1fr)_340px]
-                     4xl:grid-cols-[minmax(0,1fr)_360px]
-                     gap-1">
-            {/* Left column: Chessboard + Controls */}
-            <div className="space-y-1">
+          <div
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,auto)_minmax(200px,1fr)] gap-4 items-start"
+            style={{
+              gridTemplateColumns:
+                window.innerWidth >= 1024 ? `minmax(0, ${boardContainerWidth}px) minmax(200px, 1fr)` : "1fr",
+            }}
+          >
+            <div
+              ref={leftColumnRef}
+              className="space-y-2 w-full max-w-full mx-auto lg:mx-0"
+              style={{
+                maxWidth: window.innerWidth >= 1024 ? `${boardContainerWidth}px` : "100%",
+                transition: isResizing ? "none" : "max-width 0.2s ease-out",
+              }}
+            >
               <div
                 ref={boardWrapperRef}
-                className={`w-full max-w-[300px] md:max-w-[350px] lg:max-w-[400px] xl:max-w-[450px] 2xl:max-w-[500px] 3xl:max-w-[550px] 4xl:max-w-[600px] aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? 'ring-2 ring-primary/50' : ''}`}
+                className={`w-full aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? "ring-2 ring-primary/50" : ""}`}
+                style={{
+                  maxWidth: "min(100%, 650px)",
+                }}
               >
                 {boardWidth && boardWidth > 0 ? (
                   <Chessboard
-                    boardWidth={boardWidth || boardWrapperRef.current?.offsetWidth || 400}
+                    boardWidth={boardWidth}
                     position={gameHistory.fenHistory[currentMoveIndex + 1] || "start"}
                     arePiecesDraggable={false}
                     customSquareStyles={
@@ -470,15 +466,15 @@ export default function ViewOnlyPage() {
                 ) : (
                   <div className="w-full h-full bg-muted animate-pulse" />
                 )}
-                
-                {/* Resize Handle */}
+
                 <button
-                  className="absolute bottom-2 right-2 w-5 h-5 bg-muted/80 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
-                  style={{ cursor: isResizing ? 'se-resize' : 'se-resize' }}
+                  className="hidden lg:flex absolute bottom-2 right-2 w-6 h-6 bg-muted/90 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity shadow-sm"
+                  style={{ cursor: "se-resize" }}
                   onMouseDown={handleResizeStart}
-                  aria-label="Resize board"
+                  aria-label="Resize board and controls"
+                  title="Drag to resize (resizes entire layout)"
                 >
-                  <Expand className="w-3 h-3 text-muted-foreground" />
+                  <Expand className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               </div>
 
@@ -497,8 +493,7 @@ export default function ViewOnlyPage() {
               </div>
             </div>
 
-            {/* Right column: Game Info + Moves List stacked */}
-            <div className="space-y-1 md:flex md:flex-col">
+            <div className="space-y-2 flex flex-col min-h-[400px] lg:min-h-[500px]">
               <GameInfo headers={gameHeaders} />
               <MovesList
                 moves={gameHistory.moves}
@@ -539,7 +534,7 @@ const Controls = React.memo(
     const showPlayIcon = !isReplaying || isPaused
 
     return (
-      <div className="flex justify-center items-center gap-1 p-1 bg-card border border-border rounded-sm shadow-sm">
+      <div className="flex justify-center items-center gap-1.5 p-2 bg-card border border-border rounded-sm shadow-sm">
         <Button
           variant="outline"
           size="sm"
@@ -634,16 +629,16 @@ const MovesList = React.memo(
     }, [currentMoveIndex])
 
     return (
-      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden md:flex-1 md:min-h-0">
+      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col">
         <div
           ref={movesListRef}
-          className="overflow-y-auto p-2 h-[200px] md:h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          className="overflow-y-auto p-3 flex-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
         >
-          <div className="grid grid-cols-[auto_1fr_1fr] gap-x-1.5 gap-y-1 items-center">
+          <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1 items-center">
             {moves.map((move, index) =>
               index % 2 === 0 ? (
                 <React.Fragment key={index}>
-                  <div className="text-right text-muted-foreground font-mono pr-1 text-xs tabular-nums w-6">
+                  <div className="text-right text-muted-foreground font-mono pr-1 text-xs tabular-nums w-7">
                     {move.moveNumber}.
                   </div>
                   <MoveButton
@@ -703,35 +698,32 @@ const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) =>
   const blackElo = headers.BlackElo || headers.blackElo || ""
 
   return (
-    <div className="bg-card border border-border p-2 rounded-lg shadow-sm">
-      {/* Players - Primary focus with larger, bolder text */}
-      <div className="flex items-center gap-2 mb-2">
+    <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
+      <div className="flex items-center gap-3 mb-3">
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">White</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">White</div>
           <div className="text-base font-bold text-foreground leading-snug truncate">{white}</div>
           {whiteElo && <div className="text-xs text-muted-foreground mt-0.5">{whiteElo}</div>}
         </div>
 
-        {/* Result in center - eye-catching */}
-        <div className="flex-shrink-0 px-2.5 py-1.5 bg-primary/10 border border-primary/20 rounded-md text-center">
+        <div className="flex-shrink-0 px-3 py-2 bg-primary/10 border border-primary/20 rounded-md text-center">
           <div className="text-lg font-bold text-primary leading-none">{result}</div>
         </div>
 
         <div className="flex-1 min-w-0 text-right">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Black</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Black</div>
           <div className="text-base font-bold text-foreground leading-snug truncate">{black}</div>
           {blackElo && <div className="text-xs text-muted-foreground mt-0.5">{blackElo}</div>}
         </div>
       </div>
 
-      {/* Event and Date - Secondary info, more subdued */}
-      <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+      <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Event</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Event</div>
           <div className="text-sm font-medium text-foreground/80 leading-tight truncate">{event}</div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">Date</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Date</div>
           <div className="text-sm text-muted-foreground leading-tight">{date}</div>
         </div>
       </div>
