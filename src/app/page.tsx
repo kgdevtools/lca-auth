@@ -16,7 +16,7 @@ export default function Home() {
     <section className="relative min-h-dvh px-2 sm:px-4 lg:px-6 xl:px-8 py-10 mx-auto max-w-7xl text-foreground bg-transparent">
       <div className="fixed inset-0 -z-10">
         <Image
-          src="/img-20250927-wa0006.jpg"
+          src="/IMG-20250927-WA0006.jpg"
           alt="Chess tournament"
           fill
           className="object-cover opacity-[0.25] dark:opacity-[0.10]"
