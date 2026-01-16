@@ -1,4 +1,3 @@
-import Link from "next/link"
 import type { Metadata } from "next"
 import Image from "next/image"
 import { BlogCardServer } from "@/components/home/BlogCardServer"
@@ -14,14 +13,26 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <section className="min-h-dvh px-2 sm:px-4 lg:px-6 xl:px-8 py-10 mx-auto max-w-7xl bg-background text-foreground">
+    <section className="relative min-h-dvh px-2 sm:px-4 lg:px-6 xl:px-8 py-10 mx-auto max-w-7xl text-foreground bg-transparent">
+      <div className="fixed inset-0 -z-10">
+        <Image
+          src="/img-20250927-wa0006.jpg"
+          alt="Chess tournament"
+          fill
+          className="object-cover opacity-[0.25] dark:opacity-[0.10]"
+          priority
+          quality={75}
+        />
+      </div>
+      {/* </CHANGE> */}
+
       {/* Top hero: left logos, right copy */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 lg:gap-10 items-center mb-12 sm:mb-16">
         {/* Logos - responsive, swap for theme */}
-        <div className="w-full md:col-span-2 bg-white dark:bg-slate-950">
-          <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[2/1] lg:aspect-[16/9] md:min-h-[350px] lg:min-h-[400px] xl:min-h-[450px]">
+        <div className="w-full md:col-span-2 bg-transparent">
+          <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[2/1] lg:aspect-[16/9] md:min-h-[350px] lg:min-h-[400px] xl:min-h-[450px] bg-transparent">
             <Image
-              src="/Picture1.png"
+              src="/lca-no-bg-1.png"
               alt="Limpopo Chess Academy logo (light)"
               fill
               priority
@@ -29,7 +40,7 @@ export default function Home() {
               className="object-contain block dark:hidden"
             />
             <Image
-              src="/lca-cyan-dark-bg-updated.png"
+              src="/lca-no-bg-1.png"
               alt="Limpopo Chess Academy logo (dark)"
               fill
               priority
@@ -50,7 +61,8 @@ export default function Home() {
           </h1>
 
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
-            Join our community of chess enthusiasts and take your game to the next level. Follow latest and upcoming chess tournaments.
+            Join our community of chess enthusiasts and take your game to the next level. Follow latest and upcoming
+            chess tournaments.
           </p>
         </div>
       </div>
