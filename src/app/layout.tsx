@@ -29,27 +29,24 @@ export const metadata: Metadata = {
     default: "Limpopo Chess Academy",
     template: "%s | Limpopo Chess Academy",
   },
-  description:
-    "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+  description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
   viewport: {
-    width: 'device-width',
+    width: "device-width",
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
   },
   icons: {
     icon: [
-      { url: '/lca-cyan-dark-bg-updated.png', type: 'image/png' },
-      { url: '/lca-cyan-dark-bg-updated.png', sizes: '32x32', type: 'image/png' },
-      { url: '/lca-cyan-dark-bg-updated.png', sizes: '16x16', type: 'image/png' },
+      { url: "/lca-cyan-dark-bg-updated.png", type: "image/png" },
+      { url: "/lca-cyan-dark-bg-updated.png", sizes: "32x32", type: "image/png" },
+      { url: "/lca-cyan-dark-bg-updated.png", sizes: "16x16", type: "image/png" },
     ],
-    apple: [
-      { url: '/lca-cyan-dark-bg-updated.png', sizes: '180x180', type: 'image/png' },
-    ],
+    apple: [{ url: "/lca-cyan-dark-bg-updated.png", sizes: "180x180", type: "image/png" }],
     other: [
       {
-        rel: 'icon',
-        url: '/lca-cyan-dark-bg-updated.png',
+        rel: "icon",
+        url: "/lca-cyan-dark-bg-updated.png",
       },
     ],
   },
@@ -60,20 +57,20 @@ export const metadata: Metadata = {
     siteName: "Limpopo Chess Academy",
     images: [
       {
-        url: '/lca-cyan-dark-bg-updated.png',
+        url: "/lca-cyan-dark-bg-updated.png",
         width: 1200,
         height: 630,
-        alt: 'Limpopo Chess Academy Logo',
+        alt: "Limpopo Chess Academy Logo",
       },
     ],
-    locale: 'en_ZA',
-    type: 'website',
+    locale: "en_ZA",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
+    card: "summary_large_image",
     title: "Limpopo Chess Academy",
     description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
-    images: ['/lca-cyan-dark-bg-updated.png'],
+    images: ["/lca-cyan-dark-bg-updated.png"],
   },
 }
 
@@ -89,13 +86,9 @@ export default async function RootLayout({
   // Fetch user role from profiles table
   let isAdmin = false
   if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    
-    isAdmin = profile?.role === 'admin'
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+    isAdmin = profile?.role === "admin"
   }
 
   return (
@@ -110,7 +103,6 @@ export default async function RootLayout({
           <nav className="px-1 sm:px-2 h-16 flex items-center justify-between relative">
             <div className="flex items-center gap-2 h-full">
               <Link href="/" className="inline-flex items-center gap-2 h-full p-2" aria-label="Limpopo Chess Academy">
-                {/* We've wrapped the images in a div to apply the styles */}
                 <div
                   className="relative h-full w-[160px] sm:w-[200px] md:w-[240px]
                              transition-all duration-300 ease-in-out
@@ -119,10 +111,10 @@ export default async function RootLayout({
                              hover:shadow-[0_8px_25px_rgba(0,0,0,0.1)]
                              dark:shadow-[0_4px_10px_rgba(0,0,0,0.2),_0_0_20px_rgba(255,255,255,0.05)]
                              dark:hover:shadow-[0_8px_25px_rgba(0,0,0,0.3),_0_0_30px_rgba(255,255,255,0.1)]
-                             rounded-lg" // Optional: gives a slightly softer look
+                             rounded-lg"
                 >
                   <Image
-                    src="/Picture1.png"
+                    src="/lca-no-bg-1.png"
                     alt="Limpopo Chess Academy"
                     fill
                     priority
@@ -130,7 +122,7 @@ export default async function RootLayout({
                     sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                   />
                   <Image
-                    src="/lca-cyan-dark-bg-updated.png"
+                    src="/lca-no-bg-1.png"
                     alt="Limpopo Chess Academy"
                     fill
                     priority
@@ -140,7 +132,6 @@ export default async function RootLayout({
                 </div>
               </Link>
               <div className="hidden md:flex items-center gap-1">
-
                 {user ? (
                   <NavLink href="/user" color="secondary">
                     User Dashboard
@@ -151,7 +142,7 @@ export default async function RootLayout({
                     Admin Dashboard
                   </NavLink>
                 ) : null}
-                              {user ? (
+                {user ? (
                   <NavLink href="/add-game" color="gray">
                     Add Game
                   </NavLink>
@@ -173,7 +164,7 @@ export default async function RootLayout({
                 <NavLink href="/forms" color="gray" badge="Register">
                   Forms
                 </NavLink>
-                
+
                 <NavLink href="/view" color="gray">
                   View Games
                 </NavLink>
