@@ -49,7 +49,7 @@ export async function listTournaments(): Promise<{ tournaments: TournamentMeta[]
   // Merge dynamic tournaments with static ones (deduplicate by name)
   const dynamicTournaments = (data || []).map(t => ({
     ...t,
-    display_name: t.alias || formatTournamentName(t.name)
+    display_name: t.alias || (typeof t.name === 'string' ? formatTournamentName(t.name) : (t.alias || t.name || t.id || 'Unknown'))
   })) as TournamentMeta[]
 
   const allTournaments = [...dynamicTournaments]

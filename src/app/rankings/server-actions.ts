@@ -287,7 +287,7 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     const gr = groups.get(key)!;
 
     // Build per-tournament entries (keep raw rows for the details modal)
-    const tournaments: TournamentEntry[] = gr.map((r) => {
+    let tournaments: TournamentEntry[] = gr.map((r) => {
       const tournamentId = (r["tournament_id"] ?? null) as string | null;
       const tournamentDate = tournamentId ? (tournamentDatesMap.get(tournamentId) ?? null) : null;
 
@@ -304,6 +304,11 @@ export async function getRankings(): Promise<PlayerRanking[]> {
         created_at: (r["created_at"] ?? null) as string | null,
       };
     });
+
+    // Filter tournaments by season period when provided via env or caller
+    // Default: include all. Caller may pass desired period via global PROCESS env or by modifying this function.
+    // NOTE: Page-level filtering is also applied client-side; here we do not force a period by default.
+    // If you need a default season enforced server-side, call getRankingsWithPeriod helper instead.
 
     // Sort tournaments by created_at descending when available
     tournaments.sort((a, b) => {
@@ -373,4 +378,51 @@ export async function getRankings(): Promise<PlayerRanking[]> {
   const sorted = players.sort((a, b) => getDisplayAPR(b) - getDisplayAPR(a));
 
   return sorted;
+}
+
+// Helper: return rankings filtered to a specific period value (e.g., '2025-2026')
+export async function getRankingsForPeriod(periodValue?: string): Promise<PlayerRanking[]> {
+  const PERIODS: Record<string, { start: string; end: string }> = {
+    '2024-2025': { start: '2024-10-01', end: '2025-09-30' },
+    '2025-2026': { start: '2025-10-01', end: '2026-09-30' },
+  }
+
+  const players = await getRankings()
+
+  if (!periodValue || !PERIODS[periodValue]) return players
+
+  const { start, end } = PERIODS[periodValue]
+
+  const inPeriod = (dateStr: string | null) => {
+    if (!dateStr) return false
+    const d = dateStr.split('T')[0] // normalize
+    return d >= start && d <= end
+  }
+
+  // For each player, filter tournaments and recompute avg_performance_rating and tournaments_count
+  const transformed = players.map((p) => {
+    const filteredTournaments = p.tournaments.filter((t) => inPeriod(t.tournament_date))
+
+    const validPerformanceRatings = filteredTournaments
+      .filter((t) => {
+        const tieBreaks = t.tie_breaks || {}
+        const hasValidTieBreaks = Object.values(tieBreaks).some(v => v !== null && v !== undefined && v !== '' && v !== 0)
+        return hasValidTieBreaks && t.performance_rating
+      })
+      .map((t) => t.performance_rating as number)
+
+    const avg = validPerformanceRatings.length > 0 ? validPerformanceRatings.reduce((s, r) => s + r, 0) / validPerformanceRatings.length : 0
+
+    return {
+      ...p,
+      tournaments: filteredTournaments,
+      tournaments_count: filteredTournaments.length,
+      avg_performance_rating: Number(avg.toFixed(2)),
+    }
+  })
+
+  // Sort by new APR
+  transformed.sort((a, b) => (b.avg_performance_rating || 0) - (a.avg_performance_rating || 0))
+
+  return transformed
 }

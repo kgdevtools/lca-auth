@@ -2,28 +2,28 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { getRankings, type PlayerRanking, type RankingFilters, type TournamentEntry } from "./server-actions"
+import { getRankingsForPeriod, getRankings, type PlayerRanking, type RankingFilters, type TournamentEntry } from "./server-actions"
 import { SearchFilters } from "./components/SearchFilters"
 import { RankingsTable } from "./components/RankingsTable"
 import { PerformanceDetailsModal } from "./components/PerformanceDetailsModal"
 
 // Period definitions (same as tournaments)
 const PERIODS = [
-  { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
-  { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
+  { label: "1 Oct 2024 - 30 Sept 2025", value: "2024-2025", start: "2024-10-01", end: "2025-09-30" },
+  { label: "1 Oct 2025 - 30 Sept 2026", value: "2025-2026", start: "2025-10-01", end: "2026-09-30" },
 ]
 
 // Helper function to normalize date format to YYYY-MM-DD
 function normalizeDate(date: string): string {
   // Replace all slashes with dashes
-  return date.replace(/\//g, '-')
+  return date.replace(/\//g, "-")
 }
 
 // Helper function to check if tournament date is in period
 function isInPeriod(date: string | null, periodValue: string): boolean {
   if (!date) return false
 
-  const period = PERIODS.find(p => p.value === periodValue)
+  const period = PERIODS.find((p) => p.value === periodValue)
   if (!period) return false
 
   // Normalize the date format before comparison
@@ -36,14 +36,14 @@ function getFilteredTournaments(tournaments: TournamentEntry[], periodValue: str
   // Filter by period if not "ALL"
   let filtered = tournaments
   if (periodValue && periodValue !== "ALL") {
-    filtered = tournaments.filter(t => isInPeriod(t.tournament_date, periodValue))
+    filtered = tournaments.filter((t) => isInPeriod(t.tournament_date, periodValue))
   }
 
   // Only return tournaments that were actually played (have valid tie breaks)
-  return filtered.filter(tournament => {
+  return filtered.filter((tournament) => {
     const tieBreaks = tournament.tie_breaks || {}
-    const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
-      value !== null && value !== undefined && value !== "" && value !== 0
+    const hasValidTieBreaks = Object.values(tieBreaks).some(
+      (value) => value !== null && value !== undefined && value !== "" && value !== 0,
     )
     return hasValidTieBreaks && tournament.performance_rating
   })
@@ -67,12 +67,13 @@ export default function RankingsPage() {
     gender: "ALL" as any,
     ageGroup: "ALL" as any,
     events: "ALL" as any,
-    period: "ALL" as any,
+    period: "2025-2026" as any,
   })
 
   React.useEffect(() => {
     setLoading(true)
-    getRankings()
+    // Default to 2025-2026 period
+    getRankingsForPeriod('2025-2026')
       .then((rows) => {
         setAllData(rows)
         setData(rows)
@@ -84,22 +85,28 @@ export default function RankingsPage() {
   // Apply client-side filters (no extra network requests)
   React.useEffect(() => {
     let rows = [...allData]
-    const { name = "", fed = "ALL", rating = "ALL", gender = "ALL", ageGroup = "ALL", events = "ALL", period = "ALL" } = filters
+    const {
+      name = "",
+      fed = "ALL",
+      rating = "ALL",
+      gender = "ALL",
+      ageGroup = "ALL",
+      events = "ALL",
+      period = "ALL",
+    } = filters
 
     if (name && name.trim().length > 0) {
       const q = name.trim().toLowerCase()
-      rows = rows.filter(
-        (p) => {
-          const displayName = p.display_name.toLowerCase()
-          const reversedName = `${p.surname.toLowerCase()} ${p.name.toLowerCase()}`.trim()
-          return (
-            displayName.includes(q) ||
-            reversedName.includes(q) ||
-            (p.name_key ?? "").toLowerCase().includes(q) ||
-            (p.fed ?? "").toLowerCase().includes(q)
-          )
-        }
-      )
+      rows = rows.filter((p) => {
+        const displayName = p.display_name.toLowerCase()
+        const reversedName = `${p.surname.toLowerCase()} ${p.name.toLowerCase()}`.trim()
+        return (
+          displayName.includes(q) ||
+          reversedName.includes(q) ||
+          (p.name_key ?? "").toLowerCase().includes(q) ||
+          (p.fed ?? "").toLowerCase().includes(q)
+        )
+      })
     }
 
     if (fed && fed !== ("ALL" as any)) {
@@ -196,7 +203,7 @@ export default function RankingsPage() {
         const filteredTournaments = getFilteredTournaments(player.tournaments, period)
 
         const validPerformanceRatings = filteredTournaments
-          .map(t => t.performance_rating)
+          .map((t) => t.performance_rating)
           .filter((rating): rating is number => rating !== null && rating !== undefined)
 
         return validPerformanceRatings.length > 0
@@ -221,7 +228,7 @@ export default function RankingsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Player Rankings</h1>
             <p className="text-muted-foreground">View player performance rankings and statistics</p>
             <p className="text-xs text-muted-foreground">
-              Tournament data from 1 October 2024 - 30 September 2025. If missing data, or info please contact us{" "}
+              Tournament data from 1 October 2025 - 30 September 2026. If missing data, or info please contact us{" "}
               <Link href="/forms/contact-us" className="underline text-primary font-semibold">
                 here
               </Link>
@@ -230,7 +237,7 @@ export default function RankingsPage() {
           </div>
 
           <div className="sticky top-0 z-10 bg-background px-4 py-2 -my-2">
-            <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} />
+            <SearchFilters onSearch={handleSearch} fedOptions={FED_OPTIONS} initialState={filters} />
           </div>
 
           <RankingsTable
@@ -256,10 +263,14 @@ export default function RankingsPage() {
             </div>
           </div> */}
 
-          <PerformanceDetailsModal player={selected} open={open} period={filters.period ?? "ALL"} onClose={() => setOpen(false)} />
+          <PerformanceDetailsModal
+            player={selected}
+            open={open}
+            period={filters.period ?? "ALL"}
+            onClose={() => setOpen(false)}
+          />
         </div>
       </div>
     </div>
   )
 }
-

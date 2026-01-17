@@ -5,8 +5,8 @@ import { Search, ChevronDown, ChevronUp, Filter } from "lucide-react"
 
 // Period definitions (same as tournaments)
 const PERIODS = [
-  { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
-  { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
+  { label: "1 Oct 2024 - 30 Sept 2025", value: "2024-2025", start: "2024-10-01", end: "2025-09-30" },
+  { label: "1 Oct 2025 - 30 Sept 2026", value: "2025-2026", start: "2025-10-01", end: "2026-09-30" },
 ]
 
 export interface SearchFiltersState {
@@ -22,16 +22,17 @@ export interface SearchFiltersState {
 interface SearchFiltersProps {
   onSearch: (filters: Partial<SearchFiltersState>) => void
   fedOptions: string[]
+  initialState?: Partial<SearchFiltersState>
 }
 
-export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
-  const [name, setName] = React.useState("")
-  const [fed, setFed] = React.useState("ALL")
-  const [rating, setRating] = React.useState("ALL")
-  const [gender, setGender] = React.useState("ALL")
-  const [ageGroup, setAgeGroup] = React.useState("ALL")
-  const [events, setEvents] = React.useState("ALL")
-  const [period, setPeriod] = React.useState("ALL")
+export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFiltersProps) {
+  const [name, setName] = React.useState(initialState?.name ?? "")
+  const [fed, setFed] = React.useState(initialState?.fed ?? "ALL")
+  const [rating, setRating] = React.useState(initialState?.rating ?? "ALL")
+  const [gender, setGender] = React.useState(initialState?.gender ?? "ALL")
+  const [ageGroup, setAgeGroup] = React.useState(initialState?.ageGroup ?? "ALL")
+  const [events, setEvents] = React.useState(initialState?.events ?? "ALL")
+  const [period, setPeriod] = React.useState(initialState?.period ?? "ALL")
   const [isExpanded, setIsExpanded] = React.useState(false)
 
   const apply = React.useCallback(
@@ -113,7 +114,9 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
           <div className="flex flex-col items-start">
             <span className="text-sm font-semibold text-foreground">Search & Filter Rankings</span>
             <span className="text-xs text-muted-foreground">
-              {activeFiltersCount > 0 ? `${activeFiltersCount} active filter${activeFiltersCount > 1 ? 's' : ''}` : 'Click to expand filters'}
+              {activeFiltersCount > 0
+                ? `${activeFiltersCount} active filter${activeFiltersCount > 1 ? "s" : ""}`
+                : "Click to expand filters"}
             </span>
           </div>
         </div>
@@ -134,7 +137,7 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
       {/* Collapsible Content */}
       <div
         className={`transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
         } overflow-hidden`}
       >
         <form onSubmit={handleSubmit} className="p-4 space-y-3 border-t-2 border-border">
@@ -170,148 +173,148 @@ export function SearchFilters({ onSearch, fedOptions }: SearchFiltersProps) {
 
           {/* Filters Row */}
           <div className="space-y-2.5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground">Period:</span>
-            <Chip
-              active={period === "ALL"}
-              onClick={() => {
-                setPeriod("ALL")
-                apply({ period: "ALL" })
-              }}
-            >
-              ALL
-            </Chip>
-            {PERIODS.map((p) => (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground">Period:</span>
               <Chip
-                key={p.value}
-                active={period === p.value}
+                active={period === "ALL"}
                 onClick={() => {
-                  const next = period === p.value ? "ALL" : p.value
-                  setPeriod(next)
-                  apply({ period: next })
+                  setPeriod("ALL")
+                  apply({ period: "ALL" })
                 }}
               >
-                {p.label}
+                ALL
               </Chip>
-            ))}
-          </div>
+              {PERIODS.map((p) => (
+                <Chip
+                  key={p.value}
+                  active={period === p.value}
+                  onClick={() => {
+                    const next = period === p.value ? "ALL" : p.value
+                    setPeriod(next)
+                    apply({ period: next })
+                  }}
+                >
+                  {p.label}
+                </Chip>
+              ))}
+            </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground">Rating:</span>
-            <Chip
-              active={rating === "RATED"}
-              onClick={() => {
-                const next = rating === "RATED" ? "ALL" : "RATED"
-                setRating(next)
-                apply({ rating: next })
-              }}
-            >
-              Rated
-            </Chip>
-            <Chip
-              active={rating === "UNRATED"}
-              onClick={() => {
-                const next = rating === "UNRATED" ? "ALL" : "UNRATED"
-                setRating(next)
-                apply({ rating: next })
-              }}
-            >
-              Unrated
-            </Chip>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground">Age:</span>
-            {["ADT", "SNR", "VET", "U20", "U18", "U16", "U14", "U12", "U10"].map((a) => (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground">Rating:</span>
               <Chip
-                key={a}
-                active={ageGroup === a}
+                active={rating === "RATED"}
                 onClick={() => {
-                  const next = ageGroup === a ? "ALL" : a
-                  setAgeGroup(next)
-                  apply({ ageGroup: next })
+                  const next = rating === "RATED" ? "ALL" : "RATED"
+                  setRating(next)
+                  apply({ rating: next })
                 }}
               >
-                {a}
+                Rated
               </Chip>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground">Events:</span>
-            {["1", "2+", "3+", "4+", "5+", "6+"].map((e) => (
               <Chip
-                key={e}
-                active={events === e}
+                active={rating === "UNRATED"}
                 onClick={() => {
-                  const next = events === e ? "ALL" : e
-                  setEvents(next)
-                  apply({ events: next })
+                  const next = rating === "UNRATED" ? "ALL" : "UNRATED"
+                  setRating(next)
+                  apply({ rating: next })
                 }}
               >
-                {e}
+                Unrated
               </Chip>
-            ))}
-          </div>
+            </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground">Gender:</span>
-            <Chip
-              active={gender === "Male"}
-              onClick={() => {
-                const next = gender === "Male" ? "ALL" : "Male"
-                setGender(next)
-                apply({ gender: next })
-              }}
-            >
-              Male
-            </Chip>
-            <Chip
-              active={gender === "Female"}
-              onClick={() => {
-                const next = gender === "Female" ? "ALL" : "Female"
-                setGender(next)
-                apply({ gender: next })
-              }}
-            >
-              Female
-            </Chip>
-          </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground">Age:</span>
+              {["ADT", "SNR", "VET", "U20", "U18", "U16", "U14", "U12", "U10"].map((a) => (
+                <Chip
+                  key={a}
+                  active={ageGroup === a}
+                  onClick={() => {
+                    const next = ageGroup === a ? "ALL" : a
+                    setAgeGroup(next)
+                    apply({ ageGroup: next })
+                  }}
+                >
+                  {a}
+                </Chip>
+              ))}
+            </div>
 
-          <div className="flex items-start gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground leading-7">Federation:</span>
-            <Chip
-              active={fed === "ALL"}
-              onClick={() => {
-                setFed("ALL")
-                apply({ fed: "ALL" })
-              }}
-            >
-              ALL
-            </Chip>
-            <Chip
-              active={fed === "Limpopo"}
-              onClick={() => {
-                setFed("Limpopo")
-                apply({ fed: "Limpopo" })
-              }}
-            >
-              Limpopo
-            </Chip>
-            {fedOptions.map((f) => (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground">Events:</span>
+              {["1", "2+", "3+", "4+", "5+", "6+"].map((e) => (
+                <Chip
+                  key={e}
+                  active={events === e}
+                  onClick={() => {
+                    const next = events === e ? "ALL" : e
+                    setEvents(next)
+                    apply({ events: next })
+                  }}
+                >
+                  {e}
+                </Chip>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground">Gender:</span>
               <Chip
-                key={f}
-                active={fed === f}
+                active={gender === "Male"}
                 onClick={() => {
-                  setFed(f)
-                  apply({ fed: f })
+                  const next = gender === "Male" ? "ALL" : "Male"
+                  setGender(next)
+                  apply({ gender: next })
                 }}
               >
-                {f}
+                Male
               </Chip>
-            ))}
+              <Chip
+                active={gender === "Female"}
+                onClick={() => {
+                  const next = gender === "Female" ? "ALL" : "Female"
+                  setGender(next)
+                  apply({ gender: next })
+                }}
+              >
+                Female
+              </Chip>
+            </div>
+
+            <div className="flex items-start gap-3 flex-wrap">
+              <span className="text-xs font-semibold text-muted-foreground leading-7">Federation:</span>
+              <Chip
+                active={fed === "ALL"}
+                onClick={() => {
+                  setFed("ALL")
+                  apply({ fed: "ALL" })
+                }}
+              >
+                ALL
+              </Chip>
+              <Chip
+                active={fed === "Limpopo"}
+                onClick={() => {
+                  setFed("Limpopo")
+                  apply({ fed: "Limpopo" })
+                }}
+              >
+                Limpopo
+              </Chip>
+              {fedOptions.map((f) => (
+                <Chip
+                  key={f}
+                  active={fed === f}
+                  onClick={() => {
+                    setFed(f)
+                    apply({ fed: f })
+                  }}
+                >
+                  {f}
+                </Chip>
+              ))}
+            </div>
           </div>
-        </div>
         </form>
       </div>
     </div>

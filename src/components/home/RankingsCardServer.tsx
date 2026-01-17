@@ -1,4 +1,4 @@
-import { getRankings, type PlayerRanking } from '@/app/rankings/server-actions'
+import { getRankingsForPeriod, type PlayerRanking } from '@/app/rankings/server-actions'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { cache } from '@/utils/cache'
@@ -10,11 +10,11 @@ const FEDERATIONS = ['LCP', 'LMG', 'LVT', 'LWT', 'LSG', 'LIM']
 export async function RankingsCardServer() {
   try {
     // Check if rankings are cached
-    const rankingsCacheKey = 'rankings-all';
+    const rankingsCacheKey = 'rankings-2025-2026';
     let allRankings: PlayerRanking[] | null = cache.get(rankingsCacheKey);
 
     if (!allRankings) {
-      allRankings = await getRankings();
+      allRankings = await getRankingsForPeriod('2025-2026');
       // Cache rankings for 24 hours
       cache.set(rankingsCacheKey, allRankings, 86400);
     }
@@ -137,7 +137,7 @@ export async function RankingsCardServer() {
               {categoryLabel}
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </h2>
-            <span className="text-sm font-semibold text-blue-500 dark:text-blue-400">2025</span>
+            <span className="text-sm font-semibold text-blue-500 dark:text-blue-400">2026</span>
           </Link>
         </div>
 
