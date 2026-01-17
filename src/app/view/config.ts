@@ -12,12 +12,7 @@ export const STATIC_TOURNAMENTS = [
       id: 'cdc_tournament_3_2025_games',
       name: 'CDC Tournament 3 2025 Games',
     },
-    {
-      // CORRECTED: Database table names typically use underscores, not dashes.
-      // This is the most likely cause of the "no games" issue for this tournament.
-      id: 'cdc_jq_tournament_7_2025_u20_games',
-      name: 'Capricorn District Qualifying 7 u20',
-    },
+    
   ] as const;
 
   // For backwards compatibility

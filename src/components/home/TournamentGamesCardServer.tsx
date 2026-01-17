@@ -22,6 +22,16 @@ async function getTodaysTournament(): Promise<TournamentMeta | null> {
       return null;
     }
 
+    // Exclude specific tournament tables that have been removed from the DB
+    const EXCLUDED_TABLES = [
+      'cdc_jq_tournament_7_2025_u20_games'
+    ]
+
+    const filteredTournaments = tournaments.filter(t => t && t.name && !EXCLUDED_TABLES.includes(t.name))
+    if (filteredTournaments.length === 0) {
+      return null
+    }
+
     // Create a deterministic seed based on the current date
     // Simple hash function to create a deterministic seed
     let hash = 0;
@@ -32,8 +42,8 @@ async function getTodaysTournament(): Promise<TournamentMeta | null> {
     }
 
     // Use the hash to select a tournament
-    const randomIndex = Math.abs(hash) % tournaments.length;
-    const selectedTournament = tournaments[randomIndex];
+    const randomIndex = Math.abs(hash) % filteredTournaments.length;
+    const selectedTournament = filteredTournaments[randomIndex];
 
     // Cache the selected tournament for the rest of the day (24 hours from now)
     cache.set(cacheKey, selectedTournament, 86400); // 24 hours in seconds

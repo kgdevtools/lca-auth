@@ -134,96 +134,102 @@ export default function PlayersTable({ players }: PlayersTableProps) {
 
   // Mobile Card View
   if (isMobile) {
+    // Mobile: horizontally scrollable table with swipe hint
     return (
       <div className="space-y-3">
-        {validPlayers.map((player) => (
-          <div
-            key={player.id}
-            className="rounded-lg border border-border bg-card shadow-sm overflow-hidden"
-          >
-            <div
-              className="p-4 cursor-pointer"
-              onClick={() => handlePlayerClick(player)}
-            >
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                      {player.rank}
-                    </span>
-                    <h3 className="font-bold text-foreground text-base line-clamp-1">{player.name}</h3>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="font-medium">{player.federation}</span>
-                    <span>•</span>
-                    <span className="font-semibold text-foreground">{player.rating}</span>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-2xl font-bold text-primary">{player.points}</div>
-                  <div className="text-xs text-muted-foreground">pts</div>
-                </div>
-              </div>
+        <div className="px-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-foreground">Players</h3>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Swipe</span>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M7 7l5 5-5 5" />
+              </svg>
+            </div>
+          </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-border">
-                <div className="flex items-center gap-4 text-xs">
-                  {getPerfValue(player.tie_breaks) && (
-                    <div className="flex items-center gap-1">
-                      <Award className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Perf:</span>
-                      <span className="font-semibold text-foreground">{getPerfValue(player.tie_breaks)}</span>
-                    </div>
-                  )}
-                </div>
-                <ChevronDown
-                  className={`h-4 w-4 text-muted-foreground transition-transform ${
-                    selectedPlayer?.id === player.id ? "rotate-180" : ""
-                  }`}
-                />
-              </div>
+          <div className="relative">
+            <div className="overflow-x-auto rounded-md border border-border bg-card">
+              <table className="min-w-[720px] w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Rank</th>
+                    <th className="px-3 py-2 text-left font-semibold text-foreground">Name</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Fed</th>
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Rating</th>
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Pts</th>
+                    {tbKeys.map((tbKey) => (
+                      <th key={tbKey} className="px-2 py-2 text-left font-semibold text-xs text-muted-foreground">
+                        {tbKey}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Perf</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {validPlayers.map((player) => (
+                    <React.Fragment key={player.id}>
+                      <tr className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handlePlayerClick(player)}>
+                        <td className="px-3 py-3 text-muted-foreground">{player.rank}</td>
+                        <td className="px-3 py-3 font-semibold text-foreground max-w-[160px] truncate">{player.name}</td>
+                        <td className="px-3 py-3 text-muted-foreground">{player.federation}</td>
+                        <td className="px-3 py-3 text-right font-semibold text-foreground">{player.rating}</td>
+                        <td className="px-3 py-3 text-right font-bold text-foreground">{player.points}</td>
+                        {tbKeys.map((tbKey) => (
+                          <td key={tbKey} className="px-2 py-3 text-xs text-muted-foreground">{player.tie_breaks?.[tbKey] ?? '-'}</td>
+                        ))}
+                        <td className="px-3 py-3 text-right font-semibold text-foreground">{getPerfValue(player.tie_breaks) ?? '-'}</td>
+                      </tr>
+
+                      {selectedPlayer?.id === player.id && (
+                        <tr>
+                          <td colSpan={6 + tbKeys.length} className="p-0 bg-muted/20">
+                            <div className="p-3">
+                              <div className="mb-2 font-semibold text-foreground">Round Details for {player.name}</div>
+                              <div className="space-y-2">
+                                {Array.isArray(player.rounds) && player.rounds.map((round, index) => {
+                                  const opponent = findOpponentByRank(round.opponent)
+                                  const opponentRating = opponent?.rating || round.opponent_rating || "-"
+                                  const opponentName = opponent?.name || (typeof round.opponent === 'string' ? round.opponent : `Rank ${round.opponent}`)
+
+                                  const colorInfo = parseColor(round.color)
+                                  const resultInfo = parseResult(round.result)
+
+                                  return (
+                                    <div key={index} className="flex items-center justify-between p-2 rounded-md bg-background border border-border text-xs">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="font-semibold text-muted-foreground w-6">R{index + 1}</span>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium text-foreground line-clamp-1">{opponentName}</p>
+                                          <p className="text-muted-foreground">{opponentRating}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorInfo.class}`}>
+                                          {colorInfo.display}
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${resultInfo.class}`}>
+                                          {resultInfo.display}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            {selectedPlayer?.id === player.id && (
-              <div className="border-t border-border bg-muted/20 p-4">
-                <h4 className="font-semibold text-sm text-foreground mb-3">Round Details</h4>
-                <div className="space-y-2">
-                  {Array.isArray(player.rounds) &&
-                    player.rounds.map((round, index) => {
-                      const opponent = findOpponentByRank(round.opponent)
-                      const opponentRating = opponent?.rating || round.opponent_rating || "-"
-                      const opponentName = opponent?.name || (typeof round.opponent === 'string' ? round.opponent : `Rank ${round.opponent}`)
-
-                      const colorInfo = parseColor(round.color)
-                      const resultInfo = parseResult(round.result)
-
-                      return (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-2 rounded-md bg-background border border-border text-xs"
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <span className="font-semibold text-muted-foreground w-6">R{index + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-foreground line-clamp-1">{opponentName}</p>
-                              <p className="text-muted-foreground">{opponentRating}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${colorInfo.class}`}>
-                              {colorInfo.display}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${resultInfo.class}`}>
-                              {resultInfo.display}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                </div>
-              </div>
-            )}
+            {/* Right gradient hint to indicate more horizontally */}
+            <div className="pointer-events-none absolute top-0 right-0 h-full w-12 bg-gradient-to-l from-card to-transparent" />
           </div>
-        ))}
+        </div>
 
         {validPlayers.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">

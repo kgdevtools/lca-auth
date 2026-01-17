@@ -91,6 +91,9 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             <NavLink href="/tournaments" color="gray">
               Tournaments
             </NavLink>
+            <NavLink href="/events" color="gray">
+              Calendar
+            </NavLink>
             {/* Rankings */}
             <NavLink href="/rankings" color="gray">
               Rankings
