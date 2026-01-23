@@ -1,65 +1,22 @@
 "use client"
-import React from 'react'
+
+import React, { useState, useEffect } from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { WarningBanner } from '@/components/warning-banner'
+import { Badge } from '@/components/ui/badge'
+import { OnboardingModal } from '@/components/user/OnboardingModal'
 import { PlayerSearchCombobox } from '@/components/ui/player-search-combobox'
-import { Loader2, Check } from 'lucide-react'
+import { Loader2, Check, User, Mail, Calendar, Trophy, Target, Clock, TrendingUp } from 'lucide-react'
 import type { ProfilePageData } from './actions'
-import { updateProfile } from './actions'
+import { updateProfile, needsOnboarding } from './actions'
 import type { PlayerSearchResult, ActivePlayerData } from './tournament-actions'
 import { getActivePlayerData, getPlayerStatistics } from './tournament-actions'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useRouter } from 'next/navigation'
 
 interface Props extends ProfilePageData {}
-
-const getRoleColor = (role: string) => {
-  switch (role.toLowerCase()) {
-    case 'admin':
-      return 'bg-gradient-to-br from-purple-500 to-purple-700'
-    case 'coach':
-      return 'bg-gradient-to-br from-blue-500 to-blue-700'
-    case 'student':
-      return 'bg-gradient-to-br from-green-500 to-green-700'
-    default:
-      return 'bg-gradient-to-br from-gray-500 to-gray-700'
-  }
-}
-
-function SkeletonCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="h-4 w-full bg-muted animate-pulse rounded" />
-        <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
-        <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
-      </CardContent>
-    </Card>
-  )
-}
-
-function StatsSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="h-6 w-40 bg-muted animate-pulse rounded" />
-        <div className="h-3 w-56 bg-muted animate-pulse rounded mt-2" />
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 sm:gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <div className="h-3 w-20 bg-muted animate-pulse rounded" />
-              <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 export default function ProfileView({
   user,
@@ -70,22 +27,43 @@ export default function ProfileView({
   matchResult,
   signOutAction
 }: Props) {
+  const router = useRouter()
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
+
+  // Check if onboarding is needed
+  useEffect(() => {
+    async function checkOnboarding() {
+      const needs = await needsOnboarding()
+      setShowOnboarding(needs)
+      setOnboardingChecked(true)
+    }
+    checkOnboarding()
+  }, [])
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    router.refresh()
+  }
+
   const memberSince = user.created_at
-    ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+    ? new Date(user.created_at).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long',
+        day: 'numeric'
+      })
     : 'Unknown'
 
-  const roleColor = profile?.role ? getRoleColor(profile.role) : getRoleColor('student')
+  // State for "Is this you?" functionality
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
+  const [loadingPlayer, setLoadingPlayer] = useState<string | null>(null)
+  const [updatedPlayerData, setUpdatedPlayerData] = useState<ActivePlayerData[]>(activePlayerData)
+  const [updatedPlayerStats, setUpdatedPlayerStats] = useState(playerStats)
+  const [confirmedMatches, setConfirmedMatches] = useState<Set<string>>(new Set())
   const chessaIdRef = React.useRef<HTMLInputElement>(null)
 
-  // State for "Is this you?" functionality
-  const [selectedPlayer, setSelectedPlayer] = React.useState<string | null>(null)
-  const [loadingPlayer, setLoadingPlayer] = React.useState<string | null>(null)
-  const [updatedPlayerData, setUpdatedPlayerData] = React.useState<ActivePlayerData[]>(activePlayerData)
-  const [updatedPlayerStats, setUpdatedPlayerStats] = React.useState(playerStats)
-  const [confirmedMatches, setConfirmedMatches] = React.useState<Set<string>>(new Set())
-
   // Update local state when props change
-  React.useEffect(() => {
+  useEffect(() => {
     setUpdatedPlayerData(activePlayerData)
     setUpdatedPlayerStats(playerStats)
   }, [activePlayerData, playerStats])
@@ -94,13 +72,10 @@ export default function ProfileView({
     setLoadingPlayer(playerName)
 
     try {
-      // Fetch new data for the selected player
       const newPlayerData = await getActivePlayerData(playerName)
       const newPlayerStats = await getPlayerStatistics(playerName)
 
-      // Combine the data with existing data instead of replacing
       if (newPlayerData && newPlayerStats && updatedPlayerStats) {
-        // Merge tournament data - remove duplicates based on tournament name and date
         const combinedTournaments = [...updatedPlayerData]
         newPlayerData.forEach(newTournament => {
           const exists = combinedTournaments.some(
@@ -113,7 +88,6 @@ export default function ProfileView({
           }
         })
 
-        // Combine player statistics
         const maxLatestRating = Math.max(
           typeof updatedPlayerStats.latestRating === 'number' ? updatedPlayerStats.latestRating : parseInt(updatedPlayerStats.latestRating) || 0,
           typeof newPlayerStats.latestRating === 'number' ? newPlayerStats.latestRating : parseInt(newPlayerStats.latestRating) || 0
@@ -138,13 +112,11 @@ export default function ProfileView({
           chessaId: uniqueNo || updatedPlayerStats.chessaId || newPlayerStats.chessaId
         }
 
-        // Update local state with combined data
         setUpdatedPlayerData(combinedTournaments)
         setUpdatedPlayerStats(combinedStats)
         setSelectedPlayer(playerName)
         setConfirmedMatches(prev => new Set(prev).add(playerName))
 
-        // Auto-populate Chess SA ID if available
         if (uniqueNo && chessaIdRef.current) {
           chessaIdRef.current.value = uniqueNo
           const event = new Event('input', { bubbles: true })
@@ -152,21 +124,44 @@ export default function ProfileView({
         }
       }
     } catch (error) {
-      console.error('Error fetching player data:', error)
+      // Error handled silently - user can retry
     } finally {
       setLoadingPlayer(null)
     }
   }
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <WarningBanner message="Still under development: Some services may not work." />
-
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Overview</h1>
-        <p className="text-sm text-muted-foreground mt-1">View your chess profile and tournament performance</p>
+  if (!onboardingChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
-        
+    )
+  }
+
+  return (
+    <>
+      <OnboardingModal 
+        open={showOnboarding} 
+        userEmail={user.email || ''} 
+        onComplete={handleOnboardingComplete}
+      />
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Personalized Welcome Header */}
+        <div className="mb-10">
+          <div className="mb-3">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
+              Welcome back,{' '}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {profile?.full_name || profile?.tournament_fullname || 'there'}
+              </span>
+            </h1>
+          </div>
+          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 tracking-tight">
+            Here's your profile overview and tournament performance
+          </p>
+        </div>
+
         {profileError && (
           <Card className="mb-6 border-destructive">
             <CardContent className="pt-6">
@@ -175,58 +170,65 @@ export default function ProfileView({
           </Card>
         )}
 
-      {/* Two-column layout for desktop, single column for mobile */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:gap-6 lg:items-start">
-        {/* Left Column */}
-        <div className="flex flex-col gap-4">
-            {/* Avatar & Role Card */}
-            <Card className={`${roleColor} text-white border-0 flex-shrink-0`}>
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left Column - Profile Info */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Profile Card */}
+            <Card>
               <CardContent className="pt-6">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                <div className="flex flex-col items-center text-center space-y-4">
                   <Avatar
                     name={profile?.full_name || profile?.tournament_fullname || user.email || 'User'}
-                    size={80}
+                    size={100}
+                    className="mb-2"
                   />
-                  <div className="flex-1 text-center sm:text-left">
-                    <h2 className="text-xl sm:text-2xl font-bold">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                       {profile?.full_name || profile?.tournament_fullname || 'User'}
                     </h2>
-                    <p className="text-white/90 text-sm mt-1">{user.email}</p>
-                    <div className="mt-3 inline-block px-4 py-1.5 rounded-full bg-white/20 text-xs sm:text-sm font-semibold uppercase tracking-wide">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{user.email}</p>
+                    <Badge className="mt-3" variant="outline">
                       {profile?.role || 'Student'}
-                    </div>
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Profile Details Card */}
-            <Card className="flex-grow">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold tracking-tight">Profile Information</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Profile Information</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</p>
-                    <p className="text-sm">{user.email}</p>
+              <CardContent className="space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <Mail className="w-3.5 h-3.5" />
+                    Email
                   </div>
+                  <p className="text-sm font-medium">{user.email}</p>
+                </div>
 
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Full Name</p>
-                    <p className="text-sm">{profile?.full_name || '—'}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <User className="w-3.5 h-3.5" />
+                    Display Name
                   </div>
+                  <p className="text-sm font-medium">{profile?.full_name || '—'}</p>
+                </div>
 
-                  <div className="border-t pt-4">
-                    <PlayerSearchRow
-                      label="Tournament Name"
-                      name="tournament_fullname"
-                      defaultValue={profile?.tournament_fullname ?? ''}
-                      updateAction={updateProfile}
-                      chessaIdRef={chessaIdRef}
-                    />
-                  </div>
+                <div className="border-t pt-4 space-y-3">
+                  <PlayerSearchRow
+                    label="Tournament Name"
+                    name="tournament_fullname"
+                    defaultValue={profile?.tournament_fullname ?? ''}
+                    updateAction={updateProfile}
+                    chessaIdRef={chessaIdRef}
+                  />
+                </div>
 
+                <div className="border-t pt-4 space-y-3">
                   <EditableRow
                     label="Chess SA ID"
                     name="chessa_id"
@@ -234,152 +236,63 @@ export default function ProfileView({
                     updateAction={updateProfile}
                     ref={chessaIdRef}
                   />
+                </div>
 
-                  <div className="border-t pt-4 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Member Since</p>
-                    <p className="text-sm">{memberSince}</p>
+                <div className="border-t pt-4 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Member Since
                   </div>
+                  <p className="text-sm font-medium">{memberSince}</p>
                 </div>
               </CardContent>
             </Card>
-
           </div>
 
-        {/* Right Column - Stats and Matches */}
-        <div className="flex flex-col gap-4">
-
-            {/* Match Results */}
-            {profile?.tournament_fullname && (matchResult.exactMatch || matchResult.closeMatches.length > 0) && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold tracking-tight">Additional Player Profiles</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    We found similar names in our tournament records - select any that belong to you to combine your statistics
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {matchResult.exactMatch && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Exact Match</p>
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30">
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                          ✓ {matchResult.exactMatch}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {matchResult.closeMatches.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                        Close Matches{!matchResult.exactMatch && ' (Similar Names)'}
-                      </p>
-                      <div className="space-y-2">
-                        {matchResult.closeMatches.map((match, idx) => {
-                          const isConfirmed = confirmedMatches.has(match.name)
-                          const isLoading = loadingPlayer === match.name
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-all ${
-                                isConfirmed
-                                  ? 'bg-green-500/10 border border-green-500/30'
-                                  : 'bg-blue-500/10 border border-blue-500/30'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <span className={`text-sm font-medium truncate ${
-                                  isConfirmed
-                                    ? 'text-green-700 dark:text-green-400'
-                                    : 'text-blue-700 dark:text-blue-400'
-                                }`}>
-                                  {match.name}
-                                </span>
-                                {match.unique_no && (
-                                  <span className={`text-xs font-mono flex-shrink-0 ${
-                                    isConfirmed
-                                      ? 'text-green-600/70 dark:text-green-400/70'
-                                      : 'text-blue-600/70 dark:text-blue-400/70'
-                                  }`}>
-                                    #{match.unique_no}
-                                  </span>
-                                )}
-                                {isConfirmed && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold flex-shrink-0">
-                                    <Check className="w-3 h-3" />
-                                    Confirmed
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleSelectPlayer(match.name, match.unique_no || '')}
-                                disabled={isLoading || isConfirmed}
-                                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
-                                  isConfirmed
-                                    ? 'bg-green-600 text-white'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                }`}
-                              >
-                                {isLoading ? (
-                                  <span className="flex items-center gap-1.5">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    Loading...
-                                  </span>
-                                ) : isConfirmed ? (
-                                  'Yes'
-                                ) : (
-                                  'Is this you?'
-                                )}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Player Statistics Card */}
+          {/* Right Column - Stats and Data */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Player Statistics */}
             {updatedPlayerStats && (
-              <Card className={loadingPlayer ? 'opacity-60 pointer-events-none' : ''}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base font-semibold tracking-tight">Player Statistics</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Based on tournament performance data
-                      </p>
-                    </div>
-                    {loadingPlayer && (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Player Statistics</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Games</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.totalGames}</p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <Target className="w-3.5 h-3.5" />
+                        Total Games
+                      </div>
+                      <p className="text-3xl font-bold">{updatedPlayerStats.totalGames}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tournaments</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.tournaments}</p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <Trophy className="w-3.5 h-3.5" />
+                        Tournaments
+                      </div>
+                      <p className="text-3xl font-bold">{updatedPlayerStats.tournaments}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.latestRating}</p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        Current Rating
+                      </div>
+                      <p className="text-3xl font-bold">{updatedPlayerStats.latestRating}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Highest Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.highestRating}</p>
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <Trophy className="w-3.5 h-3.5" />
+                        Highest Rating
+                      </div>
+                      <p className="text-3xl font-bold">{updatedPlayerStats.highestRating}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Performance</p>
-                      <p className="text-2xl sm:text-3xl font-bold">
+                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        Avg Performance
+                      </div>
+                      <p className="text-3xl font-bold">
                         {typeof updatedPlayerStats.avgPerformance === 'number'
                           ? updatedPlayerStats.avgPerformance.toFixed(1)
                           : updatedPlayerStats.avgPerformance}
@@ -387,14 +300,11 @@ export default function ProfileView({
                     </div>
                     {updatedPlayerStats.federation && (
                       <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Federation</p>
-                        <p className="text-xl sm:text-2xl font-bold">{updatedPlayerStats.federation}</p>
-                      </div>
-                    )}
-                    {updatedPlayerStats.chessaId && (
-                      <div className="col-span-2 space-y-1 pt-2 border-t">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chess SA ID</p>
-                        <p className="text-lg font-mono font-bold">{updatedPlayerStats.chessaId}</p>
+                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          <User className="w-3.5 h-3.5" />
+                          Federation
+                        </div>
+                        <p className="text-2xl font-bold">{updatedPlayerStats.federation}</p>
                       </div>
                     )}
                   </div>
@@ -402,72 +312,61 @@ export default function ProfileView({
               </Card>
             )}
 
+            {/* Recent Tournaments */}
+            {updatedPlayerData && updatedPlayerData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Recent Tournaments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {updatedPlayerData.slice(0, 6).map((tournament, idx) => (
+                      <div key={idx} className="border rounded-sm p-4 space-y-2 hover:bg-accent/50 transition-colors">
+                        <p className="font-semibold text-sm line-clamp-2">
+                          {tournament.tournament_name || 'Unknown Tournament'}
+                        </p>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span className="font-medium">Rating:</span>
+                            <span>{tournament.RATING || tournament.player_rating || 'N/A'}</span>
+                          </div>
+                          {tournament.performance_rating && (
+                            <div className="flex justify-between">
+                              <span className="font-medium">Performance:</span>
+                              <span>{tournament.performance_rating}</span>
+                            </div>
+                          )}
+                          {tournament.created_at && (
+                            <div className="flex justify-between">
+                              <span className="font-medium">Date:</span>
+                              <span>{new Date(tournament.created_at).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* No Data Message */}
+            {profile?.tournament_fullname && (!activePlayerData || activePlayerData.length === 0) && !playerStats && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Tournament Data</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    No tournament data found for "<span className="font-semibold">{profile.tournament_fullname}</span>" in the active players database.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Full Width Recent Tournaments Section */}
-      {updatedPlayerData && updatedPlayerData.length > 0 && (
-        <Card className={`mt-6 ${loadingPlayer ? 'opacity-60 pointer-events-none' : ''}`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold tracking-tight">Recent Tournaments</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Latest performances from Chess SA database
-                  </p>
-                </div>
-                {loadingPlayer && (
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {updatedPlayerData.slice(0, 12).map((tournament, idx) => (
-                  <div key={idx} className="border rounded-lg p-4 space-y-3 hover:bg-accent/50 transition-colors">
-                    <p className="font-semibold text-sm sm:text-base line-clamp-2" title={tournament.tournament_name || 'Unknown Tournament'}>
-                      {tournament.tournament_name || 'Unknown Tournament'}
-                    </p>
-                    <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span className="font-medium">Rating:</span>
-                        <span>{tournament.RATING || tournament.player_rating || 'N/A'}</span>
-                      </div>
-                      {tournament.performance_rating && (
-                        <div className="flex justify-between">
-                          <span className="font-medium">Performance:</span>
-                          <span>{tournament.performance_rating}</span>
-                        </div>
-                      )}
-                      {tournament.created_at && (
-                        <div className="flex justify-between">
-                          <span className="font-medium">Date:</span>
-                          <span>{new Date(tournament.created_at).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Show message if no tournament data */}
-      {profile?.tournament_fullname && (!activePlayerData || activePlayerData.length === 0) && !playerStats && (
-        <Card className="mt-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold tracking-tight">Tournament Data</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                No tournament data found for "<span className="font-semibold">{profile.tournament_fullname}</span>" in the active players database.
-                Please ensure your tournament name matches exactly with Chess SA records.
-              </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </>
   )
 }
 
@@ -484,14 +383,13 @@ function PlayerSearchRow({
   updateAction: (formData: FormData) => Promise<{ success: boolean; error?: string }>
   chessaIdRef: React.RefObject<HTMLInputElement | null>
 }) {
-  const [editing, setEditing] = React.useState(false)
-  const [value, setValue] = React.useState(defaultValue)
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [selectedUniqueNo, setSelectedUniqueNo] = React.useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(defaultValue)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedUniqueNo, setSelectedUniqueNo] = useState<string | null>(null)
 
-  // Update local value when defaultValue changes (e.g., after form submission)
-  React.useEffect(() => {
+  useEffect(() => {
     setValue(defaultValue)
   }, [defaultValue])
 
@@ -502,7 +400,6 @@ function PlayerSearchRow({
 
     const formData = new FormData(e.currentTarget)
 
-    // Add chessa_id if we have it from player selection
     if (selectedUniqueNo && chessaIdRef.current) {
       formData.set('chessa_id', selectedUniqueNo)
     }
@@ -511,14 +408,12 @@ function PlayerSearchRow({
       const result = await updateAction(formData)
       if (result.success) {
         setEditing(false)
-        // Reload the page to fetch fresh data with the new tournament name
         window.location.reload()
       } else {
         setError(result.error || 'Failed to update profile')
       }
     } catch (error) {
-      console.error('Error updating profile:', error)
-      setError('An unexpected error occurred')
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -526,13 +421,10 @@ function PlayerSearchRow({
 
   const handlePlayerSelect = (player: PlayerSearchResult) => {
     setValue(player.name)
-    // Store the UNIQUE_NO for submission
     if (player.unique_no) {
       setSelectedUniqueNo(player.unique_no)
-      // Auto-populate Chess SA ID if unique_no is available
       if (chessaIdRef.current) {
         chessaIdRef.current.value = player.unique_no
-        // Trigger change event so React updates
         const event = new Event('input', { bubbles: true })
         chessaIdRef.current.dispatchEvent(event)
       }
@@ -542,20 +434,22 @@ function PlayerSearchRow({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
         {!editing && (
-          <button
-            className="text-xs text-primary underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7"
             onClick={() => setEditing(true)}
             type="button"
           >
             Edit
-          </button>
+          </Button>
         )}
       </div>
       <div>
         {!editing ? (
-          <p className="text-sm">{value || '—'}</p>
+          <p className="text-sm font-medium">{value || '—'}</p>
         ) : (
           <>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -566,35 +460,38 @@ function PlayerSearchRow({
                 placeholder="Search for a player..."
                 className="w-full"
               />
-              <input
-                type="hidden"
-                name={name}
-                value={value}
-              />
+              <input type="hidden" name={name} value={value} />
               <div className="flex gap-2">
-                <button
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 text-sm px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  size="sm"
+                  className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save'}
-                </button>
-                <button
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setEditing(false)
                     setValue(defaultValue)
                     setError(null)
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 text-sm px-3 py-2 border rounded-md hover:bg-accent whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  className="flex-1"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                💡 Tip: Select a player from the dropdown to auto-fill Chess SA ID
-              </p>
             </form>
             {error && (
               <p className="text-sm text-destructive mt-2">{error}</p>
@@ -617,13 +514,12 @@ const EditableRow = React.forwardRef<HTMLInputElement, {
   defaultValue,
   updateAction
 }, ref) => {
-  const [editing, setEditing] = React.useState(false)
-  const [value, setValue] = React.useState(defaultValue)
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(defaultValue)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Update local value when defaultValue changes
-  React.useEffect(() => {
+  useEffect(() => {
     setValue(defaultValue)
   }, [defaultValue])
 
@@ -638,14 +534,11 @@ const EditableRow = React.forwardRef<HTMLInputElement, {
       const result = await updateAction(formData)
       if (result.success) {
         setEditing(false)
-        // Optionally reload if needed, or just update local state
-        // For chessa_id, we might not need to reload the whole page
       } else {
         setError(result.error || 'Failed to update profile')
       }
     } catch (error) {
-      console.error('Error updating profile:', error)
-      setError('An unexpected error occurred')
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -654,53 +547,65 @@ const EditableRow = React.forwardRef<HTMLInputElement, {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
         {!editing && (
-          <button
-            className="text-xs text-primary underline"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7"
             onClick={() => setEditing(true)}
             type="button"
           >
             Edit
-          </button>
+          </Button>
         )}
       </div>
       <div>
         {!editing ? (
-          <p className="text-sm font-mono">{value || '—'}</p>
+          <p className="text-sm font-medium font-mono">{value || '—'}</p>
         ) : (
           <>
             <form onSubmit={handleSubmit} className="space-y-3">
-              <input
+              <Input
                 ref={ref}
                 name={name}
                 value={value}
                 onChange={(e) => setValue(e.currentTarget.value)}
-                className="w-full border rounded-md px-3 py-2 bg-background text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="font-mono"
                 autoFocus
                 disabled={isSubmitting}
                 placeholder="Enter Chess SA ID"
               />
               <div className="flex gap-2">
-                <button
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 text-sm px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  size="sm"
+                  className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save'}
-                </button>
-                <button
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setEditing(false)
                     setValue(defaultValue)
                     setError(null)
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 text-sm px-3 py-2 border rounded-md hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  className="flex-1"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
             {error && (

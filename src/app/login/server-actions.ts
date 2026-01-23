@@ -21,67 +21,91 @@ async function getRedirectUrl() {
 }
 
 export async function signInWithGoogle() {
-  const supabase = await createClientForServerAction()
-  const redirectTo = await getRedirectUrl()
-  
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      }
-    },
-  })
-  
-  if (error) {
-    redirect(`/login?message=${error.message}`)
-  }
-  
-  if (data.url) {
+  try {
+    const supabase = await createClientForServerAction()
+    const redirectTo = await getRedirectUrl()
+    
+    if (!redirectTo) {
+      redirect('/login?message=Unable to determine redirect URL. Please try again.')
+    }
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      },
+    })
+    
+    if (error) {
+      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+    }
+    
+    if (!data?.url) {
+      redirect('/login?message=Failed to initiate Google sign in. Please try again.')
+    }
+    
     redirect(data.url)
+  } catch (error) {
+    redirect('/login?message=An unexpected error occurred. Please try again.')
   }
-  
-  // Fallback
-  redirect('/login?message=Could not authenticate')
 }
 
 export async function signInWithEmail(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const supabase = await createClientForServerAction()
+  try {
+    const email = (formData.get('email') as string)?.trim()
+    const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
+    if (!email || !password) {
+      redirect('/login?message=Email and password are required')
+    }
 
-  if (error) {
-    redirect(`/login?message=${error.message}`)
+    const supabase = await createClientForServerAction()
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+    }
+
+    redirect('/user')
+  } catch (error) {
+    redirect('/login?message=An unexpected error occurred. Please try again.')
   }
-
-  redirect('/user')
 }
 
 export async function signInWithFacebook() {
-  const supabase = await createClientForServerAction()
-  const redirectTo = await getRedirectUrl()
-  
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'facebook',
-    options: {
-      redirectTo,
-    },
-  })
-  
-  if (error) {
-    redirect(`/login?message=${error.message}`)
-  }
-  
-  if (data.url) {
+  try {
+    const supabase = await createClientForServerAction()
+    const redirectTo = await getRedirectUrl()
+    
+    if (!redirectTo) {
+      redirect('/login?message=Unable to determine redirect URL. Please try again.')
+    }
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo,
+      },
+    })
+    
+    if (error) {
+      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+    }
+    
+    if (!data?.url) {
+      redirect('/login?message=Failed to initiate Facebook sign in. Please try again.')
+    }
+    
     redirect(data.url)
+  } catch (error) {
+    redirect('/login?message=An unexpected error occurred. Please try again.')
   }
-  
-  redirect('/login?message=Could not authenticate')
 }
