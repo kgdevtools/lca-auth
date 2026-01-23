@@ -13,19 +13,18 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     
-    // Exchange the code for a session
-    const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
+    // Exchange code for a session
+    const { data: { user, session }, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      console.error('Error exchanging code for session:', error)
       return NextResponse.redirect(new URL(`/login?message=${encodeURIComponent(error.message)}`, request.url))
     }
 
-    if (!user) {
+    if (!user || !session) {
       return NextResponse.redirect(new URL('/login?message=Authentication failed', request.url))
     }
 
-    // Check user role to determine redirect destination
+    // Check if this is email confirmation (new user without profile)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -33,7 +32,9 @@ export async function GET(request: NextRequest) {
       .single()
     
     const isAdmin = profile?.role === 'admin'
-    const redirectPath = isAdmin ? '/admin/admin-dashboard' : '/user'
+    
+    // Check user role to determine redirect destination
+    let redirectPath = isAdmin ? '/admin/admin-dashboard' : '/user'
 
     // Check if this is a signup flow
     const cookieStore = request.cookies
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
           .eq('id', user.id)
         
         if (updateError) {
-          console.error('Error updating profile with signup data:', updateError)
+          // Log error but don't block the flow - user can update profile later
         }
       }
       
@@ -66,11 +67,16 @@ export async function GET(request: NextRequest) {
       return response
     }
 
+    // Check if this is a password reset flow
+    const isPasswordReset = requestUrl.searchParams.get('type') === 'recovery'
+    if (isPasswordReset) {
+      return NextResponse.redirect(new URL('/reset-password/confirm?' + requestUrl.searchParams, request.url))
+    }
+
     // For regular login, redirect based on user role
     return NextResponse.redirect(new URL(redirectPath, request.url))
     
   } catch (error) {
-    console.error('Unexpected error in auth callback:', error)
     return NextResponse.redirect(new URL('/login?message=An unexpected error occurred', request.url))
   }
 }
