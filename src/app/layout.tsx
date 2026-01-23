@@ -24,18 +24,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export const metadata: Metadata = {
   title: {
     default: "Limpopo Chess Academy",
     template: "%s | Limpopo Chess Academy",
   },
   description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   icons: {
     icon: [
       { url: "/lca-cyan-dark-bg-updated.png", type: "image/png" },
@@ -199,19 +200,19 @@ export default async function RootLayout({
                 </form>
               ) : (
                 <>
-                  <span
-                    className="text-xs rounded-md border px-2 py-1 opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1 pointer-events-none"
-                    aria-disabled="true"
+                  <Link
+                    href="/login"
+                    className="text-xs rounded-md border px-2 py-1 hover:bg-accent transition-colors inline-flex items-center gap-1"
                   >
                     <LogIn className="h-3 w-3" aria-hidden />
                     <span>Login</span>
-                  </span>
-                  <span
-                    className="text-xs rounded-md border px-2 py-1 opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1"
-                    aria-disabled="true"
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="text-xs rounded-md border px-2 py-1 hover:bg-accent transition-colors inline-flex items-center gap-1"
                   >
                     Sign Up
-                  </span>
+                  </Link>
                 </>
               )}
             </div>

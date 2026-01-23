@@ -20,13 +20,11 @@ export async function POST(request: Request) {
       }, { onConflict: 'id' })
 
     if (error) {
-      console.error('[api/profile] upsert error', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
   } catch (e) {
-    console.error('[api/profile] unexpected', e)
-    return NextResponse.json({ error: 'unexpected' }, { status: 500 })
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
   }
 }
