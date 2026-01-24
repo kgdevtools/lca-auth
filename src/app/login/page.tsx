@@ -69,8 +69,16 @@ function LoginContent() {
     setIsGoogleLoading(true)
 
     // Submit the form
-    await signInWithGoogle()
-    
+    const result = await signInWithGoogle()
+
+    if (result?.url) {
+      // Navigate the browser to the external provider URL so cookies and PKCE flow work correctly
+      window.location.href = result.url
+      return
+    }
+
+    // Show error returned from server action
+    setError(result?.error || 'Failed to initiate Google sign in. Please try again.')
     setIsGoogleLoading(false)
   }
 
