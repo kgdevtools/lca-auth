@@ -39,18 +39,32 @@ export async function signInWithGoogle() {
         }
       },
     })
-    
+    // Debug: log Supabase OAuth response for diagnosis
+    // eslint-disable-next-line no-console
+    console.log('signInWithOAuth result:', { url: data?.url, error: error?.message })
+
     if (error) {
-      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+      // eslint-disable-next-line no-console
+      console.warn('Google signInWithOAuth error:', error)
+      return { error: error.message }
     }
-    
+
     if (!data?.url) {
-      redirect('/login?message=Failed to initiate Google sign in. Please try again.')
+      // eslint-disable-next-line no-console
+      console.warn('Google signInWithOAuth missing data.url', data)
+      return { error: 'Failed to initiate Google sign in. Please try again.' }
     }
-    
-    redirect(data.url)
+
+    // Return the external URL to the client so the browser can navigate there.
+    // The server-action already wrote the PKCE cookie via `createClientForServerAction()`.
+    // We avoid calling `redirect()` to prevent server-action external-redirect issues.
+    // eslint-disable-next-line no-console
+    console.log('Returning Google OAuth URL to client')
+    return { url: data.url }
   } catch (error) {
-    redirect('/login?message=An unexpected error occurred. Please try again.')
+    // eslint-disable-next-line no-console
+    console.error('signInWithGoogle unexpected error:', error)
+    return { error: 'An unexpected error occurred. Please try again.' }
   }
 }
 
@@ -95,16 +109,15 @@ export async function signInWithFacebook() {
         redirectTo,
       },
     })
-    
     if (error) {
-      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+      return { error: error.message }
     }
-    
+
     if (!data?.url) {
-      redirect('/login?message=Failed to initiate Facebook sign in. Please try again.')
+      return { error: 'Failed to initiate Facebook sign in. Please try again.' }
     }
-    
-    redirect(data.url)
+
+    return { url: data.url }
   } catch (error) {
     redirect('/login?message=An unexpected error occurred. Please try again.')
   }

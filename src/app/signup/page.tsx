@@ -84,8 +84,14 @@ function SignupContent() {
 
     // Submit the form
     const formData = new FormData(e.currentTarget)
-    await signUpWithGoogle(formData)
-    
+    const result = await signUpWithGoogle(formData)
+
+    if (result?.url) {
+      window.location.href = result.url
+      return
+    }
+
+    setError(result?.error || 'Failed to initiate Google sign up. Please try again.')
     setIsGoogleLoading(false)
   }
 

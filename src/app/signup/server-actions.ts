@@ -57,18 +57,22 @@ export async function signUpWithGoogle(formData: FormData) {
         redirectTo: `${origin}/auth/callback`,
       },
     })
-    
+
     if (error) {
-      redirect(`/signup?message=${encodeURIComponent(error.message)}`)
+      // Do not redirect from server-action; return error to client
+      return { error: error.message }
     }
 
     if (!data?.url) {
-      redirect('/signup?message=Failed to initiate Google sign in. Please try again.')
+      return { error: 'Failed to initiate Google sign in. Please try again.' }
     }
-    
-    redirect(data.url)
+
+    // Return URL to client for client-side navigation. PKCE cookie was written above.
+    return { url: data.url }
   } catch (error) {
-    redirect('/signup?message=An unexpected error occurred. Please try again.')
+    // eslint-disable-next-line no-console
+    console.error('signUpWithGoogle unexpected error:', error)
+    return { error: 'An unexpected error occurred. Please try again.' }
   }
 }
 
