@@ -27,26 +27,7 @@ interface Tournament {
   source: string | null
 }
 
-// Tournament registration interface
-interface TournamentRegistration {
-  id: string
-  surname: string
-  names: string
-  section: string
-  chessa_id: string | null
-  federation: string | null
-  rating: number | null
-  sex: string | null
-  created_at: string
-  phone: string
-  dob: string
-  emergency_name: string
-  emergency_phone: string
-  comments?: string
-  gender?: string | null
-  club?: string | null
-  city?: string | null
-}
+
 
 export async function getPlayersWithPerformanceStats() {
   try {
