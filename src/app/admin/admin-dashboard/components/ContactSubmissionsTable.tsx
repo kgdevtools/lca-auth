@@ -26,7 +26,6 @@ export default function ContactSubmissionsTable() {
   const [selected, setSelected] = useState<ContactSubmission | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // helper to open modal
   const openModal = (s: ContactSubmission) => {
     setSelected(s);
     setModalOpen(true);
@@ -34,7 +33,6 @@ export default function ContactSubmissionsTable() {
 
   const closeModal = () => {
     setModalOpen(false);
-    // small timeout to clear selected after animation (if needed)
     setTimeout(() => setSelected(null), 200);
   };
 
@@ -66,7 +64,6 @@ export default function ContactSubmissionsTable() {
     try {
       const res = await deleteContactSubmission(id);
       if (res.success) {
-        // if deleting selected entry, close modal
         if (selected?.id === id) closeModal();
         await fetchSubmissions();
       } else {
@@ -83,7 +80,6 @@ export default function ContactSubmissionsTable() {
       const res = await updateContactSubmissionStatus(id, "resolved");
       if (res.success) {
         await fetchSubmissions();
-        // update selected state if open
         if (selected?.id === id) setSelected({ ...selected, status: 'resolved' });
       } else {
         setError(res.error || "Failed to update status");
@@ -129,6 +125,7 @@ export default function ContactSubmissionsTable() {
       </Card>
     );
   }
+
   return (
     <>
       <Card>
@@ -163,7 +160,7 @@ export default function ContactSubmissionsTable() {
                     return (
                       <TableRow
                         key={s.id}
-                        className={`hover:bg-muted cursor-pointer ${isNew ? 'animate-pulse' : ''}`}
+                        className={`hover:bg-muted cursor-pointer ${isNew ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
                         onClick={() => openModal(s)}
                         role="button"
                         aria-pressed={selected?.id === s.id}
@@ -185,11 +182,13 @@ export default function ContactSubmissionsTable() {
                         </TableCell>
                         <TableCell className="max-w-xl truncate text-sm text-muted-foreground">{s.message || '-'}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isNew ? 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200' : 'bg-green-100 text-green-800'}`}>
+                          <Badge variant={isNew ? "default" : "outline"}>
                             {s.status || 'new'}
-                          </span>
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{s.created_at ? new Date(s.created_at).toLocaleString() : '-'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {s.created_at ? new Date(s.created_at).toLocaleString() : '-'}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleMarkResolved(s.id); }}>
@@ -222,9 +221,9 @@ export default function ContactSubmissionsTable() {
                   <div className="text-sm text-muted-foreground">{selected.email} • {selected.phone || '—'}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${selected.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800 animate-pulse'}`}>
+                   <Badge variant={selected.status === 'resolved' ? "outline" : "default"}>
                     {selected.status || 'new'}
-                  </span>
+                  </Badge>
                   <button aria-label="Close" className="p-2 rounded hover:bg-muted" onClick={closeModal}>
                     <X className="h-4 w-4" />
                   </button>
@@ -242,7 +241,12 @@ export default function ContactSubmissionsTable() {
                 <Button onClick={() => { handleMarkResolved(selected.id); }}>
                   Mark Resolved
                 </Button>
-                <Button variant="destructive" onClick={() => { handleDelete(selected.id); }}>
+                {/* Fixed destructive variant error by using default + custom class */}
+                <Button 
+                  variant="default" 
+                  className="bg-red-600 hover:bg-red-700 text-white border-none"
+                  onClick={() => { handleDelete(selected.id); }}
+                >
                   Delete
                 </Button>
               </div>
