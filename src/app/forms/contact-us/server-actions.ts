@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/utils/supabase/server"
+import { sendContactNotification } from "@/services/email.service"
 
 interface ContactFormData {
   name: string
@@ -59,6 +60,19 @@ export async function submitContactForm(data: ContactFormData): Promise<ContactR
         success: false,
         error: "Failed to submit contact form. Please try again.",
       }
+    }
+
+    // Send notification email (non-blocking failures are logged)
+    try {
+      await sendContactNotification({
+        name: data.name.trim(),
+        email: data.email.trim(),
+        phone: data.phone?.trim() || null,
+        subject: data.subject.trim(),
+        message: data.message.trim(),
+      })
+    } catch (err) {
+      console.error("Contact notification error:", err)
     }
 
     return { success: true }

@@ -3,7 +3,6 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { exportRegistrationsToExcel } from '@/services/exportToExcel'
 import { checkAdminRole } from '@/utils/auth/adminAuth'
 
 // Tournament interface
@@ -277,104 +276,81 @@ export async function deleteTournament(id: string) {
     return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
+// Contact submission interface and admin actions
+interface ContactSubmission {
+  id: string
+  name: string
+  email: string
+  phone?: string | null
+  subject?: string | null
+  message?: string | null
+  status?: string | null
+  created_at?: string | null
+}
 
-// Functions for tournament registrations
-export async function getTournamentRegistrations(): Promise<{ data: TournamentRegistration[] | null; error: string | null }> {
+export async function getContactSubmissions(): Promise<{ data: ContactSubmission[] | null; error: string | null }> {
   try {
+    await checkAdminRole()
     const supabase = await createClient()
-    
+
     const { data, error } = await supabase
-      .from('lca_open_2025_registrations')
+      .from('contact_submissions')
       .select('*')
-      .order('section', { ascending: true })
-      .order('surname', { ascending: true })
+      .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching tournament registrations:', error)
+      console.error('Error fetching contact submissions:', error)
       return { data: null, error: error.message }
     }
 
     return { data: data || [], error: null }
   } catch (error) {
-    console.error('Unexpected error in getTournamentRegistrations:', error)
-    return { data: null, error: 'Unexpected error occurred' }
+    console.error('Unexpected error in getContactSubmissions:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
-export async function deleteTournamentRegistration(id: string): Promise<{ success: boolean; error: string | null }> {
+export async function deleteContactSubmission(id: string): Promise<{ success: boolean; error?: string | null }> {
   try {
-    // Verify admin role
     await checkAdminRole()
-
     const supabase = await createClient()
 
     const { error } = await supabase
-      .from('lca_open_2025_registrations')
+      .from('contact_submissions')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error('Error deleting tournament registration:', error)
+      console.error('Error deleting contact submission:', error)
       return { success: false, error: error.message }
     }
 
-    return { success: true, error: null }
+    return { success: true }
   } catch (error) {
-    console.error('Unexpected error in deleteTournamentRegistration:', error)
+    console.error('Unexpected error in deleteContactSubmission:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
 
-export async function updateTournamentRegistration(id: string, registrationData: Partial<TournamentRegistration>): Promise<{ success: boolean; data?: TournamentRegistration; error: string | null }> {
+export async function updateContactSubmissionStatus(id: string, status: string): Promise<{ success: boolean; error?: string | null }> {
   try {
-    // Verify admin role
     await checkAdminRole()
-
     const supabase = await createClient()
 
-    const { data, error } = await supabase
-      .from('lca_open_2025_registrations')
-      .update(registrationData)
+    const { error } = await supabase
+      .from('contact_submissions')
+      .update({ status })
       .eq('id', id)
-      .select()
-      .single()
 
     if (error) {
-      console.error('Error updating tournament registration:', error)
+      console.error('Error updating contact submission status:', error)
       return { success: false, error: error.message }
     }
 
-    return { success: true, data, error: null }
+    return { success: true }
   } catch (error) {
-    console.error('Unexpected error in updateTournamentRegistration:', error)
+    console.error('Unexpected error in updateContactSubmissionStatus:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
-  }
-}
-
-// Export to Excel function
-export async function exportRegistrationsToExcelFile() {
-  try {
-    // Verify admin role
-    await checkAdminRole()
-
-    const { data: registrations } = await getTournamentRegistrations();
-
-    if (!registrations) {
-      return { success: false, error: "No registrations found" };
-    }
-
-    const excelBuffer = exportRegistrationsToExcel(registrations);
-
-    // Convert Buffer to Uint8Array for client consumption
-    const uint8Array = new Uint8Array(excelBuffer);
-
-    return {
-      success: true,
-      data: uint8Array // Return as Uint8Array instead of Buffer
-    };
-  } catch (error) {
-    console.error("Export error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to export data" };
   }
 }
 
