@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react'
 import DashboardOverview from './components/DashboardOverview'
-import TournamentRegistrationsTable from './components/TournamentRegistrationsTable'
+import ContactSubmissionsTable from './components/ContactSubmissionsTable'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
           <DashboardOverview />
         </Suspense>
 
-        {/* Tournament Registrations Table */}
+        {/* Contact Submissions Table */}
         <Suspense
           fallback={
             <div className="bg-white dark:bg-gray-800 p-4 lg:p-6 rounded-lg border border-gray-200 dark:border-gray-700 animate-pulse">
@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
             </div>
           }
         >
-          <TournamentRegistrationsTable />
+          <ContactSubmissionsTable />
         </Suspense>
       </div>
     </div>
