@@ -195,7 +195,7 @@ export default function ContactSubmissionsTable() {
                             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleMarkResolved(s.id); }}>
                               <Check className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}>
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
