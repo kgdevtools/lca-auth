@@ -44,7 +44,7 @@ export async function UpcomingTournamentCardServer() {
             <Link href="/events" className="text-lg font-bold mb-3 text-primary block">Upcoming Tournament</Link>
           </h2>
           <div className="flex-1 flex items-center justify-center text-center">
-            <p className="text-muted-foreground">No upcoming tournaments</p>
+            <p className="text-muted-foreground">No Upcoming tournaments</p>
           </div>
         </div>
       )
