@@ -2,7 +2,7 @@ import * as React from "react"
 import { clsx } from "clsx"
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "primary" | "outline" | "ghost"
+  variant?: "default" | "primary" | "outline" | "ghost" | "destructive"
   size?: "sm" | "md" | "lg"
 }
 
@@ -16,6 +16,7 @@ const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
   outline:
     "border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[color-mix(in_oklab,var(--card),black_5%)] focus-visible:ring-[var(--ring)]",
   ghost: "bg-transparent hover:bg-[color-mix(in_oklab,var(--foreground),transparent_95%)]",
+  destructive: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
 }
 
 const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
