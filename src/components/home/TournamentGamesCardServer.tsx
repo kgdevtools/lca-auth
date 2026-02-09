@@ -1,65 +1,80 @@
-import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "@/app/view/actions";
+import {
+  fetchGames,
+  listTournaments,
+  type GameData,
+  type TournamentMeta,
+} from "@/app/view/actions";
 import Link from "next/link";
 import { TournamentGamesCardClient } from "./TournamentGamesCardClient";
 import { cache } from "@/utils/cache";
 
+/**
+ * TEMPORARY CONFIG — FORCE THIS TOURNAMENT IN HEADER + GAMES
+ */
+const FORCED_TOURNAMENT_TABLE = "cdc_tournament_1_2026_games";
+const FORCED_TOURNAMENT_END = new Date("2026-02-16T23:59:59Z");
+
 // Function to get today's random tournament (same for all users)
 async function getTodaysTournament(): Promise<TournamentMeta | null> {
   try {
-    // Create a deterministic cache key based on the current date
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
     const cacheKey = `tournament-${dateStr}`;
 
-    // Check if we have cached data for today
-    let cachedTournament = cache.get(cacheKey);
+    const cachedTournament = cache.get(cacheKey);
     if (cachedTournament) {
       return cachedTournament;
     }
 
     const { tournaments } = await listTournaments();
-    if (tournaments.length === 0) {
-      return null;
-    }
+    if (tournaments.length === 0) return null;
 
-    // Exclude specific tournament tables that have been removed from the DB
-    const EXCLUDED_TABLES = [
-      'cdc_jq_tournament_7_2025_u20_games'
-    ]
+    const EXCLUDED_TABLES = ["cdc_jq_tournament_7_2025_u20_games"];
 
-    const filteredTournaments = tournaments.filter(t => t && t.name && !EXCLUDED_TABLES.includes(t.name))
-    if (filteredTournaments.length === 0) {
-      return null
-    }
+    const filtered = tournaments.filter(
+      (t) => t && t.name && !EXCLUDED_TABLES.includes(t.name),
+    );
 
-    // Create a deterministic seed based on the current date
-    // Simple hash function to create a deterministic seed
+    if (filtered.length === 0) return null;
+
     let hash = 0;
     for (let i = 0; i < dateStr.length; i++) {
-      const char = dateStr.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash |= 0; // Convert to 32bit integer
+      hash = (hash << 5) - hash + dateStr.charCodeAt(i);
+      hash |= 0;
     }
 
-    // Use the hash to select a tournament
-    const randomIndex = Math.abs(hash) % filteredTournaments.length;
-    const selectedTournament = filteredTournaments[randomIndex];
-
-    // Cache the selected tournament for the rest of the day (24 hours from now)
-    cache.set(cacheKey, selectedTournament, 86400); // 24 hours in seconds
-
-    return selectedTournament;
+    const selected = filtered[Math.abs(hash) % filtered.length];
+    cache.set(cacheKey, selected, 86400);
+    return selected;
   } catch (error) {
-    console.error('Error getting today\'s tournament:', error);
+    console.error("Error getting today's tournament:", error);
     return null;
   }
 }
 
 export async function TournamentGamesCardServer() {
   try {
-    const selectedTournament = await getTodaysTournament();
+    const now = new Date();
+    const withinForcedPeriod = now <= FORCED_TOURNAMENT_END;
 
-    if (!selectedTournament) {
+    const dailyTournament = await getTodaysTournament();
+
+    /**
+     * HEADER TOURNAMENT
+     * During forced period → override header tournament
+     */
+    let headerTournament: TournamentMeta | null = dailyTournament;
+
+    if (withinForcedPeriod) {
+      headerTournament = {
+        name: FORCED_TOURNAMENT_TABLE,
+        alias: "CDC Tournament 1 — 2026",
+        display_name: "CDC Tournament 1 — 2026",
+        created_at: "2026-02-10",
+      } as TournamentMeta;
+    }
+
+    if (!headerTournament) {
       return (
         <Link
           href="/view"
@@ -70,24 +85,52 @@ export async function TournamentGamesCardServer() {
       );
     }
 
-    // Create a cache key for the games of the selected tournament
-    const gamesCacheKey = `games-${selectedTournament.name}`;
-    let games: GameData[] | null = cache.get(gamesCacheKey);
+    const games: GameData[] = [];
 
-    if (!games) {
-      const result = await fetchGames(selectedTournament.name as any);
-      if (result.error) {
-        console.error('Error fetching games:', result.error);
-        return (
-          <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col items-center justify-center p-6">
-            <p className="text-muted-foreground">Error loading games</p>
-            <Link href="/view" className="mt-2 text-primary hover:underline">Try again</Link>
-          </div>
-        );
-      } else {
-        // Cache the games for 24 hours
-        games = [...result.games];
-        cache.set(gamesCacheKey, games, 86400);
+    /**
+     * 1. FORCED TOURNAMENT GAMES (TEMPORARY)
+     */
+    if (withinForcedPeriod) {
+      const forcedCacheKey = `games-${FORCED_TOURNAMENT_TABLE}`;
+      let forcedGames: GameData[] | null = cache.get(forcedCacheKey);
+
+      if (!forcedGames) {
+        const result = await fetchGames(FORCED_TOURNAMENT_TABLE as any);
+        if (!result.error) {
+          forcedGames = [...result.games];
+          cache.set(forcedCacheKey, forcedGames, 86400);
+        } else {
+          console.error(
+            "Error fetching forced tournament games:",
+            result.error,
+          );
+        }
+      }
+
+      if (forcedGames?.length) {
+        games.push(...forcedGames);
+      }
+    }
+
+    /**
+     * 2. DAILY RANDOM TOURNAMENT GAMES (UNCHANGED)
+     */
+    if (dailyTournament) {
+      const dailyCacheKey = `games-${dailyTournament.name}`;
+      let dailyGames: GameData[] | null = cache.get(dailyCacheKey);
+
+      if (!dailyGames) {
+        const result = await fetchGames(dailyTournament.name as any);
+        if (!result.error) {
+          dailyGames = [...result.games];
+          cache.set(dailyCacheKey, dailyGames, 86400);
+        } else {
+          console.error("Error fetching daily tournament games:", result.error);
+        }
+      }
+
+      if (dailyGames?.length) {
+        games.push(...dailyGames);
       }
     }
 
@@ -102,17 +145,22 @@ export async function TournamentGamesCardServer() {
       );
     }
 
-    // Shuffle games for variety (but keep the same shuffle each time for consistency)
     const shuffledGames = [...games].sort(() => 0.5 - Math.random());
 
-    // Pass the data to the client component for animation
-    return <TournamentGamesCardClient games={shuffledGames} selectedTournament={selectedTournament} />;
+    return (
+      <TournamentGamesCardClient
+        games={shuffledGames}
+        selectedTournament={headerTournament}
+      />
+    );
   } catch (error) {
-    console.error('Error in TournamentGamesCardServer:', error);
+    console.error("Error in TournamentGamesCardServer:", error);
     return (
       <div className="rounded-lg border border-border bg-card overflow-hidden flex flex-col items-center justify-center p-6">
         <p className="text-muted-foreground">Error loading games</p>
-        <Link href="/view" className="mt-2 text-primary hover:underline">Try again</Link>
+        <Link href="/view" className="mt-2 text-primary hover:underline">
+          Try again
+        </Link>
       </div>
     );
   }
