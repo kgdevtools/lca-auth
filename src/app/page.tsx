@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: "Limpopo Chess Academy — welcome page",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function Home() {
   return (
     <section className="relative min-h-dvh px-2 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-10 mx-auto max-w-7xl text-foreground bg-transparent">
