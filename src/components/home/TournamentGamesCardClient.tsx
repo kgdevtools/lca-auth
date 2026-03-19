@@ -6,36 +6,31 @@ import { Chessboard } from "react-chessboard";
 import Link from "next/link";
 import { type GameData, type TournamentMeta } from "@/app/view/actions";
 
-export function TournamentGamesCardClient({ 
-  games, 
-  selectedTournament 
-}: { 
-  games: GameData[]; 
+export function TournamentGamesCardClient({
+  games,
+  selectedTournament,
+}: {
+  games: GameData[];
   selectedTournament: TournamentMeta | null;
 }) {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [gameHeaders, setGameHeaders] = useState<Record<string, string | null>>({});
+  const [gameHeaders, setGameHeaders] = useState<Record<string, string | null>>(
+    {},
+  );
   const [fenHistory, setFenHistory] = useState<string[]>([]);
-  const [boardWidth, setBoardWidth] = useState<number>(300);
+  const [boardWidth, setBoardWidth] = useState<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const boardWrapperRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const chessRef = useRef(new Chess());
 
-  // Parse the current game's PGN
   useEffect(() => {
     if (games.length === 0 || currentGameIndex >= games.length) return;
-
     const currentGame = games[currentGameIndex];
     if (!currentGame?.pgn) return;
-
     try {
       chessRef.current.loadPgn(currentGame.pgn);
-
-      const headers = chessRef.current.header();
-      setGameHeaders(headers);
-
-      // Build FEN history
+      setGameHeaders(chessRef.current.header());
       const history = chessRef.current.history({ verbose: true });
       const temp = new Chess();
       const fens: string[] = [temp.fen()];
@@ -43,59 +38,45 @@ export function TournamentGamesCardClient({
         temp.move(move.san);
         fens.push(temp.fen());
       });
-
       setFenHistory(fens);
       setCurrentMoveIndex(-1);
-    } catch (error) {
-      console.error("Error parsing PGN:", error);
-      const startFen = new Chess().fen();
-      setFenHistory([startFen]);
+    } catch {
+      setFenHistory([new Chess().fen()]);
       setCurrentMoveIndex(-1);
     }
   }, [games, currentGameIndex]);
 
-  // Handle board width resize - use full container width
   useEffect(() => {
-    function handleResize() {
-      if (boardWrapperRef.current) {
-        const container = boardWrapperRef.current;
-        const width = container.offsetWidth;
-        setBoardWidth(width);
+    function measure() {
+      if (containerRef.current) {
+        setBoardWidth(containerRef.current.offsetWidth);
       }
     }
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const t = setTimeout(measure, 50);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      clearTimeout(t);
+    };
   }, []);
 
-  // Auto-replay logic
   useEffect(() => {
     if (fenHistory.length === 0) return;
-
-    // Start auto-replay after a short delay
     timerRef.current = setInterval(() => {
       setCurrentMoveIndex((prev) => {
-        const nextIndex = prev + 1;
-
-        // If we've reached the end of the game
-        if (nextIndex >= fenHistory.length - 1) {
-          // Move to next game after 2 seconds and reset move index for the new game
+        const next = prev + 1;
+        if (next >= fenHistory.length - 1) {
           setTimeout(() => {
-            setCurrentGameIndex((prevGameIndex) => (prevGameIndex + 1) % games.length);
-            setCurrentMoveIndex(-1); // Reset move index for the next game
+            setCurrentGameIndex((p) => (p + 1) % games.length);
+            setCurrentMoveIndex(-1);
           }, 2000);
-          return prev; // Keep the last move shown until the next game starts
+          return prev;
         }
-
-        return nextIndex;
+        return next;
       });
-    }, 1000); // 1 move per second
-
+    }, 1000);
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [fenHistory, games.length]);
 
@@ -103,90 +84,87 @@ export function TournamentGamesCardClient({
     return (
       <Link
         href="/view"
-        className="rounded-lg border border-border bg-card overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center p-6"
+        className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-6 flex items-center justify-center"
       >
         <p className="text-muted-foreground">No games available</p>
       </Link>
     );
   }
 
-  const currentFen = fenHistory[currentMoveIndex + 1] || fenHistory[0] || "start";
+  const currentFen =
+    fenHistory[currentMoveIndex + 1] || fenHistory[0] || "start";
 
   const getCustomSquareStyles = () => {
     if (currentMoveIndex < 0 || fenHistory.length === 0) return {};
-
     try {
-      const tempChess = new Chess();
-      tempChess.load(fenHistory[currentMoveIndex + 1] || fenHistory[0]);
-
       const history = chessRef.current.history({ verbose: true });
-      if (currentMoveIndex >= history.length) return {};
-
       const lastMove = history[currentMoveIndex];
       if (!lastMove) return {};
-
       return {
-        [lastMove.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" }, // Light mode yellow
-        [lastMove.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },   // Light mode yellow
-        // You can add dark mode specific colors here using CSS variables or theme context
+        [lastMove.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
+        [lastMove.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
       };
-    } catch (error) {
-      console.error("Error getting custom square styles:", error);
+    } catch {
       return {};
     }
   };
 
+  const formattedDate = selectedTournament?.created_at
+    ? new Date(selectedTournament.created_at).toLocaleDateString("en-CA")
+    : "";
+
   return (
+    // No overflow-hidden, no h-full — card grows to fit board naturally
     <Link
       href="/view"
-      className="rounded-lg border border-border bg-card overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col group"
+      className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col group w-full"
     >
-      {/* Game Info - Compact header */}
-      <div className="bg-muted/30 border-b border-border/50 px-2 py-1.5 flex-shrink-0">
+      {/* Header */}
+      <div className="flex-shrink-0 bg-muted/30 border-b border-border/50 rounded-t-lg">
         {selectedTournament && (
-          <div className="flex flex-col items-center gap-1 mb-1">
-            <div className="text-sm font-bold text-foreground leading-tight">
-              {selectedTournament.alias || selectedTournament.display_name || selectedTournament.name}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {new Date(selectedTournament.created_at || '').toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })}
-            </div>
+          <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 gap-2">
+            <p className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide truncate leading-tight flex-1">
+              {selectedTournament.alias ||
+                selectedTournament.display_name ||
+                selectedTournament.name}
+            </p>
+            {formattedDate && (
+              <span className="text-xs font-medium text-muted-foreground tabular-nums flex-shrink-0">
+                {formattedDate}
+              </span>
+            )}
           </div>
         )}
-        <div className="flex items-center gap-1.5">
-          <div className="flex-1 min-w-0">
-            <div className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">White</div>
-            <div className="text-[10px] font-bold text-foreground leading-tight truncate">
+        <div className="flex items-stretch h-9 border-t border-border/40">
+          <div className="flex-[2] min-w-0 bg-white flex items-center px-3">
+            <span className="text-sm font-black text-black truncate uppercase tracking-tight leading-none">
               {gameHeaders.White || "White"}
-            </div>
-            {gameHeaders.WhiteElo && <div className="text-[8px] text-muted-foreground">{gameHeaders.WhiteElo}</div>}
+            </span>
           </div>
-
-          <div className="flex-shrink-0 px-1 py-0.5 bg-primary/10 border border-primary/20 rounded text-center">
-            <div className="text-[10px] font-bold text-primary leading-none">{gameHeaders.Result || "*"}</div>
+          <div className="flex-shrink-0 min-w-[56px] bg-primary flex items-center justify-center border-x border-primary-foreground/20 px-2">
+            <span className="text-sm font-black text-primary-foreground leading-none tabular-nums whitespace-nowrap">
+              {gameHeaders.Result || "VS"}
+            </span>
           </div>
-
-          <div className="flex-1 min-w-0 text-right">
-            <div className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">Black</div>
-            <div className="text-[10px] font-bold text-foreground leading-tight truncate">
+          <div className="flex-[2] min-w-0 bg-neutral-900 flex items-center justify-end px-3">
+            <span className="text-sm font-black text-white truncate uppercase tracking-tight text-right leading-none">
               {gameHeaders.Black || "Black"}
-            </div>
-            {gameHeaders.BlackElo && <div className="text-[8px] text-muted-foreground">{gameHeaders.BlackElo}</div>}
+            </span>
           </div>
         </div>
       </div>
 
-       {/* Chessboard */}
-      <div ref={boardWrapperRef} className="w-full aspect-square overflow-hidden bg-card flex-shrink-0">
-        {boardWidth > 0 ? (
-          <Chessboard
-            boardWidth={boardWidth}
-            position={currentFen}
-            arePiecesDraggable={false}
-            customSquareStyles={getCustomSquareStyles()}
-          />
-        ) : (
-          <div className="w-full h-full bg-muted" />
+      {/* Board — measured container, explicit square div, no clipping */}
+      <div ref={containerRef} className="w-full rounded-b-lg overflow-hidden">
+        {boardWidth > 0 && (
+          <div style={{ width: boardWidth, height: boardWidth }}>
+            <Chessboard
+              boardWidth={boardWidth}
+              position={currentFen}
+              arePiecesDraggable={false}
+              customSquareStyles={getCustomSquareStyles()}
+            />
+          </div>
         )}
       </div>
     </Link>

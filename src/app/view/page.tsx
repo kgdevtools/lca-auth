@@ -1,348 +1,494 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
-import { Chess } from "chess.js"
-import type { Move } from "chess.js"
-import { Chessboard } from "react-chessboard"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronDown, Play, Pause, Expand } from "lucide-react"
-import { fetchGames, listTournaments, type GameData, type TournamentMeta } from "./actions"
-import type { TournamentId } from "./config"
-import { isNewItem } from "./utils"
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
+import { Chess } from "chess.js";
+import type { Move } from "chess.js";
+import { Chessboard } from "react-chessboard";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  ChevronDown,
+  Play,
+  Pause,
+  Expand,
+  Trophy,
+  Calendar,
+} from "lucide-react";
+import {
+  fetchGames,
+  listTournaments,
+  type GameData,
+  type TournamentMeta,
+} from "./actions";
+import type { TournamentId } from "./config";
+import { isNewItem } from "./utils";
+import { AnalysisPanel } from "@/components/analysis/AnalysisPanel";
+import { cn } from "@/lib/utils";
 
-type UiMove = Move & { moveNumber: number }
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type UiMove = Move & { moveNumber: number };
+type LastMove = { from: string; to: string };
+
 interface GameHistory {
-  moves: UiMove[]
-  fenHistory: string[]
+  moves: UiMove[];
+  fenHistory: string[];
 }
 
-const BOARD_CUSTOM_SQUARE_STYLES = { lastMove: { backgroundColor: "rgba(59, 130, 246, 0.4)" } }
+// ─── Eval bar — always vertical, always on the side ───────────────────────────
+
+function evalToWhitePercent(score: number | null, mate: number | null): number {
+  if (mate !== null && mate !== undefined) return mate > 0 ? 96 : 4;
+  if (score === null) return 50;
+  return Math.max(4, Math.min(96, 50 + 50 * Math.tanh(score / 3)));
+}
+
+function EvalBar({
+  score,
+  mate,
+  isEnabled,
+  height,
+}: {
+  score: number | null;
+  mate: number | null;
+  isEnabled: boolean;
+  height: number;
+}) {
+  const whitePercent = isEnabled ? evalToWhitePercent(score, mate) : 50;
+  return (
+    <div
+      className="flex-shrink-0 flex flex-col rounded-sm overflow-hidden border border-border relative"
+      style={{ width: 16, height }}
+    >
+      <div
+        className="w-full bg-[#1c1c1c] transition-all duration-500 ease-out"
+        style={{ height: `${100 - whitePercent}%` }}
+      />
+      <div
+        className="w-full bg-[#f5f5f5] transition-all duration-500 ease-out"
+        style={{ height: `${whitePercent}%` }}
+      />
+      <div className="absolute top-1/2 left-0 w-full h-[1px] bg-border/50" />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ViewOnlyPage() {
-  const [tournaments, setTournaments] = useState<TournamentMeta[]>([])
-  const [selectedTournamentId, setSelectedTournamentId] = useState<TournamentId | null>(null)
-  const [games, setGames] = useState<GameData[]>([])
-  const [currentGameIndex, setCurrentGameIndex] = useState(-1)
+  const [tournaments, setTournaments] = useState<TournamentMeta[]>([]);
+  const [selectedTournamentId, setSelectedTournamentId] =
+    useState<TournamentId | null>(null);
+  const [games, setGames] = useState<GameData[]>([]);
+  const [currentGameIndex, setCurrentGameIndex] = useState(-1);
 
-  const [gameHistory, setGameHistory] = useState<GameHistory>({ moves: [], fenHistory: [] })
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1)
-  const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({})
-  const [lastMove, setLastMove] = useState<{ from: string; to: string } | undefined>(undefined)
+  const [gameHistory, setGameHistory] = useState<GameHistory>({
+    moves: [],
+    fenHistory: [],
+  });
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const [gameHeaders, setGameHeaders] = useState<Record<string, string>>({});
+  const [lastMove, setLastMove] = useState<LastMove | undefined>(undefined);
 
-  const [isLoading, setIsLoading] = useState(true)
-  const boardWrapperRef = useRef<HTMLDivElement>(null)
-  const [boardWidth, setBoardWidth] = useState<number>()
-  const [boardContainerWidth, setBoardContainerWidth] = useState<number>(500) // Start at reasonable default
-  const [isResizing, setIsResizing] = useState(false)
-  const leftColumnRef = useRef<HTMLDivElement>(null)
+  const [isLoading, setIsLoading] = useState(true);
+  const boardWrapperRef = useRef<HTMLDivElement>(null);
+  const [boardWidth, setBoardWidth] = useState<number>(0);
+  const [boardContainerWidth, setBoardContainerWidth] = useState<number>(500);
+  const [isResizing, setIsResizing] = useState(false);
 
-  const [isReplaying, setIsReplaying] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const replayTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const replayMoveIndexRef = useRef<number>(0)
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const replayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const replayMoveIndexRef = useRef<number>(0);
 
-  // Load tournaments on mount
+  const [evalScore, setEvalScore] = useState<number | null>(null);
+  const [evalMate, setEvalMate] = useState<number | null>(null);
+  const [engineEnabled, setEngineEnabled] = useState(false);
+
+  const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">(
+    "desktop",
+  );
+
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      const { tournaments: fetchedTournaments, error } = await listTournaments()
-      if (!mounted) return
+    function check() {
+      const w = window.innerWidth;
+      if (w < 640) setScreenSize("mobile");
+      else if (w < 1024) setScreenSize("tablet");
+      else setScreenSize("desktop");
+    }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-      if (error) {
-        console.error("Failed to load tournaments:", error)
-      }
+  const isMobile = screenSize === "mobile";
+  const isDesktop = screenSize === "desktop";
 
-      setTournaments(fetchedTournaments)
+  // ─── Data loading ─────────────────────────────────────────────────────────
 
-      // Auto-select first tournament
-      if (fetchedTournaments.length > 0) {
-        setSelectedTournamentId(fetchedTournaments[0].name as TournamentId)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { tournaments: fetched, error } = await listTournaments();
+      if (!mounted) return;
+      if (error) console.error("Failed to load tournaments:", error);
+      setTournaments(fetched);
+      if (fetched.length > 0) {
+        setSelectedTournamentId(fetched[0].name as TournamentId);
       } else {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    })()
+    })();
     return () => {
-      mounted = false
-    }
-  }, [])
+      mounted = false;
+    };
+  }, []);
 
-  // Load games when tournament changes
   useEffect(() => {
-    async function loadGames() {
+    async function load() {
       if (!selectedTournamentId) {
-        setGames([])
-        setCurrentGameIndex(-1)
-        setIsLoading(false)
-        return
+        setGames([]);
+        setCurrentGameIndex(-1);
+        setIsLoading(false);
+        return;
       }
-
-      setIsLoading(true)
-
-      const { games: fetchedGames, error } = await fetchGames(selectedTournamentId)
-
+      setIsLoading(true);
+      const { games: fetched, error } = await fetchGames(selectedTournamentId);
       if (error) {
-        console.error("Error fetching games:", error)
-        setGames([])
-        setCurrentGameIndex(-1)
+        setGames([]);
+        setCurrentGameIndex(-1);
       } else {
-        setGames(fetchedGames)
-        setCurrentGameIndex(fetchedGames.length > 0 ? 0 : -1)
+        setGames(fetched);
+        setCurrentGameIndex(fetched.length > 0 ? 0 : -1);
       }
-
-      setIsLoading(false)
+      setIsLoading(false);
     }
+    load();
+  }, [selectedTournamentId]);
 
-    loadGames()
-  }, [selectedTournamentId])
+  // ─── PGN parsing ──────────────────────────────────────────────────────────
 
   const currentPgn = useMemo(() => {
-    if (currentGameIndex < 0 || !games[currentGameIndex]) return ""
-    return games[currentGameIndex].pgn
-  }, [games, currentGameIndex])
+    if (currentGameIndex < 0 || !games[currentGameIndex]) return "";
+    return games[currentGameIndex].pgn;
+  }, [games, currentGameIndex]);
 
   useEffect(() => {
     if (!currentPgn) {
-      setGameHistory({ moves: [], fenHistory: [] })
-      setGameHeaders({})
-      setCurrentMoveIndex(-1)
-      return
+      setGameHistory({ moves: [], fenHistory: [] });
+      setGameHeaders({});
+      setCurrentMoveIndex(-1);
+      return;
     }
-
     try {
-      // Apply the same fix for TimeControl headers when loading for display
-      let displayPgn = currentPgn
-      displayPgn = displayPgn.replace(/\[TimeControl\s+"([^"]*'[^"]*)""\]/g, (match, fullValue) => {
-        const fixedValue = fullValue.replace(/'/g, "+")
-        return `[TimeControl "${fixedValue}"]`
-      })
-
-      const chess = new Chess()
-      chess.loadPgn(displayPgn)
-      const headers = chess.header() as Record<string, string>
-      setGameHeaders(headers)
-
-      const history = chess.history({ verbose: true }) as Move[]
-      const temp = new Chess()
-      const fenHistory: string[] = [temp.fen()]
+      const displayPgn = currentPgn.replace(
+        /\[TimeControl\s+"([^"]*'[^"]*)""\]/g,
+        (_match, v) => `[TimeControl "${v.replace(/'/g, "+")}"]`,
+      );
+      const chess = new Chess();
+      chess.loadPgn(displayPgn);
+      setGameHeaders(chess.header() as Record<string, string>);
+      const history = chess.history({ verbose: true }) as Move[];
+      const temp = new Chess();
+      const fenHistory: string[] = [temp.fen()];
       history.forEach((m) => {
         try {
-          temp.move((m as any).san)
-          fenHistory.push(temp.fen())
-        } catch (e) {
+          temp.move((m as any).san);
+          fenHistory.push(temp.fen());
+        } catch {
           /* ignore */
         }
-      })
-      const movesWithNumbers: UiMove[] = history.map((m, i) => ({ ...(m as any), moveNumber: Math.floor(i / 2) + 1 }))
-      setGameHistory({ moves: movesWithNumbers, fenHistory })
-      setCurrentMoveIndex(-1)
+      });
+      setGameHistory({
+        moves: history.map((m, i) => ({
+          ...(m as any),
+          moveNumber: Math.floor(i / 2) + 1,
+        })),
+        fenHistory,
+      });
+      setCurrentMoveIndex(-1);
     } catch (e) {
-      console.error("Failed to load PGN:", e)
-      setGameHeaders({})
-      setGameHistory({ moves: [], fenHistory: [new Chess().fen()] })
-      setCurrentMoveIndex(-1)
+      setGameHeaders({});
+      setGameHistory({ moves: [], fenHistory: [new Chess().fen()] });
+      setCurrentMoveIndex(-1);
     }
-  }, [currentPgn])
+  }, [currentPgn]);
 
   useEffect(() => {
-    function handleResize() {
+    function measure() {
       if (boardWrapperRef.current) {
-        const containerWidth = boardWrapperRef.current.offsetWidth
-        setBoardWidth(containerWidth)
+        setBoardWidth(boardWrapperRef.current.offsetWidth);
       }
     }
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [isLoading, boardContainerWidth])
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [isLoading, boardContainerWidth, screenSize]);
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
-      const m = gameHistory.moves[currentMoveIndex]
-      setLastMove({ from: m.from, to: m.to })
+      const m = gameHistory.moves[currentMoveIndex];
+      setLastMove({ from: m.from, to: m.to });
     } else {
-      setLastMove(undefined)
+      setLastMove(undefined);
     }
-  }, [currentMoveIndex, gameHistory.moves])
+  }, [currentMoveIndex, gameHistory.moves]);
+
+  // ─── Replay ───────────────────────────────────────────────────────────────
 
   const stopReplay = useCallback(() => {
     if (replayTimerRef.current) {
-      clearInterval(replayTimerRef.current)
-      replayTimerRef.current = null
+      clearInterval(replayTimerRef.current);
+      replayTimerRef.current = null;
     }
-    setIsReplaying(false)
-    setIsPaused(false)
-    replayMoveIndexRef.current = -1
-  }, [])
+    setIsReplaying(false);
+    setIsPaused(false);
+    replayMoveIndexRef.current = -1;
+  }, []);
 
   const pauseReplay = useCallback(() => {
     if (replayTimerRef.current) {
-      clearInterval(replayTimerRef.current)
-      replayTimerRef.current = null
+      clearInterval(replayTimerRef.current);
+      replayTimerRef.current = null;
     }
-    setIsPaused(true)
-  }, [])
+    setIsPaused(true);
+  }, []);
 
   const resumeReplay = useCallback(() => {
-    if (!isReplaying || !isPaused) return
-
-    setIsPaused(false)
-
+    if (!isReplaying || !isPaused) return;
+    setIsPaused(false);
     replayTimerRef.current = setInterval(() => {
-      replayMoveIndexRef.current++
+      replayMoveIndexRef.current++;
       if (replayMoveIndexRef.current >= gameHistory.moves.length) {
-        stopReplay()
-        return
+        stopReplay();
+        return;
       }
-      setCurrentMoveIndex(replayMoveIndexRef.current)
-    }, 1500)
-  }, [isReplaying, isPaused, gameHistory.moves.length, stopReplay])
+      setCurrentMoveIndex(replayMoveIndexRef.current);
+    }, 1500);
+  }, [isReplaying, isPaused, gameHistory.moves.length, stopReplay]);
 
   const navigateTo = useCallback(
     (index: number) => {
-      if (isReplaying) {
-        stopReplay()
-      }
-      setCurrentMoveIndex(Math.max(-1, Math.min(index, gameHistory.moves.length - 1)))
+      if (isReplaying) stopReplay();
+      setCurrentMoveIndex(
+        Math.max(-1, Math.min(index, gameHistory.moves.length - 1)),
+      );
     },
     [gameHistory.moves.length, isReplaying, stopReplay],
-  )
+  );
 
   const startReplay = useCallback(() => {
-    if (gameHistory.moves.length === 0) return
-
-    stopReplay()
-
-    setCurrentMoveIndex(-1)
-    setIsReplaying(true)
-    setIsPaused(false)
-    replayMoveIndexRef.current = -1
-
+    if (gameHistory.moves.length === 0) return;
+    stopReplay();
+    setCurrentMoveIndex(-1);
+    setIsReplaying(true);
+    setIsPaused(false);
+    replayMoveIndexRef.current = -1;
     replayTimerRef.current = setInterval(() => {
-      replayMoveIndexRef.current++
+      replayMoveIndexRef.current++;
       if (replayMoveIndexRef.current >= gameHistory.moves.length) {
-        stopReplay()
-        return
+        stopReplay();
+        return;
       }
-      setCurrentMoveIndex(replayMoveIndexRef.current)
-    }, 1500)
-  }, [gameHistory.moves.length, stopReplay])
+      setCurrentMoveIndex(replayMoveIndexRef.current);
+    }, 1500);
+  }, [gameHistory.moves.length, stopReplay]);
 
   const toggleReplay = useCallback(() => {
-    if (!isReplaying) {
-      startReplay()
-    } else if (isPaused) {
-      resumeReplay()
-    } else {
-      pauseReplay()
-    }
-  }, [isReplaying, isPaused, startReplay, resumeReplay, pauseReplay])
+    if (!isReplaying) startReplay();
+    else if (isPaused) resumeReplay();
+    else pauseReplay();
+  }, [isReplaying, isPaused, startReplay, resumeReplay, pauseReplay]);
 
   useEffect(() => {
     return () => {
-      if (replayTimerRef.current) {
-        clearInterval(replayTimerRef.current)
-      }
-    }
-  }, [])
+      if (replayTimerRef.current) clearInterval(replayTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
-    stopReplay()
-  }, [currentPgn, stopReplay])
+    stopReplay();
+  }, [currentPgn, stopReplay]);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
-      e.preventDefault()
-      setIsResizing(true)
-
-      const startX = e.clientX
-      const startWidth = boardContainerWidth
-
-      function handleMouseMove(e: MouseEvent) {
-        const deltaX = e.clientX - startX
-        // Allow resize from 250px to 650px
-        const newWidth = Math.max(250, Math.min(startWidth + deltaX, 650))
-        setBoardContainerWidth(newWidth)
+      e.preventDefault();
+      setIsResizing(true);
+      const startX = e.clientX;
+      const startWidth = boardContainerWidth;
+      function onMove(ev: MouseEvent) {
+        setBoardContainerWidth(
+          Math.max(250, Math.min(startWidth + (ev.clientX - startX), 650)),
+        );
       }
-
-      function handleMouseUp() {
-        setIsResizing(false)
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
+      function onUp() {
+        setIsResizing(false);
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
       }
-
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
     },
     [boardContainerWidth],
-  )
+  );
 
-  const handleTournamentSelect = (tournamentName: TournamentId) => {
-    if (tournamentName !== selectedTournamentId) {
-      setSelectedTournamentId(tournamentName)
+  const handleEngineToggle = useCallback((enabled: boolean) => {
+    setEngineEnabled(enabled);
+    if (!enabled) {
+      setEvalScore(null);
+      setEvalMate(null);
     }
-  }
+  }, []);
 
-  const handleGameSelect = (index: number) => {
-    setCurrentGameIndex(index)
-  }
+  const handleEvalUpdate = useCallback(
+    (score: number | null, mate: number | null) => {
+      setEvalScore(score);
+      setEvalMate(mate);
+    },
+    [],
+  );
 
-  const selectedTournament = tournaments.find((t) => t.name === selectedTournamentId)
+  const selectedTournament = tournaments.find(
+    (t) => t.name === selectedTournamentId,
+  );
   const selectedTournamentName =
-    selectedTournament?.alias || selectedTournament?.display_name || selectedTournamentId || "Select a tournament"
+    selectedTournament?.alias ||
+    selectedTournament?.display_name ||
+    selectedTournamentId ||
+    "Select a tournament";
   const selectedGameTitle =
-    games[currentGameIndex]?.title || (games.length > 0 ? "Select a game" : "No games available")
+    games[currentGameIndex]?.title ||
+    (games.length > 0 ? "Select a game" : "No games available");
+  const currentFen = gameHistory.fenHistory[currentMoveIndex + 1] ?? null;
+
+  const squareStyles = lastMove
+    ? {
+        [lastMove.from]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
+        [lastMove.to]: { backgroundColor: "rgba(59, 130, 246, 0.4)" },
+      }
+    : {};
+
+  const boardAndControls = (
+    <div className="space-y-2">
+      <div className="flex gap-1.5 items-stretch w-full">
+        <EvalBar
+          score={evalScore}
+          mate={evalMate}
+          isEnabled={engineEnabled}
+          height={boardWidth || 300}
+        />
+        <div
+          ref={boardWrapperRef}
+          className={cn(
+            "flex-1 aspect-square rounded-sm overflow-hidden border border-border shadow-md relative",
+            isResizing && "ring-2 ring-primary/50",
+          )}
+        >
+          {boardWidth > 0 ? (
+            <Chessboard
+              boardWidth={boardWidth}
+              position={currentFen || "start"}
+              arePiecesDraggable={false}
+              customSquareStyles={squareStyles}
+            />
+          ) : (
+            <div className="w-full h-full bg-muted animate-pulse" />
+          )}
+          {isDesktop && (
+            <button
+              className="absolute bottom-2 right-2 w-6 h-6 bg-muted/90 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity shadow-sm"
+              style={{ cursor: "se-resize" }}
+              onMouseDown={handleResizeStart}
+              aria-label="Resize board"
+            >
+              <Expand className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </div>
+      <Controls
+        onStart={() => navigateTo(-1)}
+        onPrev={() => navigateTo(currentMoveIndex - 1)}
+        onNext={() => navigateTo(currentMoveIndex + 1)}
+        onEnd={() => navigateTo(gameHistory.moves.length - 1)}
+        onReplay={toggleReplay}
+        canGoBack={currentMoveIndex > -1}
+        canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
+        isReplaying={isReplaying}
+        isPaused={isPaused}
+      />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-7xl mx-auto space-y-4 p-2 md:p-4">
-        <header className="text-center space-y-2 mb-4">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
-            Limpopo Chess Academy Games Database
+      <div className="max-w-7xl mx-auto space-y-3 p-2 sm:p-3 md:p-4">
+        {/* Header */}
+        <header className="text-center pt-1 pb-1">
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight">
+            Limpopo Chess Academy
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
-            Chess games from tournaments in and around Limpopo. Updated regularly.
+          <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+            Games Database · Updated regularly
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-card border border-border p-3 rounded-lg shadow-sm">
+        {/* Selectors */}
+        <div className="grid grid-cols-2 gap-2 bg-card border border-border p-2.5 rounded-lg shadow-sm">
           <div>
-            <h3 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Tournament</h3>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+              Tournament
+            </p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-3 py-4 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-2.5 h-9 text-xs transition-all shadow-sm"
                 >
-                  <span className="truncate text-sm font-medium text-foreground">{selectedTournamentName}</span>
-                  <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">
+                    {selectedTournamentName}
+                  </span>
+                  <ChevronDown className="ml-1 w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg bg-card p-1.5 border border-border shadow-xl">
+              <DropdownMenuContent className="w-[90vw] sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg bg-card p-1.5 border border-border shadow-xl">
                 {tournaments.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">No tournaments available</div>
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    No tournaments available
+                  </div>
                 ) : (
                   tournaments.map((t, i) => (
                     <DropdownMenuItem
                       key={t.name}
-                      onSelect={() => handleTournamentSelect(t.name as TournamentId)}
-                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? "bg-accent/30" : ""}`}
+                      onSelect={() => {
+                        if (t.name !== selectedTournamentId)
+                          setSelectedTournamentId(t.name as TournamentId);
+                      }}
+                      className={cn(
+                        "cursor-pointer flex items-center justify-between gap-2 px-2.5 py-2 rounded-md text-sm",
+                        i % 2 === 0 && "bg-accent/20",
+                      )}
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
-                            {t.alias || t.display_name || t.name}
-                          </span>
-                          <span className="block text-xs text-muted-foreground truncate mt-0.5 font-mono">
-                            {t.name}
-                          </span>
-                        </div>
-                      </div>
+                      <span className="truncate font-medium">
+                        {t.alias || t.display_name || t.name}
+                      </span>
                       {isNewItem(t.created_at) && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">
                           New
                         </span>
                       )}
@@ -354,379 +500,415 @@ export default function ViewOnlyPage() {
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wide">Game</h3>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+              Game
+            </p>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
+              <DropdownMenuTrigger
+                asChild
+                disabled={isLoading || games.length === 0}
+              >
                 <Button
                   variant="outline"
-                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-3 py-4 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-background"
+                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-2.5 h-9 text-xs transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {isLoading ? "Loading games..." : selectedGameTitle}
+                  <span className="truncate font-medium">
+                    {isLoading ? "Loading…" : selectedGameTitle}
                   </span>
-                  <ChevronDown className="ml-2 w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  <ChevronDown className="ml-1 w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-screen sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[50vh] sm:max-h-72 overflow-y-auto rounded-lg bg-card p-1.5 border border-border shadow-xl">
-                {games.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">No games available</div>
-                ) : (
-                  games.map((g, i) => (
-                    <DropdownMenuItem
-                      key={g.id}
-                      className={`cursor-pointer flex items-center justify-between gap-3 p-3 rounded-md transition-colors duration-150 ${i % 2 === 0 ? "bg-accent/30" : ""}`}
-                      onSelect={() => handleGameSelect(i)}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="w-6 text-right flex-shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="block truncate font-medium text-foreground group-hover:text-accent-foreground">
-                            {(() => {
-                              // Extract player names from PGN headers for cleaner display
-                              const whiteMatch = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m)
-                              const blackMatch = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m)
-                              const white = whiteMatch ? whiteMatch[1] : "Unknown"
-                              const black = blackMatch ? blackMatch[1] : "Unknown"
-                              return `${white} vs ${black}`
-                            })()}
-                          </span>
-                          <span className="block text-xs text-muted-foreground truncate mt-0.5">{g.title}</span>
-                        </div>
-                      </div>
-                      {isNewItem(g.created_at) && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm flex-shrink-0">
-                          New
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))
-                )}
+              <DropdownMenuContent className="w-[90vw] sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[55vh] overflow-y-auto rounded-lg bg-card p-1.5 border border-border shadow-xl">
+                {games.map((g, i) => (
+                  <DropdownMenuItem
+                    key={g.id}
+                    onSelect={() => setCurrentGameIndex(i)}
+                    className={cn(
+                      "cursor-pointer flex items-center justify-between gap-2 px-2.5 py-2 rounded-md text-sm",
+                      i % 2 === 0 && "bg-accent/20",
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <span className="block truncate font-medium">
+                        {(() => {
+                          const w = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m);
+                          const b = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m);
+                          return `${w?.[1] ?? "?"} vs ${b?.[1] ?? "?"}`;
+                        })()}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground truncate block">
+                        {g.title}
+                      </span>
+                    </div>
+                    {isNewItem(g.created_at) && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">
+                        New
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,500px)_minmax(250px,1fr)] gap-4">
-            <div className="w-full max-w-full mx-auto lg:mx-0">
-              <div className="bg-muted animate-pulse rounded-md aspect-square" />
-            </div>
-            <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
-              <div className="space-y-2">
-                <div className="h-5 w-1/3 bg-muted rounded animate-pulse mb-3" />
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-5 bg-muted rounded animate-pulse" />
-                ))}
-              </div>
-            </div>
-          </div>
+          <div className="bg-muted animate-pulse rounded-md w-full aspect-square max-w-sm mx-auto" />
         ) : games.length === 0 ? (
-          <div className="bg-card border border-border p-6 rounded-lg text-center shadow-sm">
-            <p className="text-muted-foreground">No games available for this tournament.</p>
+          <div className="bg-card border border-border p-6 rounded-lg text-center">
+            <p className="text-muted-foreground text-sm">
+              No games available for this tournament.
+            </p>
           </div>
         ) : (
-          <div
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,auto)_minmax(200px,1fr)] gap-4 items-start"
-            style={{
-              gridTemplateColumns:
-                window.innerWidth >= 1024 ? `minmax(0, ${boardContainerWidth}px) minmax(200px, 1fr)` : "1fr",
-            }}
-          >
-            <div
-              ref={leftColumnRef}
-              className="space-y-2 w-full max-w-full mx-auto lg:mx-0"
-              style={{
-                maxWidth: window.innerWidth >= 1024 ? `${boardContainerWidth}px` : "100%",
-                transition: isResizing ? "none" : "max-width 0.2s ease-out",
-              }}
-            >
-              <div
-                ref={boardWrapperRef}
-                className={`w-full aspect-square shadow-lg rounded-sm overflow-hidden border border-border relative ${isResizing ? "ring-2 ring-primary/50" : ""}`}
-                style={{
-                  maxWidth: "min(100%, 650px)",
-                }}
-              >
-                {boardWidth && boardWidth > 0 ? (
-                  <Chessboard
-                    boardWidth={boardWidth}
-                    position={gameHistory.fenHistory[currentMoveIndex + 1] || "start"}
-                    arePiecesDraggable={false}
-                    customSquareStyles={
-                      lastMove
-                        ? {
-                            [lastMove.from]: BOARD_CUSTOM_SQUARE_STYLES.lastMove,
-                            [lastMove.to]: BOARD_CUSTOM_SQUARE_STYLES.lastMove,
-                          }
-                        : {}
-                    }
-                  />
-                ) : (
-                  <div className="w-full h-full bg-muted animate-pulse" />
-                )}
-
-                <button
-                  className="hidden lg:flex absolute bottom-2 right-2 w-6 h-6 bg-muted/90 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity shadow-sm"
-                  style={{ cursor: "se-resize" }}
-                  onMouseDown={handleResizeStart}
-                  aria-label="Resize board and controls"
-                  title="Drag to resize (resizes entire layout)"
-                >
-                  <Expand className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-              </div>
-
-              <div className="w-full">
-                <Controls
-                  onStart={() => navigateTo(-1)}
-                  onPrev={() => navigateTo(currentMoveIndex - 1)}
-                  onNext={() => navigateTo(currentMoveIndex + 1)}
-                  onEnd={() => navigateTo(gameHistory.moves.length - 1)}
-                  onReplay={toggleReplay}
-                  canGoBack={currentMoveIndex > -1}
-                  canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
-                  isReplaying={isReplaying}
-                  isPaused={isPaused}
+          <>
+            {/* ── MOBILE: stacked, game info first then engine then board ── */}
+            {isMobile && (
+              <div className="space-y-2">
+                <GameInfoStrip headers={gameHeaders} />
+                {boardAndControls}
+                <AnalysisPanel
+                  fen={currentFen}
+                  onToggle={handleEngineToggle}
+                  onEvalUpdate={handleEvalUpdate}
+                />
+                <MovesList
+                  moves={gameHistory.moves}
+                  currentMoveIndex={currentMoveIndex}
+                  onMoveSelect={navigateTo}
                 />
               </div>
-            </div>
+            )}
 
-            <div className="space-y-2 flex flex-col min-h-[400px] lg:min-h-[500px]">
-              <GameInfo headers={gameHeaders} />
-              <MovesList
-                moves={gameHistory.moves}
-                currentMoveIndex={currentMoveIndex}
-                onMoveSelect={(i) => navigateTo(i)}
-              />
-            </div>
-          </div>
+            {/* ── TABLET: game info + engine above board, moves below ── */}
+            {!isMobile && !isDesktop && (
+              <div className="space-y-2">
+                <GameInfoStrip headers={gameHeaders} />
+                <AnalysisPanel
+                  fen={currentFen}
+                  onToggle={handleEngineToggle}
+                  onEvalUpdate={handleEvalUpdate}
+                />
+                {boardAndControls}
+                <MovesList
+                  moves={gameHistory.moves}
+                  currentMoveIndex={currentMoveIndex}
+                  onMoveSelect={navigateTo}
+                />
+              </div>
+            )}
+
+            {/* ── DESKTOP: two col ── */}
+            {isDesktop && (
+              <div
+                className="grid gap-4 items-start"
+                style={{
+                  gridTemplateColumns: `minmax(0, ${boardContainerWidth}px) minmax(240px, 1fr)`,
+                }}
+              >
+                {/* Left */}
+                <div
+                  className="space-y-2"
+                  style={{
+                    maxWidth: `${boardContainerWidth}px`,
+                    transition: isResizing ? "none" : "max-width 0.2s ease-out",
+                  }}
+                >
+                  {boardAndControls}
+                </div>
+
+                {/* Right */}
+                <div className="space-y-2 flex flex-col">
+                  <GameInfoStrip headers={gameHeaders} />
+                  <AnalysisPanel
+                    fen={currentFen}
+                    onToggle={handleEngineToggle}
+                    onEvalUpdate={handleEvalUpdate}
+                  />
+                  <MovesList
+                    moves={gameHistory.moves}
+                    currentMoveIndex={currentMoveIndex}
+                    onMoveSelect={navigateTo}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
-  )
+  );
 }
 
-const Controls = React.memo(
-  ({
-    onStart,
-    onPrev,
-    onNext,
-    onEnd,
-    onReplay,
-    canGoBack,
-    canGoForward,
-    isReplaying,
-    isPaused,
-  }: {
-    onStart: () => void
-    onPrev: () => void
-    onNext: () => void
-    onEnd: () => void
-    onReplay: () => void
-    canGoBack: boolean
-    canGoForward: boolean
-    isReplaying: boolean
-    isPaused: boolean
-  }) => {
-    const showPauseIcon = isReplaying && !isPaused
-    const showPlayIcon = !isReplaying || isPaused
+// ─── Game info strip ──────────────────────────────────────────────────────────
 
-    return (
-      <div className="flex justify-center items-center gap-1.5 p-2 bg-card border border-border rounded-sm shadow-sm">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onStart}
-          disabled={!canGoBack || (isReplaying && !isPaused)}
-          aria-label="Go to start"
-          className="flex-1 rounded-sm bg-transparent h-9"
-        >
-          <ChevronsLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onPrev}
-          disabled={!canGoBack || (isReplaying && !isPaused)}
-          aria-label="Previous move"
-          className="flex-1 rounded-sm bg-transparent h-9"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          variant={isReplaying && !isPaused ? "default" : "outline"}
-          size="sm"
-          onClick={onReplay}
-          aria-label={showPauseIcon ? "Pause replay" : "Play game"}
-          className="flex-1 rounded-sm bg-transparent h-9"
-        >
-          {showPauseIcon ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onNext}
-          disabled={!canGoForward || (isReplaying && !isPaused)}
-          aria-label="Next move"
-          className="flex-1 rounded-sm bg-transparent h-9"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEnd}
-          disabled={!canGoForward || (isReplaying && !isPaused)}
-          aria-label="Go to end"
-          className="flex-1 rounded-sm bg-transparent h-9"
-        >
-          <ChevronsRight className="w-4 h-4" />
-        </Button>
-      </div>
-    )
-  },
-)
-Controls.displayName = "Controls"
+function GameInfoStrip({ headers }: { headers: Record<string, string> }) {
+  const white = headers.White || "Unknown";
+  const black = headers.Black || "Unknown";
+  const event = headers.Event || "";
+  const result = headers.Result || "*";
+  const date = headers.Date?.replace(/\./g, "-") || "";
+  const whiteElo = headers.WhiteElo;
+  const blackElo = headers.BlackElo;
 
-const MovesList = React.memo(
-  ({
-    moves,
-    currentMoveIndex,
-    onMoveSelect,
-  }: { moves: UiMove[]; currentMoveIndex: number; onMoveSelect: (i: number) => void }) => {
-    const movesListRef = useRef<HTMLDivElement>(null)
-    const activeMoveRef = useRef<HTMLButtonElement>(null)
+  const resultColor =
+    result === "1-0"
+      ? "text-amber-500"
+      : result === "0-1"
+        ? "text-blue-400"
+        : "text-muted-foreground";
 
-    useEffect(() => {
-      if (activeMoveRef.current && movesListRef.current) {
-        const container = movesListRef.current
-        const element = activeMoveRef.current
+  return (
+    <div className="rounded-sm border border-border overflow-hidden shadow-sm">
+      {/* Players */}
+      <div className="flex items-stretch divide-x divide-border">
+        {/* White player — light background */}
+        <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-[#f8f8f6]">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[#1a1a1a] truncate leading-tight">
+              {white}
+            </p>
+            {whiteElo && (
+              <p className="text-[10px] text-[#555] font-mono">{whiteElo}</p>
+            )}
+          </div>
+        </div>
 
-        requestAnimationFrame(() => {
-          const containerRect = container.getBoundingClientRect()
-          const elementRect = element.getBoundingClientRect()
+        {/* Result — center */}
+        <div className="flex flex-col items-center justify-center px-3 py-2 bg-card flex-shrink-0 min-w-[64px]">
+          <span
+            className={cn(
+              "text-sm font-bold font-mono tabular-nums leading-none",
+              resultColor,
+            )}
+          >
+            {result}
+          </span>
+        </div>
 
-          const elementHeight = elementRect.height
-          const visibleTop = Math.max(elementRect.top, containerRect.top)
-          const visibleBottom = Math.min(elementRect.bottom, containerRect.bottom)
-          const visibleHeight = Math.max(0, visibleBottom - visibleTop)
-          const visibilityRatio = visibleHeight / elementHeight
-
-          if (visibilityRatio < 0.3) {
-            const elementOffsetTop = element.offsetTop
-            const containerHeight = container.clientHeight
-            const targetScroll = elementOffsetTop - containerHeight / 2 + elementHeight / 2
-
-            container.scrollTo({
-              top: targetScroll,
-              behavior: "smooth",
-            })
-          }
-        })
-      }
-    }, [currentMoveIndex])
-
-    return (
-      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col">
-        <div
-          ref={movesListRef}
-          className="overflow-y-auto p-3 flex-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
-        >
-          <div className="grid grid-cols-[auto_1fr_1fr] gap-x-2 gap-y-1 items-center">
-            {moves.map((move, index) =>
-              index % 2 === 0 ? (
-                <React.Fragment key={index}>
-                  <div className="text-right text-muted-foreground font-mono pr-1 text-xs tabular-nums w-7">
-                    {move.moveNumber}.
-                  </div>
-                  <MoveButton
-                    move={move}
-                    index={index}
-                    isCurrent={currentMoveIndex === index}
-                    onMoveSelect={onMoveSelect}
-                    ref={currentMoveIndex === index ? activeMoveRef : null}
-                  />
-                  {moves[index + 1] && (
-                    <MoveButton
-                      move={moves[index + 1]}
-                      index={index + 1}
-                      isCurrent={currentMoveIndex === index + 1}
-                      onMoveSelect={onMoveSelect}
-                      ref={currentMoveIndex === index + 1 ? activeMoveRef : null}
-                    />
-                  )}
-                </React.Fragment>
-              ) : null,
+        {/* Black player — dark background */}
+        <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-[#1c1c1c] justify-end text-right">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[#f0f0f0] truncate leading-tight">
+              {black}
+            </p>
+            {blackElo && (
+              <p className="text-[10px] text-[#aaa] font-mono">{blackElo}</p>
             )}
           </div>
         </div>
       </div>
-    )
-  },
-)
-MovesList.displayName = "MovesList"
 
-const MoveButton = React.forwardRef<
-  HTMLButtonElement,
-  { move: UiMove; index: number; isCurrent: boolean; onMoveSelect: (i: number) => void }
->(({ move, index, isCurrent, onMoveSelect }, ref) => (
-  <button
-    ref={ref}
-    onClick={() => onMoveSelect(index)}
-    aria-current={isCurrent ? "true" : "false"}
-    aria-label={`Move ${index + 1}: ${move.san}`}
-    className={`w-full text-left px-2 py-1 rounded transition-all duration-150 font-mono text-xs ${
-      isCurrent
-        ? "bg-primary text-primary-foreground shadow-sm font-semibold"
-        : "hover:bg-accent/70 text-foreground hover:shadow-sm"
-    }`}
-  >
-    {move.san}
-  </button>
-))
-MoveButton.displayName = "MoveButton"
+      {/* Meta row */}
+      {event && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 border-t border-border">
+          <Trophy className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <span className="text-[11px] text-muted-foreground truncate flex-1">
+            {event}
+          </span>
+          {date && (
+            <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+              <Calendar className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[11px] text-muted-foreground">{date}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-const GameInfo: React.FC<{ headers: Record<string, string> }> = ({ headers }) => {
-  const white = headers.White || headers.white || "N/A"
-  const black = headers.Black || headers.black || "N/A"
-  const event = headers.Event || headers.event || "N/A"
-  const result = headers.Result || headers.result || "*"
-  const date = headers.Date || headers.date || headers.UTCDate || "N/A"
-  const whiteElo = headers.WhiteElo || headers.whiteElo || ""
-  const blackElo = headers.BlackElo || headers.blackElo || ""
+// ─── Controls ─────────────────────────────────────────────────────────────────
+
+const Controls = React.memo(function Controls({
+  onStart,
+  onPrev,
+  onNext,
+  onEnd,
+  onReplay,
+  canGoBack,
+  canGoForward,
+  isReplaying,
+  isPaused,
+}: {
+  onStart: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onEnd: () => void;
+  onReplay: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  isReplaying: boolean;
+  isPaused: boolean;
+}) {
+  const showPause = isReplaying && !isPaused;
+  const btnClass = "flex-1 rounded-sm bg-transparent h-10 sm:h-9";
+  return (
+    <div className="flex justify-center items-center gap-1 p-1.5 bg-card border border-border rounded-sm shadow-sm">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onStart}
+        disabled={!canGoBack || (isReplaying && !isPaused)}
+        aria-label="Start"
+        className={btnClass}
+      >
+        <ChevronsLeft className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onPrev}
+        disabled={!canGoBack || (isReplaying && !isPaused)}
+        aria-label="Prev"
+        className={btnClass}
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </Button>
+      <Button
+        variant={showPause ? "default" : "outline"}
+        size="sm"
+        onClick={onReplay}
+        aria-label={showPause ? "Pause" : "Play"}
+        className={btnClass}
+      >
+        {showPause ? (
+          <Pause className="w-4 h-4" />
+        ) : (
+          <Play className="w-4 h-4" />
+        )}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onNext}
+        disabled={!canGoForward || (isReplaying && !isPaused)}
+        aria-label="Next"
+        className={btnClass}
+      >
+        <ChevronRight className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onEnd}
+        disabled={!canGoForward || (isReplaying && !isPaused)}
+        aria-label="End"
+        className={btnClass}
+      >
+        <ChevronsRight className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+});
+
+// ─── Moves list ───────────────────────────────────────────────────────────────
+// Horizontal wrap layout: "1. e4 e5  2. Nf3 Nc6  3. Bb5 …"
+// Each full move (white + black) sits on one visual row, wrapped naturally.
+
+const MovesList = React.memo(function MovesList({
+  moves,
+  currentMoveIndex,
+  onMoveSelect,
+}: {
+  moves: UiMove[];
+  currentMoveIndex: number;
+  onMoveSelect: (index: number) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [currentMoveIndex]);
+
+  // Group moves into pairs: [[white, black?], ...]
+  const movePairs: Array<[UiMove, UiMove | null]> = [];
+  for (let i = 0; i < moves.length; i += 2) {
+    movePairs.push([moves[i], moves[i + 1] ?? null]);
+  }
 
   return (
-    <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">White</div>
-          <div className="text-base font-bold text-foreground leading-snug truncate">{white}</div>
-          {whiteElo && <div className="text-xs text-muted-foreground mt-0.5">{whiteElo}</div>}
-        </div>
-
-        <div className="flex-shrink-0 px-3 py-2 bg-primary/10 border border-primary/20 rounded-md text-center">
-          <div className="text-lg font-bold text-primary leading-none">{result}</div>
-        </div>
-
-        <div className="flex-1 min-w-0 text-right">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Black</div>
-          <div className="text-base font-bold text-foreground leading-snug truncate">{black}</div>
-          {blackElo && <div className="text-xs text-muted-foreground mt-0.5">{blackElo}</div>}
-        </div>
+    <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+          Moves
+        </h3>
+        {moves.length > 0 && (
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {currentMoveIndex >= 0 ? currentMoveIndex + 1 : 0}/{moves.length}
+          </span>
+        )}
       </div>
 
-      <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Event</div>
-          <div className="text-sm font-medium text-foreground/80 leading-tight truncate">{event}</div>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Date</div>
-          <div className="text-sm text-muted-foreground leading-tight">{date}</div>
-        </div>
+      <div
+        ref={listRef}
+        className="overflow-y-auto p-2"
+        style={{ maxHeight: "220px" }}
+      >
+        {moves.length === 0 ? (
+          <p className="text-center py-4 text-sm text-muted-foreground">
+            No moves recorded.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-x-1 gap-y-0.5">
+            {movePairs.map(([white, black], pairIndex) => {
+              const whiteIndex = pairIndex * 2;
+              const blackIndex = pairIndex * 2 + 1;
+              return (
+                <span
+                  key={pairIndex}
+                  className="flex items-baseline gap-0.5 flex-shrink-0"
+                >
+                  {/* Move number */}
+                  <span className="text-[11px] text-muted-foreground font-mono select-none">
+                    {white.moveNumber}.
+                  </span>
+
+                  {/* White move */}
+                  <button
+                    ref={
+                      whiteIndex === currentMoveIndex ? activeRef : undefined
+                    }
+                    onClick={() => onMoveSelect(whiteIndex)}
+                    className={cn(
+                      "text-sm px-1 py-0.5 rounded-[2px] transition-colors duration-100 font-medium leading-none",
+                      whiteIndex === currentMoveIndex
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-accent/60 text-foreground",
+                    )}
+                  >
+                    {white.san}
+                  </button>
+
+                  {/* Black move */}
+                  {black && (
+                    <button
+                      ref={
+                        blackIndex === currentMoveIndex ? activeRef : undefined
+                      }
+                      onClick={() => onMoveSelect(blackIndex)}
+                      className={cn(
+                        "text-sm px-1 py-0.5 rounded-[2px] transition-colors duration-100 font-medium leading-none",
+                        blackIndex === currentMoveIndex
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent/60 text-foreground",
+                      )}
+                    >
+                      {black.san}
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
-  )
-}
+  );
+});

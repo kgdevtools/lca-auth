@@ -1,46 +1,49 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Menu, X, UserPlus } from "lucide-react"
-import { NavLink } from "@/components/nav-links"
-import { usePathname } from "next/navigation"
+import * as React from "react";
+import { Menu, X, UserPlus } from "lucide-react";
+import { NavLink } from "@/components/nav-links";
+import { usePathname } from "next/navigation";
 
 interface MobileNavProps {
-  isAuthenticated: boolean
-  isAdmin?: boolean
+  isAuthenticated: boolean;
+  isAdmin?: boolean;
 }
 
-export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) {
-  const [open, setOpen] = React.useState(false)
-  const pathname = usePathname()
+export function MobileNav({
+  isAuthenticated,
+  isAdmin = false,
+}: MobileNavProps) {
+  const [open, setOpen] = React.useState(false);
+  const pathname = usePathname();
 
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false)
+      if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   React.useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (!containerRef.current) return
+      if (!containerRef.current) return;
       if (!containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        setOpen(false);
       }
     }
     if (open) {
-      document.addEventListener("mousedown", onClickOutside)
+      document.addEventListener("mousedown", onClickOutside);
     }
-    return () => document.removeEventListener("mousedown", onClickOutside)
-  }, [open])
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
 
   // Close menu on route change
   React.useEffect(() => {
-    setOpen(false)
-  }, [pathname])
+    setOpen(false);
+  }, [pathname]);
 
   return (
     <div className="relative md:hidden" ref={containerRef}>
@@ -51,7 +54,11 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
         onClick={() => setOpen((v) => !v)}
         className="inline-flex h-9 w-9 items-center justify-center rounded-md border hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-offset-2"
       >
-        {open ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />}
+        {open ? (
+          <X className="h-4 w-4" aria-hidden />
+        ) : (
+          <Menu className="h-4 w-4" aria-hidden />
+        )}
       </button>
       {open ? (
         <div
@@ -103,10 +110,10 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             </NavLink>
             {/* View Games */}
             <NavLink href="/view" color="gray">
-              View Games
+              Games
             </NavLink>
-            <NavLink href="/forms" color="gray" badge="Register">
-              Join Academy
+            <NavLink href="/forms" color="gray">
+              Join
             </NavLink>
             {!isAuthenticated && (
               <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1">
@@ -118,5 +125,5 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
         </div>
       ) : null}
     </div>
-  )
+  );
 }

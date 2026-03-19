@@ -1,84 +1,81 @@
-import { getTournaments } from '@/app/tournaments/server-actions'
-import Link from 'next/link'
-import { Calendar, MapPin, Trophy, ArrowRight } from 'lucide-react'
+import { getTournaments } from "@/app/tournaments/server-actions";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export async function CompactTournamentsCard() {
-  const tournaments = await getTournaments()
-  const latestTournament = tournaments[0]
+  const tournaments = await getTournaments();
+  const t = tournaments[0];
 
-  if (!latestTournament) {
+  if (!t) {
     return (
-      <div className="rounded-lg border border-border bg-card p-3 flex flex-col h-full">
-        <h2 className="text-lg font-bold mb-2 text-primary">Latest Tournament</h2>
-        <div className="flex-1 flex items-center justify-center text-center">
-          <p className="text-muted-foreground text-sm">No tournaments yet</p>
-        </div>
+      <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4">
+        <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
+          Latest Tournament
+        </p>
+        <p className="text-muted-foreground text-sm">No tournaments yet</p>
       </div>
-    )
+    );
   }
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "Date TBA"
+    if (!dateStr) return null;
     try {
       return new Date(dateStr).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-        year: "numeric"
-      })
+        year: "numeric",
+      });
     } catch {
-      return dateStr
+      return dateStr;
     }
-  }
+  };
+
+  // Build compact inline meta string
+  const metaParts: string[] = [];
+  if (formatDate(t.date)) metaParts.push(formatDate(t.date)!);
+  if (t.location) metaParts.push(t.location);
+  if (t.average_elo) metaParts.push(`Avg Elo ${Math.round(t.average_elo)}`);
+  if (t.rounds) metaParts.push(`${t.rounds}R`);
+  if (t.time_control) metaParts.push(t.time_control);
 
   return (
     <Link
-      href={`/tournaments/${latestTournament.id}`}
-      className="group relative rounded-lg border border-border bg-card hover:border-primary/50 transition-all duration-300 hover:shadow-lg overflow-hidden block flex-1 min-h-[280px]"
+      href={`/tournaments/${t.id}`}
+      className="group rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 hover:shadow-lg overflow-hidden block"
     >
-      <div className="p-5 h-full flex flex-col">
-        <div className="flex items-start justify-between mb-3">
-          <h2 className="text-lg font-bold text-primary group-hover:text-primary/80 flex items-center gap-2">
+      <div className="p-4">
+        {/* Section label */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1">
             Latest Tournament
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </h2>
-          {latestTournament.tournament_type && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary border border-primary/20">
-              {latestTournament.tournament_type}
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+          </p>
+          {t.tournament_type && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary border border-primary/20">
+              {t.tournament_type}
             </span>
           )}
         </div>
 
-        <h3 className="text-lg font-bold mb-3 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
-          {latestTournament.tournament_name}
+        {/* Tournament name — visual focus */}
+        <h3 className="text-base sm:text-lg font-bold leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+          {t.tournament_name}
         </h3>
 
-        <div className="space-y-2 flex-1 flex flex-col justify-between py-2">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="w-4 h-4 flex-shrink-0 text-primary/70" />
-            <span className="text-sm font-medium">{latestTournament.location || "Location TBA"}</span>
-          </div>
+        {/* Inline meta — date · location · avg elo · rounds */}
+        {metaParts.length > 0 && (
+          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+            {metaParts.join(" · ")}
+          </p>
+        )}
 
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="w-4 h-4 flex-shrink-0 text-primary/70" />
-            <span className="text-sm font-medium">{formatDate(latestTournament.date)}</span>
-          </div>
-
-          {latestTournament.chief_arbiter && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Trophy className="w-4 h-4 flex-shrink-0 text-primary/70" />
-              <span className="text-sm font-medium">CA: {latestTournament.chief_arbiter}</span>
-            </div>
-          )}
-        </div>
-
-        {latestTournament.average_elo && (
-          <div className="mt-auto pt-3 border-t border-border">
-            <div className="text-sm text-muted-foreground">
-              Avg Elo: <span className="font-bold text-foreground text-primary">{Math.round(latestTournament.average_elo)}</span>
-            </div>
-          </div>
+        {/* Chief arbiter if present */}
+        {t.chief_arbiter && (
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            CA: {t.chief_arbiter}
+          </p>
         )}
       </div>
     </Link>
-  )
+  );
 }

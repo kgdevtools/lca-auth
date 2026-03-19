@@ -1,26 +1,64 @@
 import type { NextConfig } from "next";
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
 
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
-})
-
-type NextConfigWithDevOrigins = NextConfig & {
-  experimental?: {
-
-  }
-  images?: {
-    domains: string[];
-  }
-}
-
-const nextConfig: NextConfigWithDevOrigins = {
-  experimental: {
-    // Allow your mobile device (LAN) to load dev assets from this server
-    // Replace with your device IP and port if it changes
-
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        // Only apply COOP/COEP to the engine paths that need SharedArrayBuffer
+        // Applying it globally blocks external images from loading
+        source: "/(view|engine)(.*)",
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
+          },
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
+          },
+        ],
+      },
+    ];
   },
+
   images: {
-    domains: ['i.ibb.co', 'images.ctfassets.net'],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ibb.co",
+      },
+      {
+        protocol: "https",
+        hostname: "images.ctfassets.net",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
+      {
+        protocol: "https",
+        hostname: "*.supabase.in",
+      },
+    ],
+    unoptimized: true,
+  },
+
+  turbopack: {
+    resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".wasm"],
+  },
+
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [...(config.externals || []), "stockfish"];
+    }
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+    return config;
   },
 };
 
