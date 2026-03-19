@@ -1,49 +1,64 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import "./globals.css"
-import Link from "next/link"
-import Image from "next/image"
-import { Avatar } from "@/components/ui/avatar"
-import { NavLink } from "@/components/nav-links"
-import { LogIn } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { MobileNav } from "@/components/mobile-nav"
-import { createClient } from "@/utils/supabase/server"
-import FooterNav from "@/components/footer-nav"
-import { Toaster } from "sonner"
-import AutoSyncProvider from "@/components/AutoSyncProvider"
+import type React from "react";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Link from "next/link";
+import Image from "next/image";
+import { Avatar } from "@/components/ui/avatar";
+import { NavLink } from "@/components/nav-links";
+import { LogIn } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileNav } from "@/components/mobile-nav";
+import { createClient } from "@/utils/supabase/server";
+import FooterNav from "@/components/footer-nav";
+import { Toaster } from "sonner";
+import AutoSyncProvider from "@/components/AutoSyncProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-})
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-})
+});
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-}
+};
 
 export const metadata: Metadata = {
   title: {
     default: "Limpopo Chess Academy",
     template: "%s | Limpopo Chess Academy",
   },
-  description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+  description:
+    "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
   icons: {
     icon: [
       { url: "/lca-cyan-dark-bg-updated.png", type: "image/png" },
-      { url: "/lca-cyan-dark-bg-updated.png", sizes: "32x32", type: "image/png" },
-      { url: "/lca-cyan-dark-bg-updated.png", sizes: "16x16", type: "image/png" },
+      {
+        url: "/lca-cyan-dark-bg-updated.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/lca-cyan-dark-bg-updated.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
     ],
-    apple: [{ url: "/lca-cyan-dark-bg-updated.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      {
+        url: "/lca-cyan-dark-bg-updated.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
     other: [
       {
         rel: "icon",
@@ -53,7 +68,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Limpopo Chess Academy",
-    description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+    description:
+      "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
     url: "https://limpopochessacademy.co.za",
     siteName: "Limpopo Chess Academy",
     images: [
@@ -70,31 +86,38 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Limpopo Chess Academy",
-    description: "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
+    description:
+      "Limpopo Chess Academy — Coaching, tournaments, rankings and registrations in Limpopo, South Africa.",
     images: ["/lca-cyan-dark-bg-updated.png"],
   },
-}
+};
 
 export default async function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
-  const supabase = await createClient()
-  const { data } = await supabase.auth.getUser()
-  const user = data.user
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
 
   // Fetch user role from profiles table
-  let isAdmin = false
+  let isAdmin = false;
   if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-    isAdmin = profile?.role === "admin"
+    isAdmin = profile?.role === "admin";
   }
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+      >
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => { try { var t = localStorage.getItem('theme'); var d = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches); if (d) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); } catch (e) {} })();`,
@@ -103,11 +126,15 @@ export default async function RootLayout({
         <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-background/60">
           <nav className="px-1 sm:px-2 h-20 flex items-center justify-between relative">
             <div className="flex items-center gap-2 h-full">
-              <Link href="/" className="inline-flex items-center gap-2 h-full p-2" aria-label="Limpopo Chess Academy">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 h-full p-2"
+                aria-label="Limpopo Chess Academy"
+              >
                 <div
                   className="relative h-[56px] sm:h-[64px] md:h-[72px] lg:h-[80px] w-[160px] sm:w-[200px] md:w-[240px]
                              transition-all duration-300 ease-in-out
-                             hover:scale-105 
+                             hover:scale-105
                              shadow-[0_4px_10px_rgba(0,0,0,0.05)]
                              hover:shadow-[0_8px_25px_rgba(0,0,0,0.1)]
                              dark:shadow-[0_4px_10px_rgba(0,0,0,0.2),_0_0_20px_rgba(255,255,255,0.05)]
@@ -157,7 +184,7 @@ export default async function RootLayout({
                   Tournaments
                 </NavLink>
                 <NavLink href="/events" color="gray">
-                  Calendar
+                  Events
                 </NavLink>
                 <NavLink href="/rankings" color="gray">
                   Rankings
@@ -165,12 +192,12 @@ export default async function RootLayout({
                 <NavLink href="/blog" color="gray">
                   Blog
                 </NavLink>
-                <NavLink href="/forms" color="gray" badge="Register">
-                  Forms
+                <NavLink href="/forms" color="gray">
+                  Join
                 </NavLink>
 
                 <NavLink href="/view" color="gray">
-                  View Games
+                  Games
                 </NavLink>
               </div>
             </div>
@@ -180,9 +207,9 @@ export default async function RootLayout({
               {user ? (
                 <form
                   action={async () => {
-                    "use server"
-                    const server = await createClient()
-                    await server.auth.signOut()
+                    "use server";
+                    const server = await createClient();
+                    await server.auth.signOut();
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -224,5 +251,5 @@ export default async function RootLayout({
         <Toaster />
       </body>
     </html>
-  )
+  );
 }

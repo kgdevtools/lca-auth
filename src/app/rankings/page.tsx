@@ -249,19 +249,6 @@ export default function RankingsPage() {
               setOpen(true)
             }}
           />
-          {/* <div className="flex flex-col items-center justify-center py-24 px-4">
-            <div className="text-center space-y-6 max-w-2xl">
-              <div className="text-8xl sm:text-9xl mb-8" role="img" aria-label="hammer">
-                🔨
-              </div>
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-balance leading-tight tracking-tight">
-                Under Maintenance
-              </h2>
-              <p className="text-lg sm:text-xl text-muted-foreground text-pretty">
-                We're currently updating the rankings system. Please check back soon.
-              </p>
-            </div>
-          </div> */}
 
           <PerformanceDetailsModal
             player={selected}

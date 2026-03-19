@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Users,
   Trophy,
@@ -14,78 +14,89 @@ import {
   Star,
   Database,
   FileText,
-} from 'lucide-react'
-import { Avatar } from '@/components/ui/avatar'
-import { createClient } from '@/utils/supabase/client'
+  Target,
+} from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { createClient } from "@/utils/supabase/client";
 
 const sidebarItems = [
   {
-    title: 'Overview',
-    href: '/admin/admin-dashboard',
+    title: "Overview",
+    href: "/admin/admin-dashboard",
     icon: Home,
   },
   {
-    title: 'Tournaments',
-    href: '/admin/admin-dashboard/tournaments',
+    title: "Tournaments",
+    href: "/admin/admin-dashboard/tournaments",
     icon: Trophy,
   },
   {
-    title: 'Content',
-    href: '/admin/admin-dashboard/content',
+    title: "Junior Classification",
+    href: "/admin/junior-classification",
+    icon: Target,
+  },
+  {
+    title: "Content",
+    href: "/admin/admin-dashboard/content",
     icon: FileText,
   },
   {
-    title: 'Active Players',
-    href: '/admin/admin-dashboard/active-players',
+    title: "Active Players",
+    href: "/admin/admin-dashboard/active-players",
     icon: Star,
   },
   {
-    title: 'All Players',
-    href: '/admin/admin-dashboard/all-players',
+    title: "All Players",
+    href: "/admin/admin-dashboard/all-players",
     icon: Users,
   },
   {
-    title: 'Profiles',
-    href: '/admin/admin-dashboard/profiles',
+    title: "Profiles",
+    href: "/admin/admin-dashboard/profiles",
     icon: UserCircle,
   },
-]
+];
 
 interface AdminSidebarProps {
-  collapsed?: boolean
-  onToggleCollapse?: () => void
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export default function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const pathname = usePathname()
+export default function AdminSidebar({
+  collapsed = false,
+  onToggleCollapse,
+}: AdminSidebarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     async function fetchUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
 
       if (user) {
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(profileData)
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setProfile(profileData);
       }
     }
-    fetchUser()
-  }, [])
+    fetchUser();
+  }, []);
 
   const SidebarContent = () => (
     <>
       {/* Header */}
       <div className="px-3 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <div className={`${collapsed ? 'hidden' : 'block'}`}>
+          <div className={`${collapsed ? "hidden" : "block"}`}>
             <h1 className="text-base font-bold text-gray-800 dark:text-gray-100 tracking-tighter leading-tight">
               Chess Academy
             </h1>
@@ -95,8 +106,8 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
           </div>
           <button
             onClick={() => {
-              setMobileOpen(false)
-              onToggleCollapse?.()
+              setMobileOpen(false);
+              onToggleCollapse?.();
             }}
             className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
@@ -112,8 +123,8 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {sidebarItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
 
           return (
             <Link
@@ -125,23 +136,25 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
                 transition-all duration-150
                 ${
                   isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                 }
-                ${collapsed ? 'justify-center' : ''}
+                ${collapsed ? "justify-center" : ""}
               `}
               title={collapsed ? item.title : undefined}
             >
               <Icon
-                className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} ${
-                  isActive ? 'text-blue-600 dark:text-blue-400' : ''
+                className={`${collapsed ? "w-5 h-5" : "w-4 h-4 mr-2.5"} ${
+                  isActive ? "text-blue-600 dark:text-blue-400" : ""
                 } flex-shrink-0`}
               />
               {!collapsed && (
-                <span className="tracking-tight leading-tight">{item.title}</span>
+                <span className="tracking-tight leading-tight">
+                  {item.title}
+                </span>
               )}
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -149,18 +162,18 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
         <div
           className={`flex items-center gap-2.5 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
-            collapsed ? 'justify-center' : ''
+            collapsed ? "justify-center" : ""
           }`}
         >
           <Avatar
-            name={profile?.full_name || user?.email || 'Admin'}
+            name={profile?.full_name || user?.email || "Admin"}
             size={32}
             className="flex-shrink-0"
           />
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate tracking-tight leading-tight">
-                {profile?.full_name || 'Admin'}
+                {profile?.full_name || "Admin"}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 truncate tracking-tight leading-tight">
                 {user?.email}
@@ -170,7 +183,7 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
         </div>
       </div>
     </>
-  )
+  );
 
   return (
     <>
@@ -197,7 +210,7 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
         w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700
         transform transition-transform duration-300 ease-in-out
         lg:hidden flex flex-col
-        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
       `}
       >
         <SidebarContent />
@@ -208,7 +221,7 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
         className={`
         hidden lg:flex lg:flex-col
         fixed top-16 bottom-0 left-0 z-30
-        ${collapsed ? 'w-16' : 'w-72'}
+        ${collapsed ? "w-16" : "w-72"}
         bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700
         transition-all duration-300 ease-in-out
       `}
@@ -217,7 +230,9 @@ export default function AdminSidebar({ collapsed = false, onToggleCollapse }: Ad
       </div>
 
       {/* Desktop Sidebar Spacer */}
-      <div className={`hidden lg:block ${collapsed ? 'w-16' : 'w-72'} flex-shrink-0 transition-all duration-300`} />
+      <div
+        className={`hidden lg:block ${collapsed ? "w-16" : "w-72"} flex-shrink-0 transition-all duration-300`}
+      />
     </>
-  )
+  );
 }
