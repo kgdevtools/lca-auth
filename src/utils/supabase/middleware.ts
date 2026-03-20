@@ -2,8 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  // Skip auth handling on our own auth routes; the route handler will perform exchanges
-  // Also allow public access to forms and tournaments (listing and detail)
   if (
     request.nextUrl.pathname.startsWith("/auth") ||
     request.nextUrl.pathname.startsWith("/forms") ||
@@ -22,8 +20,14 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+        setAll(
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }[],
+        ) {
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
@@ -50,13 +54,9 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch (err: unknown) {
-    // If Supabase throws an auth-related error (e.g. missing refresh token),
-    // avoid crashing the middleware; redirect the user to login so they can re-authenticate.
-    // Safely extract a message when available and fall back to stringifying the error.
-    // eslint-disable-next-line no-console
     const errMessage =
       err && typeof err === "object" && "message" in err
-        ? String((err as any).message)
+        ? String((err as { message: unknown }).message)
         : String(err);
     console.warn("Supabase auth error in middleware:", errMessage);
     if (
