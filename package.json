@@ -8,6 +8,7 @@
     "build": "next build",
     "build:verbose": "NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production npx next build --debug 2>&1 | tee build.log",
     "start": "next start -p 8008",
+    "check": "rm -f tsconfig.tsbuildinfo && tsc --noEmit && next build",
     "lint": "next lint"
   },
   "dependencies": {
