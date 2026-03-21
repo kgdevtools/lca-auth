@@ -1,56 +1,35 @@
-import Link from "next/link"
-import type { Metadata } from "next"
+"use client"
 
-export const metadata: Metadata = {
-  title: "Forms & Registrations",
-  description: "Register players for Limpopo Chess Academy.",
-}
+import PlayerRegistrationForm from "./register-player/PlayerRegistrationForm"
+import * as React from "react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle } from "lucide-react"
 
 export default function FormsPage() {
-  return (
-    <div className="mx-auto max-w-6xl px-3 sm:px-4 py-8">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Forms & Registrations</h1>
-        <p className="text-sm text-muted-foreground mt-2">Manage academy registrations</p>
-      </div>
+  const [success, setSuccess] = React.useState(false)
 
-      {/* Centering Container */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        {/* Player Registration Card */}
-        <section className="group w-full max-w-md mx-auto">
-          <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-primary/30">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">LCA Academy Registrations</h3>
-                <p className="text-sm text-muted-foreground mt-1">Register as a player for Limpopo Chess Academy.</p>
-              </div>
-            </div>
-            <Link
-              href="/forms/register-player"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-300 animate-pulse-subtle"
-            >
-              LCA Registration
-            </Link>
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="w-full max-w-none px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
+            Player Registration
+          </h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Join the LCA Chess Academy</p>
+        </div>
+
+        {success ? (
+          <div className="max-w-2xl mx-auto">
+            <Alert className="border-2 border-green-500/20 bg-green-50 dark:bg-green-950/50 rounded shadow-sm">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-700 dark:text-green-300 font-medium">
+                Registration successful! We'll be in touch soon.
+              </AlertDescription>
+            </Alert>
           </div>
-        </section>
-        
-        {/* Tournament Creation Card */}
-        <section className="group w-full max-w-md mx-auto">
-          <div className="relative rounded-lg border border-border bg-card p-5 sm:p-6 transition-colors group-hover:border-primary/30">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Tournament Creation</h3>
-                <p className="text-sm text-muted-foreground mt-1">Create an upcoming tournament listing.</p>
-              </div>
-            </div>
-            <Link
-              href="/forms/upcoming-tournament"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-md bg-primary hover:bg-primary/90 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
-            >
-              Create Tournament
-            </Link>
-          </div>
-        </section>
+        ) : (
+          <PlayerRegistrationForm onSuccess={() => setSuccess(true)} />
+        )}
       </div>
     </div>
   )

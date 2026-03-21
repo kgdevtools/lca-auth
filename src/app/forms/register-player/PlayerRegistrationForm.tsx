@@ -363,5 +363,3 @@ export function PlayerRegistrationForm({ onSuccess }: { onSuccess: () => void })
   }
   
   export default PlayerRegistrationForm
-  
-
