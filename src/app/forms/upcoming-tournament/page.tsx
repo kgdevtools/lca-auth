@@ -7,26 +7,17 @@ export default function UpcomingTournamentPage() {
   const [success, setSuccess] = React.useState(false)
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full max-w-none px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
-            Add Upcoming Tournament
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Create a new tournament listing
-          </p>
-        </div>
-
+    <div className="min-h-screen bg-background px-2 sm:px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl">
         {success ? (
-          <div className="max-w-2xl mx-auto text-center py-16">
-            <h1 className="text-4xl font-bold tracking-tight mb-4">
-              SUCCESS TOURNAMENT UPLOADED
+          <div className="rounded-lg border border-border bg-card p-6 sm:p-8 shadow-lg text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">
+              Tournament Created Successfully!
             </h1>
-            <p className="text-muted-foreground text-lg mb-8 max-w-lg mx-auto">
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Your tournament will appear in featured upcoming tournaments.
             </p>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <a
                 href="https://forms.gle/9mxemKBjGphmkfgN8"
                 target="_blank"

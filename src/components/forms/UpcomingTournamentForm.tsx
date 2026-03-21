@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Alert } from "@/components/ui/alert"
-import { Upload, X, Plus, Trash2 } from "lucide-react"
+import { Upload, X, Trash2, ImageIcon } from "lucide-react"
 import { createUpcomingTournament } from "@/repositories/upcomingTournamentRepo"
 import type { CreateUpcomingTournamentPayload, TournamentSection } from "@/types/upcoming-tournament"
 
@@ -26,11 +25,43 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
   const [posterPreview, setPosterPreview] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({})
 
+  function validateField(name: string, value: string): string | null {
+    switch (name) {
+      case 'tournament_name':
+        if (!value.trim()) return 'Required'
+        if (value.length > 30) return 'Max 30 chars'
+        return null
+      case 'organizer_contact':
+        if (!value.trim()) return 'Required'
+        if (!/^[0-9]{10}$/.test(value)) return '10-digit SA number'
+        return null
+      case 'location':
+        if (!value.trim()) return 'Required'
+        return null
+      case 'organizer_name':
+        if (!value.trim()) return 'Required'
+        return null
+      case 'registration_form_link':
+        if (!value.trim()) return 'Required'
+        if (!/^https?:\/\/.+/.test(value)) return 'Valid URL needed'
+        return null
+      case 'tournament_date':
+        if (!value) return 'Required'
+        const date = new Date(value)
+        const now = new Date()
+        const oneYearFromNow = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+        if (date < now) return 'Cannot be past'
+        if (date > oneYearFromNow) return 'Max 1 year'
+        return null
+      default:
+        return null
+    }
+  }
+
   function validateForm(): boolean {
     const errors: Record<string, string> = {}
     let isValid = true
 
-    // Validate required fields
     const fieldsToValidate = [
       'tournament_name',
       'tournament_date',
@@ -54,46 +85,12 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
 
   function update<K extends keyof CreateUpcomingTournamentPayload>(key: K, value: CreateUpcomingTournamentPayload[K]) {
     setForm((f) => ({ ...f, [key]: value }))
-    // Clear field error when user starts typing
     if (fieldErrors[key]) {
       setFieldErrors((errors) => {
         const newErrors = { ...errors }
         delete newErrors[key as string]
         return newErrors
       })
-    }
-  }
-
-  function validateField(name: string, value: string): string | null {
-    switch (name) {
-      case 'tournament_name':
-        if (!value.trim()) return 'Tournament name is required'
-        if (value.length > 30) return 'Tournament name must be 30 characters or less'
-        return null
-      case 'organizer_contact':
-        if (!value.trim()) return 'Contact number is required'
-        if (!/^[0-9]{10}$/.test(value)) return 'Please enter a valid 10-digit South African phone number'
-        return null
-      case 'location':
-        if (!value.trim()) return 'Location is required'
-        return null
-      case 'organizer_name':
-        if (!value.trim()) return 'Organizer name is required'
-        return null
-      case 'registration_form_link':
-        if (!value.trim()) return 'Registration form link is required'
-        if (!/^https?:\/\/.+/.test(value)) return 'Please enter a valid URL starting with http:// or https://'
-        return null
-      case 'tournament_date':
-        if (!value) return 'Tournament date is required'
-        const date = new Date(value)
-        const now = new Date()
-        const oneYearFromNow = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
-        if (date < now) return 'Tournament date cannot be in the past'
-        if (date > oneYearFromNow) return 'Tournament date cannot be more than one year from now'
-        return null
-      default:
-        return null
     }
   }
 
@@ -123,15 +120,13 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file (JPG, PNG, or WebP)')
+      setError('Please upload an image file')
       return
     }
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      setError('Image size must be less than 5MB')
+      setError('Max file size is 5MB')
       return
     }
 
@@ -139,8 +134,6 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
     setPosterPreview(URL.createObjectURL(file))
     setError(null)
 
-    // For now, just simulate upload - in production you'd upload to Cloudinary/S3
-    // This is a placeholder - you'll need to implement actual image upload
     const formData = new FormData()
     formData.append('file', file)
     
@@ -155,11 +148,11 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
         update('poster_url', result.url)
         update('poster_public_id', result.publicId)
       } else {
-        setError('Failed to upload poster')
+        setError('Failed to upload')
       }
     } catch (err) {
       console.error('Upload error:', err)
-      setError('Failed to upload poster')
+      setError('Failed to upload')
     }
   }
 
@@ -167,9 +160,8 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
     e.preventDefault()
     setError(null)
 
-    // Validate form
     if (!validateForm()) {
-      setError('Please correct the errors below')
+      setError('Please fix errors above')
       return
     }
 
@@ -181,162 +173,152 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
       if (result.success) {
         onSuccess()
       } else {
-        setError(result.error || 'Failed to create tournament')
+        setError(result.error || 'Failed to create')
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.')
-      console.error('Form submission error:', err)
+      setError('Unexpected error')
+      console.error('Submission error:', err)
     } finally {
       setSubmitting(false)
     }
   }
 
+  const inputClass = (field: string) => `
+    w-full rounded border border-input bg-background px-2 py-1.5 text-sm text-foreground 
+    placeholder:text-muted-foreground 
+    focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary
+    transition-colors duration-150
+    ${fieldErrors[field] ? 'border-destructive' : ''}
+  `
+
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="rounded-xl border border-border bg-card shadow-xl shadow-black/5 dark:shadow-black/20">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-5 lg:p-6 space-y-4">
         {error ? (
-          <Alert className="border-destructive/50 bg-destructive/10 text-destructive">
+          <div className="rounded border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}
-          </Alert>
+          </div>
         ) : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Tournament Name */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Tournament Name *
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1 font-[family-name:system-ui]">
+              Tournament Name <span className="text-destructive">*</span>
             </label>
-              <input
-                required
-                maxLength={30}
-                className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                  fieldErrors.tournament_name ? 'border-destructive' : 'border-input'
-                }`}
-                value={form.tournament_name}
-                onChange={(e) => update("tournament_name", e.target.value)}
-                placeholder="e.g., Seshego New Year Rapid"
-              />
-              {fieldErrors.tournament_name && (
-                <p className="text-xs text-destructive mt-1">{fieldErrors.tournament_name}</p>
-              )}
+            <input
+              maxLength={30}
+              className={inputClass('tournament_name')}
+              value={form.tournament_name}
+              onChange={(e) => update("tournament_name", e.target.value)}
+              placeholder="e.g., Seshego New Year Rapid"
+            />
+            {fieldErrors.tournament_name && (
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.tournament_name}</p>
+            )}
           </div>
 
-          {/* Tournament Date & Time */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Tournament Date & Time *
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+              Date & Time <span className="text-destructive">*</span>
             </label>
             <input
               type="datetime-local"
-              required
-              className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                fieldErrors.tournament_date ? 'border-destructive' : 'border-input'
-              }`}
+              className={inputClass('tournament_date')}
               value={form.tournament_date}
               onChange={(e) => update("tournament_date", e.target.value)}
             />
             {fieldErrors.tournament_date && (
-              <p className="text-xs text-destructive mt-1">{fieldErrors.tournament_date}</p>
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.tournament_date}</p>
             )}
           </div>
 
-          {/* Location */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Location *
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+              Location <span className="text-destructive">*</span>
             </label>
             <input
-              required
-              className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                fieldErrors.location ? 'border-destructive' : 'border-input'
-              }`}
+              className={inputClass('location')}
               value={form.location}
               onChange={(e) => update("location", e.target.value)}
-              placeholder="e.g., Seshego Community Hall"
+              placeholder="Venue address"
             />
             {fieldErrors.location && (
-              <p className="text-xs text-destructive mt-1">{fieldErrors.location}</p>
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.location}</p>
             )}
           </div>
 
-          {/* Organizer Name */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Organizer Name *
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+              Organizer <span className="text-destructive">*</span>
             </label>
             <input
-              required
-              className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                fieldErrors.organizer_name ? 'border-destructive' : 'border-input'
-              }`}
+              className={inputClass('organizer_name')}
               value={form.organizer_name}
               onChange={(e) => update("organizer_name", e.target.value)}
-              placeholder="e.g., Limpopo Chess Academy"
+              placeholder="Organizer name"
             />
             {fieldErrors.organizer_name && (
-              <p className="text-xs text-destructive mt-1">{fieldErrors.organizer_name}</p>
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.organizer_name}</p>
             )}
           </div>
 
-          {/* Organizer Contact */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Organizer Contact *
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+              Contact <span className="text-destructive">*</span>
             </label>
             <input
-              required
               maxLength={10}
-              placeholder="076 123 4567"
-              className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                fieldErrors.organizer_contact ? 'border-destructive' : 'border-input'
-              }`}
+              placeholder="0761234567"
+              className={inputClass('organizer_contact')}
               value={form.organizer_contact}
               onChange={(e) => {
-                // Only allow numbers
                 const value = e.target.value.replace(/\D/g, '')
                 update("organizer_contact", value)
               }}
             />
             {fieldErrors.organizer_contact && (
-              <p className="text-xs text-destructive mt-1">{fieldErrors.organizer_contact}</p>
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.organizer_contact}</p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">Enter 10-digit South African phone number (no spaces)</p>
           </div>
 
-          {/* Registration Form Link */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Registration Form Link *
+          <div>
+            <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+              Registration Link <span className="text-destructive">*</span>
             </label>
             <input
               type="url"
-              required
-              placeholder="https://forms.app/your-tournament-form"
-              className={`w-full rounded-sm border bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
-                fieldErrors.registration_form_link ? 'border-destructive' : 'border-input'
-              }`}
+              placeholder="https://forms.app/..."
+              className={inputClass('registration_form_link')}
               value={form.registration_form_link}
               onChange={(e) => update("registration_form_link", e.target.value)}
             />
             {fieldErrors.registration_form_link && (
-              <p className="text-xs text-destructive mt-1">{fieldErrors.registration_form_link}</p>
+              <p className="text-[10px] text-destructive mt-0.5 tracking-tight">{fieldErrors.registration_form_link}</p>
             )}
           </div>
         </div>
 
-        {/* Tournament Poster */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Tournament Poster *
+          <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+            Comments
           </label>
-          <div className="space-y-3">
+          <textarea
+            rows={2}
+            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary resize-none transition-colors"
+            value={form.description}
+            onChange={(e) => update("description", e.target.value)}
+            placeholder="Optional notes"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold tracking-tightest leading-tightest text-foreground mb-1">
+            Poster
+          </label>
+          <div className="flex items-center gap-2">
             {posterPreview ? (
-              <div className="relative w-full h-64 rounded-lg overflow-hidden border border-border">
-                <img
-                  src={posterPreview}
-                  alt="Poster preview"
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-12 h-12 rounded border border-border flex-shrink-0 overflow-hidden">
+                <img src={posterPreview} alt="Preview" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => {
@@ -345,86 +327,54 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
                     update('poster_url', '')
                     update('poster_public_id', '')
                   }}
-                  className="absolute top-2 right-2 p-2 bg-background/80 rounded-full border border-border hover:bg-background"
+                  className="absolute -top-1 -right-1 p-0.5 bg-destructive text-destructive-foreground rounded-full border border-background hover:bg-destructive/90"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
-                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">Click to upload poster</span>
-                <span className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePosterUpload}
-                  className="hidden"
-                  required
-                />
-              </label>
-            )}
+            ) : null}
+            
+            <label className="flex items-center gap-1.5 px-2 py-1 rounded border border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors bg-muted/30 hover:bg-muted/50">
+              {posterPreview ? <ImageIcon className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+              <span className="text-xs text-muted-foreground">
+                {posterPreview ? 'Change' : 'Upload'}
+              </span>
+              <input type="file" accept="image/*" onChange={handlePosterUpload} className="hidden" />
+            </label>
+            <span className="text-[10px] text-muted-foreground">JPG, PNG (5MB)</span>
           </div>
         </div>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Description
-          </label>
-          <textarea
-            rows={3}
-            className="w-full rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-colors"
-            value={form.description}
-            onChange={(e) => update("description", e.target.value)}
-            placeholder="Tournament description (optional)"
-          />
-        </div>
-
-        {/* Dynamic Sections */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-foreground">
-              Tournament Details
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold tracking-tightest leading-tightest text-foreground">
+              Details
             </label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addSection}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Detail
+            <Button type="button" variant="outline" size="sm" onClick={addSection} className="h-6 text-[10px] px-2">
+              <span className="mr-0.5">+</span>Add
             </Button>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-1.5">
             {form.sections?.map((section, index) => (
-              <div key={index} className="flex gap-3 items-start">
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input
-                    placeholder="e.g., Entry Fee"
-                    className="rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
-                    value={section.title}
-                    onChange={(e) => updateSection(index, "title", e.target.value)}
-                    maxLength={50}
-                  />
-                  <input
-                    placeholder="e.g., R50"
-                    className="rounded-sm border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
-                    value={section.content}
-                    onChange={(e) => updateSection(index, "content", e.target.value)}
-                    maxLength={100}
-                  />
-                </div>
+              <div key={index} className="flex gap-1.5 items-start">
+                <input
+                  placeholder="Label"
+                  className="flex-1 min-w-0 rounded border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary transition-colors"
+                  value={section.title}
+                  onChange={(e) => updateSection(index, "title", e.target.value)}
+                  maxLength={50}
+                />
+                <input
+                  placeholder="Value"
+                  className="w-20 sm:w-24 rounded border border-input bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary transition-colors flex-shrink-0"
+                  value={section.content}
+                  onChange={(e) => updateSection(index, "content", e.target.value)}
+                  maxLength={100}
+                />
                 {form.sections!.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeSection(index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeSection(index)} className="p-1 h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="w-3 h-3" />
                   </Button>
                 )}
               </div>
@@ -432,10 +382,9 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
           </div>
         </div>
 
-        {/* Submit Button */}
-        <div className="pt-4">
-          <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? "Creating Tournament..." : "Create Tournament"}
+        <div className="pt-3 border-t border-border">
+          <Button type="submit" disabled={submitting} className="w-full text-sm">
+            {submitting ? "Creating..." : "Create Tournament"}
           </Button>
         </div>
       </form>

@@ -1,51 +1,93 @@
 import { createClient } from "@/utils/supabase/client"
-import type { UpcomingTournament, CreateUpcomingTournamentPayload, TournamentSection } from "@/types/upcoming-tournament"
+import type { UpcomingTournament, CreateUpcomingTournamentPayload } from "@/types/upcoming-tournament"
 import { cache } from "@/utils/cache"
+import tournamentsData from "@/data/tournaments.json"
+
+const CACHE_TTL = 300
+
+interface TournamentJson {
+  id: number
+  name: string
+  startDate: string
+  endDate: string
+  days: number
+  rounds: number
+  timeControl: string
+  venue: string
+  town: string
+  district: string
+  organiser: string
+  status: string
+}
+
+function jsonToUpcomingTournament(t: TournamentJson): Partial<UpcomingTournament> {
+  return {
+    id: String(t.id),
+    tournament_name: t.name,
+    tournament_date: t.startDate,
+    location: `${t.venue}, ${t.town}`,
+    organizer_name: t.organiser,
+    organizer_contact: "",
+    registration_form_link: "",
+    poster_url: "",
+    poster_public_id: "",
+    sections: [
+      { title: "Venue", content: `${t.venue}, ${t.town}` },
+      { title: "Rounds", content: `${t.rounds}` },
+      { title: "Time Control", content: t.timeControl },
+      { title: "Status", content: t.status },
+    ],
+    description: `${t.days} day(s) tournament in ${t.district} district`,
+    is_active: true,
+  }
+}
+
+function getUpcomingFromJson(): Partial<UpcomingTournament>[] {
+  const now = new Date()
+  return (tournamentsData as TournamentJson[])
+    .filter(t => new Date(t.startDate) >= now)
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .map(jsonToUpcomingTournament)
+}
 
 export async function getNextUpcomingTournament(): Promise<UpcomingTournament | null> {
   try {
     const supabase = await createClient()
     const now = new Date()
     
-    // 10 AM cutoff logic
-    const todayAt10AM = new Date(now)
-    todayAt10AM.setHours(10, 0, 0, 0)
+    const cacheKey = `next-upcoming-tournament`
+    const cached = cache.get(cacheKey)
+    if (cached) return cached
     
-    const cutoffDate = now > todayAt10AM ? 
-      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) : 
-      now
-    
-    // Check cache first
-    const cacheKey = `next-upcoming-tournament-${cutoffDate.toDateString()}`
-    let cached = cache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-    
-    // Get next upcoming tournament
     const { data, error } = await supabase
       .from('upcoming_tournaments')
       .select('*')
       .eq('is_active', true)
-      .gte('tournament_date', cutoffDate.toISOString())
+      .gte('tournament_date', now.toISOString())
       .order('tournament_date', { ascending: true })
       .limit(1)
       
     if (error) {
-      console.error('Error fetching next upcoming tournament:', error)
+      console.error('Error fetching next tournament:', error)
       return null
     }
     
-    const tournament = data?.[0] || null
-    
-    // Cache for 5 minutes
-    if (tournament) {
-      cache.set(cacheKey, tournament, 300)
+    if (data?.[0]) {
+      cache.set(cacheKey, data[0], CACHE_TTL)
+      return data[0]
     }
     
-    return tournament
+    const jsonTournaments = getUpcomingFromJson()
+    const tournament = jsonTournaments[0] as UpcomingTournament | undefined
+    
+    if (tournament) {
+      cache.set(cacheKey, tournament, CACHE_TTL)
+      return tournament
+    }
+    
+    return null
   } catch (error) {
-    console.error('Unexpected error in getNextUpcomingTournament:', error)
+    console.error('Error in getNextUpcomingTournament:', error)
     return null
   }
 }
@@ -73,19 +115,15 @@ export async function createUpcomingTournament(data: CreateUpcomingTournamentPay
       .single()
       
     if (error) {
-      console.error('Error creating upcoming tournament:', error)
+      console.error('Error creating tournament:', error)
       return { success: false, error: error.message }
     }
     
-    // Clear cache when new tournament is created
     cache.clear()
     
-    return { 
-      success: true, 
-      tournamentId: result.id 
-    }
+    return { success: true, tournamentId: result.id }
   } catch (error) {
-    console.error('Unexpected error in createUpcomingTournament:', error)
+    console.error('Error in createUpcomingTournament:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
@@ -93,21 +131,49 @@ export async function createUpcomingTournament(data: CreateUpcomingTournamentPay
 export async function getAllUpcomingTournaments(): Promise<UpcomingTournament[]> {
   try {
     const supabase = await createClient()
+    const now = new Date()
     
     const { data, error } = await supabase
       .from('upcoming_tournaments')
       .select('*')
       .eq('is_active', true)
+      .gte('tournament_date', now.toISOString())
       .order('tournament_date', { ascending: true })
       
     if (error) {
-      console.error('Error fetching all upcoming tournaments:', error)
+      console.error('Error fetching tournaments:', error)
       return []
     }
     
-    return data || []
+    if (data && data.length > 0) {
+      return data
+    }
+    
+    return getUpcomingFromJson() as UpcomingTournament[]
   } catch (error) {
-    console.error('Unexpected error in getAllUpcomingTournaments:', error)
+    console.error('Error in getAllUpcomingTournaments:', error)
     return []
+  }
+}
+
+export async function getTournamentById(id: string): Promise<UpcomingTournament | null> {
+  try {
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase
+      .from('upcoming_tournaments')
+      .select('*')
+      .eq('id', id)
+      .single()
+      
+    if (error) {
+      console.error('Error fetching tournament:', error)
+      return null
+    }
+    
+    return data
+  } catch (error) {
+    console.error('Error in getTournamentById:', error)
+    return null
   }
 }

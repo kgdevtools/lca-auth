@@ -2,11 +2,14 @@
 
 import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, MapPin, Clock, User, Trophy, ChevronLeft, ChevronRight } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Calendar, MapPin, Clock, User, Trophy, ChevronLeft, ChevronRight, Download } from "lucide-react"
 import tournamentsData from "@/data/tournaments.json"
 
 type Tournament = typeof tournamentsData[0]
+
+const CALENDAR_PDF_URL = "https://nkghcjulymuadpilvjhw.supabase.co/storage/v1/object/public/capricorn-district-calender-2026/Adjusted_2026_Capricorn_Chess_Calendar.pdf"
 
 const statusColors: Record<string, { bg: string; text: string; bgPast: string; textPast: string }> = {
   Open: { bg: "bg-emerald-500", text: "text-white", bgPast: "bg-emerald-200", textPast: "text-emerald-600" },
@@ -16,18 +19,8 @@ const statusColors: Record<string, { bg: string; text: string; bgPast: string; t
 }
 
 const monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ]
 
 function getDaysInMonth(year: number, month: number) {
@@ -52,9 +45,7 @@ function TournamentCard({
         isPast ? `${colors.bgPast} opacity-60` : `${colors.bg} hover:shadow-lg hover:brightness-110`
       }`}
     >
-      <p
-        className={`text-[10px] md:text-xs font-medium ${isPast ? colors.textPast : colors.text} line-clamp-2 group-hover:line-clamp-none`}
-      >
+      <p className={`text-[10px] md:text-xs font-medium ${isPast ? colors.textPast : colors.text} line-clamp-2 group-hover:line-clamp-none`}>
         {tournament.name}
       </p>
       <div className="flex items-center gap-1 mt-0.5">
@@ -85,39 +76,25 @@ function DayCell({
   const cellDate = new Date(year, month, day)
   const isToday = today.toDateString() === cellDate.toDateString()
   const hasEvents = dayTournaments.length > 0
-
   const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate())
-
   const firstTournament = dayTournaments[0]
   const colors = firstTournament ? statusColors[firstTournament.status] || statusColors.Open : null
 
   return (
-    <div
-      className={`min-h-20 md:min-h-28 lg:min-h-32 border border-border/40 rounded-sm relative overflow-hidden ${
+    <div className={`min-h-20 md:min-h-28 lg:min-h-32 border border-border/40 rounded-sm relative overflow-hidden ${
+      hasEvents
+        ? isPast ? colors?.bgPast : colors?.bg
+        : isToday
+          ? "bg-primary/10 ring-2 ring-primary/30"
+          : isPast ? "bg-muted/20" : "bg-card"
+    }`}>
+      <span className={`absolute top-1 left-1.5 text-base md:text-lg lg:text-xl font-bold z-30 px-1 rounded ${
         hasEvents
-          ? isPast
-            ? colors?.bgPast
-            : colors?.bg
+          ? isPast ? `${colors?.textPast} bg-white/50` : "text-white bg-black/20"
           : isToday
-            ? "bg-primary/10 ring-2 ring-primary/30"
-            : isPast
-              ? "bg-muted/20"
-              : "bg-card"
-      }`}
-    >
-      <span
-        className={`absolute top-1 left-1.5 text-base md:text-lg lg:text-xl font-bold z-30 px-1 rounded ${
-          hasEvents
-            ? isPast
-              ? `${colors?.textPast} bg-white/50`
-              : "text-white bg-black/20"
-            : isToday
-              ? "text-primary"
-              : isPast
-                ? "text-muted-foreground/50"
-                : "text-foreground"
-        }`}
-      >
+            ? "text-primary"
+            : isPast ? "text-muted-foreground/50" : "text-foreground"
+      }`}>
         {day}
       </span>
 
@@ -132,11 +109,9 @@ function DayCell({
             />
           ))}
           {dayTournaments.length > 1 && (
-            <p
-              className={`absolute bottom-1 right-1 text-[9px] md:text-[10px] font-semibold z-30 px-1 rounded ${
-                isPast ? `${colors?.textPast} bg-white/50` : "text-white bg-black/20"
-              }`}
-            >
+            <p className={`absolute bottom-1 right-1 text-[9px] md:text-[10px] font-semibold z-30 px-1 rounded ${
+              isPast ? `${colors?.textPast} bg-white/50` : "text-white bg-black/20"
+            }`}>
               +{dayTournaments.length - 1} more
             </p>
           )}
@@ -193,10 +168,7 @@ function TournamentModal({
                       year: "numeric",
                     })}
                     {tournament.startDate !== tournament.endDate && (
-                      <>
-                        {" "}
-                        - {new Date(tournament.endDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                      </>
+                      <> - {new Date(tournament.endDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</>
                     )}
                   </p>
                 </div>
@@ -242,9 +214,7 @@ function TournamentModal({
           <div className="pt-3 lg:pt-4 border-t border-border">
             <div className="flex items-center justify-between text-sm lg:text-base">
               <span className="text-muted-foreground">Duration</span>
-              <span className="font-medium">
-                {tournament.days} day{tournament.days > 1 ? "s" : ""}
-              </span>
+              <span className="font-medium">{tournament.days} day{tournament.days > 1 ? "s" : ""}</span>
             </div>
             <div className="flex items-center justify-between text-sm lg:text-base mt-1">
               <span className="text-muted-foreground">District</span>
@@ -257,10 +227,60 @@ function TournamentModal({
   )
 }
 
+function DownloadModal({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const handleDownload = () => {
+    const link = document.createElement('a')
+    link.href = CALENDAR_PDF_URL
+    link.download = "Capricorn_Chess_Calendar_2026.pdf"
+    link.rel = "noopener noreferrer"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[90vw] max-w-[400px] mx-auto bg-background/95 backdrop-blur-md border-border/50">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">Download Calendar</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Download the Capricorn District Chess Calendar 2026 as a PDF file.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="w-full sm:w-auto gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function ChessCalendar() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1))
+  const now = new Date()
+  const [currentDate, setCurrentDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1))
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -272,9 +292,7 @@ export default function ChessCalendar() {
     const map = new Map<string, Tournament[]>()
     tournamentsData.forEach((tournament) => {
       const date = tournament.startDate
-      if (!map.has(date)) {
-        map.set(date, [])
-      }
+      if (!map.has(date)) map.set(date, [])
       map.get(date)!.push(tournament)
     })
     return map
@@ -323,68 +341,75 @@ export default function ChessCalendar() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-                Chess Tournament Calendar
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">Capricorn District Chess - 2025-2026 Season</p>
-            </div>
-
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                Capricorn District Chess
+              </h1>
               <button
-                onClick={() => navigateMonth(-1)}
-                className="p-2 rounded-sm hover:bg-accent transition-colors"
-                aria-label="Previous month"
+                onClick={() => setDownloadModalOpen(true)}
+                className="p-1.5 sm:p-2 rounded-md hover:bg-accent transition-colors group"
+                aria-label="Download calendar"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <span className="text-lg font-semibold min-w-40 text-center">
-                {monthNames[month]} {year}
-              </span>
-              <button
-                onClick={() => navigateMonth(1)}
-                className="p-2 rounded-sm hover:bg-accent transition-colors"
-                aria-label="Next month"
-              >
-                <ChevronRight className="w-5 h-5" />
+                <Download className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
             </div>
+            <p className="text-xs sm:text-sm text-muted-foreground">2025-2026 Season</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="text-muted-foreground font-medium">Status:</span>
-            {Object.entries(statusColors).map(([status, colors]) => (
-              <div key={status} className="flex items-center gap-1.5">
-                <div className={`w-3 h-3 rounded-sm ${colors.bg}`} />
-                <span className="text-foreground font-medium">{status}</span>
-              </div>
-            ))}
-            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-border">
-              <div className="w-3 h-3 rounded-sm bg-muted opacity-60" />
-              <span className="text-muted-foreground">Past Event</span>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => navigateMonth(-1)}
+              className="p-2 rounded-sm hover:bg-accent transition-colors"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-base sm:text-lg font-semibold min-w-36 sm:min-w-40 text-center">
+              {monthNames[month]} {year}
+            </span>
+            <button
+              onClick={() => navigateMonth(1)}
+              className="p-2 rounded-sm hover:bg-accent transition-colors"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs mb-3 sm:mb-4">
+          <span className="text-muted-foreground font-medium">Status:</span>
+          {Object.entries(statusColors).map(([status, colors]) => (
+            <div key={status} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm ${colors.bg}`} />
+              <span className="text-foreground font-medium">{status}</span>
             </div>
+          ))}
+          <div className="flex items-center gap-1.5 ml-1 sm:ml-2 pl-1.5 sm:pl-2 border-l border-border">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm bg-muted opacity-60" />
+            <span className="text-muted-foreground">Past</span>
           </div>
         </div>
 
         <div className="bg-card rounded-md border border-border shadow-sm overflow-hidden">
           <div className="grid grid-cols-7 border-b border-border">
             {dayNames.map((day) => (
-              <div key={day} className="p-2 md:p-3 lg:p-4 text-center bg-zinc-800 dark:bg-zinc-900">
-                <span className="hidden sm:inline text-sm md:text-base font-bold text-white">{day}</span>
-                <span className="sm:hidden text-sm font-bold text-white">{day.charAt(0)}</span>
+              <div key={day} className="p-1.5 sm:p-2 md:p-3 lg:p-4 text-center bg-zinc-800 dark:bg-zinc-900">
+                <span className="hidden sm:inline text-xs sm:text-sm md:text-base font-bold text-white">{day}</span>
+                <span className="sm:hidden text-xs sm:text-sm font-bold text-white">{day.charAt(0)}</span>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-px bg-border/30 p-1">{days}</div>
+          <div className="grid grid-cols-7 gap-px bg-border/30 p-0.5 sm:p-1">{days}</div>
         </div>
 
         {monthTournaments.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-sm font-semibold text-foreground mb-3">
+          <div className="mt-4 sm:mt-6">
+            <h2 className="text-xs sm:text-sm font-semibold text-foreground mb-2 sm:mb-3">
               Events this month ({monthTournaments.length})
             </h2>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -397,31 +422,27 @@ export default function ChessCalendar() {
                   <button
                     key={tournament.id}
                     onClick={() => handleTournamentClick(tournament)}
-                    className={`p-3 rounded-sm text-left transition-all ${
-                      isPast ? `${colors.bgPast} opacity-70` : `${colors.bg} hover:shadow-lg hover:brightness-110`
+                    className={`p-2.5 sm:p-3 rounded-sm text-left transition-all ${
+                      isPast ? `${colors.bgPast} opacity-70 hover:opacity-100` : `${colors.bg} hover:shadow-lg hover:brightness-110`
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-medium ${isPast ? colors.textPast : colors.text}`}>
+                      <p className={`text-xs sm:text-sm font-medium ${isPast ? colors.textPast : colors.text}`}>
                         {tournament.name}
                       </p>
-                      <span
-                        className={`text-[10px] shrink-0 font-medium px-1.5 py-0.5 rounded-sm ${
-                          isPast ? "bg-white/40 text-inherit" : "bg-white/20 text-white"
-                        }`}
-                      >
+                      <span className={`text-[9px] sm:text-[10px] shrink-0 font-medium px-1 py-0.5 rounded-sm ${
+                        isPast ? "bg-white/40 text-inherit" : "bg-white/20 text-white"
+                      }`}>
                         {isPast ? "Done" : tournament.status}
                       </span>
                     </div>
-                    <div
-                      className={`flex items-center gap-3 mt-2 text-xs ${isPast ? colors.textPast : `${colors.text} opacity-90`}`}
-                    >
+                    <div className={`flex items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-[10px] sm:text-xs ${isPast ? colors.textPast : `${colors.text} opacity-90`}`}>
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
+                        <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                         {new Date(tournament.startDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
                       </span>
                       <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
+                        <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                         {tournament.town}
                       </span>
                     </div>
@@ -433,6 +454,7 @@ export default function ChessCalendar() {
         )}
 
         <TournamentModal tournament={selectedTournament} open={modalOpen} onOpenChange={setModalOpen} />
+        <DownloadModal open={downloadModalOpen} onOpenChange={setDownloadModalOpen} />
       </div>
     </div>
   )
