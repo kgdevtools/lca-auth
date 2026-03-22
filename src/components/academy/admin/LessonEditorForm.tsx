@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLesson, updateLesson, type LessonWithCategory } from '@/services/lessonService'
 import { toast } from 'sonner'
-import { Loader2, Save, Eye, FileText, Video, HelpCircle, Puzzle as PuzzleIcon, Layers } from 'lucide-react'
+import { Loader2, Save, Eye, FileText, Video, HelpCircle, Puzzle as PuzzleIcon, Layers, Gamepad2 } from 'lucide-react'
 import type { LessonCategory } from '@/services/lessonService'
 import { QuizBuilder } from '@/components/academy/admin/QuizBuilder'
 
@@ -36,7 +36,7 @@ export default function LessonEditorForm({ lesson, categories, mode }: LessonEdi
   const [slug, setSlug] = useState(lesson?.slug || '')
   const [description, setDescription] = useState(lesson?.description || '')
   const [categoryId, setCategoryId] = useState<string>(lesson?.category_id || '')
-  const [contentType, setContentType] = useState<'text' | 'video' | 'quiz' | 'puzzle' | 'mixed'>(
+  const [contentType, setContentType] = useState<'text' | 'video' | 'quiz' | 'puzzle' | 'pgn' | 'mixed'>(
     lesson?.content_type || 'text'
   )
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced' | ''>(
@@ -68,6 +68,9 @@ export default function LessonEditorForm({ lesson, categories, mode }: LessonEdi
   )
   const [puzzleSolution, setPuzzleSolution] = useState(
     lesson?.content_type === 'puzzle' ? lesson.content_data?.solution || '' : ''
+  )
+  const [pgnContent, setPgnContent] = useState(
+    lesson?.content_type === 'pgn' ? lesson.content_data?.pgn || '' : ''
   )
 
   // Auto-generate slug from title
@@ -119,6 +122,11 @@ export default function LessonEditorForm({ lesson, categories, mode }: LessonEdi
           solution: puzzleSolution.split(',').map((s: string) => s.trim()),
           description: '',
           explanation: '',
+        }
+      case 'pgn':
+        return {
+          type: 'pgn',
+          pgn: pgnContent,
         }
       case 'mixed':
         return {
@@ -193,6 +201,7 @@ export default function LessonEditorForm({ lesson, categories, mode }: LessonEdi
     video: Video,
     quiz: HelpCircle,
     puzzle: PuzzleIcon,
+    pgn: Gamepad2,
     mixed: Layers,
   }
 
@@ -432,6 +441,29 @@ export default function LessonEditorForm({ lesson, categories, mode }: LessonEdi
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Comma-separated list of moves in algebraic notation
+                </p>
+              </div>
+            </div>
+          )}
+
+          {contentType === 'pgn' && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pgnContent">PGN with Annotations</Label>
+                <Textarea
+                  id="pgnContent"
+                  value={pgnContent}
+                  onChange={(e) => setPgnContent(e.target.value)}
+                  placeholder={`[Event "Lesson"]
+[White "Player 1"]
+[Black "Player 2"]
+
+1. e4 {Central pawn opening} e5 2. Nf3 {Develop the knight} Nc6 3. Bb5 {The Ruy Lopez} a6`}
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Paste PGN with annotations in braces. Example: 1. e4 &#123;comment&#125; e5
                 </p>
               </div>
             </div>

@@ -10,6 +10,7 @@ import TextContent from '@/components/academy/lessons/TextContent'
 import VideoContent from '@/components/academy/lessons/VideoContent'
 import PuzzleContent from '@/components/academy/lessons/PuzzleContent'
 import { QuizContent } from '@/components/academy/lessons/QuizContent'
+import LessonViewer from '@/components/academy/lessons/LessonViewer'
 import { CompleteLessonButton } from '@/components/academy/lessons/CompleteLessonButton'
 import { LessonTimeTracker } from '@/components/academy/lessons/LessonTimeTracker'
 
@@ -67,6 +68,14 @@ export default async function LessonPage({ params }: LessonPageProps) {
         )
       case 'puzzle':
         return <PuzzleContent content={lesson.content_data} />
+      case 'pgn':
+        return (
+          <LessonViewer
+            pgn={lesson.content_data?.pgn || ''}
+            title={lesson.title}
+            description={lesson.description}
+          />
+        )
       case 'mixed':
         return (
           <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
