@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Menu, X, UserPlus } from "lucide-react";
+import { Menu, X, UserPlus, Trophy, Calendar, TrendingUp, Newspaper, Gamepad2, FileText, Shield, Upload } from "lucide-react";
 import { NavLink } from "@/components/nav-links";
 import { usePathname } from "next/navigation";
 
@@ -40,7 +40,6 @@ export function MobileNav({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  // Close menu on route change
   React.useEffect(() => {
     setOpen(false);
   }, [pathname]);
@@ -52,74 +51,104 @@ export function MobileNav({
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md border hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-offset-2"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
       >
         {open ? (
-          <X className="h-4 w-4" aria-hidden />
+          <X className="h-4 w-4 text-gray-700 dark:text-gray-300" aria-hidden />
         ) : (
-          <Menu className="h-4 w-4" aria-hidden />
+          <Menu className="h-4 w-4 text-gray-700 dark:text-gray-300" aria-hidden />
         )}
       </button>
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-56 rounded-md border bg-white dark:bg-neutral-900 p-2 shadow-md z-50"
+          className="absolute right-0 mt-2 w-64 rounded-sm border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-2 shadow-lg"
         >
-          <div className="flex flex-col gap-1 items-start">
+          <div className="flex flex-col gap-0.5">
+            {/* User Section */}
             {isAuthenticated ? (
-              <NavLink href="/user/profile" color="primary">
-                My Profile
+              <NavLink href="/user/overview" color="secondary">
+                Dashboard
               </NavLink>
             ) : null}
-            {isAdmin ? (
-              <NavLink href="/admin/upload-tournament" color="gray">
-                Upload Tournament
-              </NavLink>
-            ) : null}
-            {isAdmin ? (
-              <NavLink href="/admin/admin-dashboard" color="gray">
-                Admin Dashboard
-              </NavLink>
-            ) : null}
+            
+            {/* Main Nav */}
+            <div className="px-3 py-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Chess</p>
+              <div className="flex flex-col gap-0.5">
+                <NavLink href="/tournaments" color="gray" icon={<Trophy className="h-4 w-4" />}>
+                  Tournaments
+                </NavLink>
+                <NavLink href="/rankings" color="gray" icon={<TrendingUp className="h-4 w-4" />}>
+                  Rankings
+                </NavLink>
+                <NavLink href="/view" color="gray" icon={<Gamepad2 className="h-4 w-4" />}>
+                  Games
+                </NavLink>
+              </div>
+            </div>
 
-            {isAuthenticated ? (
-              <NavLink href="/game-view" color="gray">
-                View Games
-              </NavLink>
-            ) : null}
+            <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
 
-            {isAuthenticated ? (
-              <NavLink href="/add-game" color="gray">
-                Add Game
-              </NavLink>
-            ) : null}
+            {/* Community */}
+            <div className="px-3 py-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Community</p>
+              <div className="flex flex-col gap-0.5">
+                <NavLink href="/events" color="gray" icon={<Calendar className="h-4 w-4" />}>
+                  Events
+                </NavLink>
+                <NavLink href="/blog" color="gray" icon={<Newspaper className="h-4 w-4" />}>
+                  Blog
+                </NavLink>
+                <NavLink href="/forms" color="gray" icon={<FileText className="h-4 w-4" />}>
+                  Join
+                </NavLink>
+              </div>
+            </div>
 
-            {/* {isAuthenticated ? <NavLink href="/user/user-dashboard" color="secondary">User Dashboard</NavLink> : null} */}
-            <NavLink href="/tournaments" color="gray">
-              Tournaments
-            </NavLink>
-            <NavLink href="/events" color="gray">
-              Calendar
-            </NavLink>
-            {/* Rankings */}
-            <NavLink href="/rankings" color="gray">
-              Rankings
-            </NavLink>
-            <NavLink href="/blog" color="gray">
-              Blog
-            </NavLink>
-            {/* View Games */}
-            <NavLink href="/view" color="gray">
-              Games
-            </NavLink>
-            <NavLink href="/forms" color="gray">
-              Join
-            </NavLink>
+            {/* Admin Section */}
+            {isAdmin && (
+              <>
+                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                <div className="px-3 py-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Admin</p>
+                  <div className="flex flex-col gap-0.5">
+                    <NavLink href="/admin/admin-dashboard" color="gray" icon={<Shield className="h-4 w-4" />}>
+                      Admin Dashboard
+                    </NavLink>
+                    <NavLink href="/admin/upload-tournament" color="gray" icon={<Upload className="h-4 w-4" />}>
+                      Upload Tournament
+                    </NavLink>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* User Actions */}
+            {isAuthenticated && (
+              <>
+                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                <div className="px-3 py-1.5">
+                  <div className="flex flex-col gap-0.5">
+                    <NavLink href="/add-game" color="gray" icon={<Gamepad2 className="h-4 w-4" />}>
+                      Add Game
+                    </NavLink>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Auth */}
             {!isAuthenticated && (
-              <span className="rounded-md px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed select-none inline-flex items-center gap-1">
-                <UserPlus className="h-4 w-4" />
-                Sign Up
-              </span>
+              <>
+                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                <div className="px-3 py-1.5">
+                  <span className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-gray-500 cursor-not-allowed opacity-60">
+                    <UserPlus className="h-4 w-4" />
+                    Sign Up
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </div>

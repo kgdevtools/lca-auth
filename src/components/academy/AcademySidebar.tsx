@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import React, { useState, useEffect, useTransition } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BookOpen,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Home,
   Settings,
+  Clock,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { createClient } from '@/utils/supabase/client'
@@ -23,6 +24,8 @@ interface SidebarItem {
   href: string
   icon: any
   roles?: string[] // If specified, only show for these roles
+  disabled?: boolean
+  comingSoon?: boolean
 }
 
 // Navigation items for all roles
@@ -45,11 +48,15 @@ const studentItems: SidebarItem[] = [
     title: 'Tests',
     href: '/academy/tests',
     icon: ClipboardCheck,
+    disabled: true,
+    comingSoon: true,
   },
   {
     title: 'Puzzles',
     href: '/academy/puzzles',
     icon: Puzzle,
+    disabled: true,
+    comingSoon: true,
   },
   {
     title: 'My Reports',
@@ -65,6 +72,8 @@ const coachItems: SidebarItem[] = [
     href: '/academy/students',
     icon: Users,
     roles: ['coach', 'admin'],
+    disabled: true,
+    comingSoon: true,
   },
   {
     title: 'Create Content',
@@ -123,7 +132,11 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
       items.push(...coachItems)
     }
 
-    return items
+    // Separate active and disabled items
+    const activeItems = items.filter(item => !item.disabled)
+    const disabledItems = items.filter(item => item.disabled)
+    
+    return [...activeItems, ...disabledItems]
   }
 
   const sidebarItems = getSidebarItems()
@@ -200,52 +213,80 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {sidebarItems.map((item) => {
+        {sidebarItems.map((item, index) => {
           const Icon = item.icon
           const isActive = pathname === item.href || (item.href !== '/academy' && pathname.startsWith(item.href))
           const isLoading = loadingRoute === item.href
+          const isDisabled = item.disabled
+          
+          // Check if this is the first disabled item (need divider before it)
+          const prevItem = sidebarItems[index - 1]
+          const showDivider = isDisabled && prevItem && !prevItem.disabled
 
           return (
-            <button
-              key={item.href}
-              onClick={() => {
-                setMobileOpen(false)
-                if (pathname !== item.href) {
-                  setLoadingRoute(item.href)
-                  startTransition(() => {
-                    router.push(item.href)
-                  })
-                }
-              }}
-              disabled={isLoading}
-              className={`
-                w-full flex items-center px-2.5 py-2 rounded-md text-sm font-medium
-                transition-all duration-150
-                ${
-                  isActive
-                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                }
-                ${collapsed ? 'justify-center' : ''}
-                ${isLoading ? 'opacity-70 cursor-wait' : ''}
-              `}
-              title={collapsed ? item.title : undefined}
-            >
-              {isLoading ? (
-                <Loader2
-                  className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} animate-spin flex-shrink-0`}
-                />
-              ) : (
-                <Icon
-                  className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} ${
-                    isActive ? 'text-blue-600 dark:text-blue-400' : ''
-                  } flex-shrink-0`}
-                />
+            <React.Fragment key={item.href}>
+              {showDivider && !collapsed && (
+                <div className="px-2.5 pt-2 pb-1">
+                  <div className="border-t border-gray-200 dark:border-gray-700" />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider mt-2 mb-1">
+                    Coming Soon
+                  </p>
+                </div>
               )}
-              {!collapsed && (
-                <span className="tracking-tight leading-tight">{item.title}</span>
+              {showDivider && collapsed && (
+                <div className="mx-2 border-t border-gray-200 dark:border-gray-700 my-2" />
               )}
-            </button>
+              <button
+                onClick={() => {
+                  if (isDisabled) return
+                  setMobileOpen(false)
+                  if (pathname !== item.href) {
+                    setLoadingRoute(item.href)
+                    startTransition(() => {
+                      router.push(item.href)
+                    })
+                  }
+                }}
+                disabled={isLoading || isDisabled}
+                className={`
+                  w-full flex items-center px-2.5 py-2 rounded-md text-sm font-medium
+                  transition-all duration-150
+                  ${
+                    isActive && !isDisabled
+                      ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300'
+                      : isDisabled
+                      ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                  }
+                  ${collapsed ? 'justify-center' : ''}
+                  ${isLoading ? 'opacity-70 cursor-wait' : ''}
+                `}
+                title={isDisabled ? `${item.title} (Coming Soon)` : (collapsed ? item.title : undefined)}
+              >
+                {isLoading ? (
+                  <Loader2
+                    className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} animate-spin flex-shrink-0`}
+                  />
+                ) : (
+                  <Icon
+                    className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} ${
+                      isActive && !isDisabled ? 'text-blue-600 dark:text-blue-400' : ''
+                    } flex-shrink-0`}
+                  />
+                )}
+                {!collapsed && (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="tracking-tight leading-tight truncate">{item.title}</span>
+                    {isDisabled && (
+                      <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0">
+                        <Clock className="w-3 h-3" />
+                        Soon
+                      </span>
+                    )}
+                  </div>
+                )}
+              </button>
+            </React.Fragment>
           )
         })}
       </nav>

@@ -1,7 +1,7 @@
 /**
  * PGN parsing and fuzzy name matching utilities
  */
-const DEBUG = Boolean(process.env.DEBUG_TOURNAMENT_MATCHING === '1' || process.env.NODE_ENV !== 'production')
+const DEBUG = process.env.DEBUG_TOURNAMENT_MATCHING === '1'
 
 export function parsePGNTags(raw: any) {
   try {

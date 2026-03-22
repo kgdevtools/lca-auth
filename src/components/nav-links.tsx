@@ -15,7 +15,7 @@ interface NavLinkProps {
   badge?: string;
 }
 
-export function NavLink({ href, children, color, isLoading: externalLoading, icon, badge }: NavLinkProps) {
+export function NavLink({ href, children, color, isLoading: externalLoading, icon: customIcon, badge }: NavLinkProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [internalLoading, setInternalLoading] = useState(false)
@@ -23,9 +23,9 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
   const isLoading = externalLoading || internalLoading
 
   const colorClasses = {
-    primary: isActive ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900",
-    secondary: isActive ? "bg-purple-600 text-white" : "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900",
-    gray: isActive ? "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200" : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+    primary: isActive ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30",
+    secondary: isActive ? "bg-purple-600 text-white" : "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30",
+    gray: isActive ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50",
   };
 
   const getDefaultIcon = (href: string) => {
@@ -72,7 +72,7 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          icon || getDefaultIcon(href)
+          customIcon || getDefaultIcon(href)
         )}
         {children}
       </Link>
