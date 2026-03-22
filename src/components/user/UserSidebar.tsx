@@ -5,8 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Home,
-  Trophy,
-  Gamepad2,
+  BarChart3,
   UserCircle,
   Menu,
   ChevronLeft,
@@ -29,14 +28,9 @@ const sidebarItems = [
     icon: GraduationCap,
   },
   {
-    title: 'Tournaments',
-    href: '/user/tournaments',
-    icon: Trophy,
-  },
-  {
-    title: 'Tournament Games',
-    href: '/user/tournament-games',
-    icon: Gamepad2,
+    title: 'Stats',
+    href: '/tournaments',
+    icon: BarChart3,
   },
   {
     title: 'Profile',

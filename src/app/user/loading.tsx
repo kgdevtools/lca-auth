@@ -1,5 +1,5 @@
-import ProfileViewSkeleton from './overview/ProfileViewSkeleton'
+import ProfileOverviewSkeleton from './overview/ProfileViewSkeleton'
 
 export default function UserLoadingSkeleton() {
-  return <ProfileViewSkeleton />
+  return <ProfileOverviewSkeleton />
 }

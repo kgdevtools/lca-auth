@@ -358,3 +358,327 @@ export async function updateProfile(
   // Return success - let client handle the UI update
   return { success: true };
 }
+
+export type UserGame = {
+  id: string
+  title: string | null
+  pgn: string
+  created_at: string | null
+  white: string
+  black: string
+  result: string
+  tournament: string
+  table_name: string
+}
+
+function buildNameFilter(playerName: string): string {
+  // Build SQL filter for PGN text containing player name tokens
+  const tokens = playerName.trim().split(/\s+/).filter(t => t.length > 1)
+  if (tokens.length === 0) return ''
+  
+  // Create ILIKE filters for each token
+  const filters = tokens.map(token => 
+    `pgn.ilike.%${token}%`
+  ).join(',')
+
+  return filters
+}
+
+export async function getUserGames(
+  playerName: string,
+  limit: number = 10
+): Promise<UserGame[]> {
+  if (!playerName) return []
+
+  const supabase = await createClient()
+  const { enhancedFuzzyScore } = await import('@/services/pgnService')
+
+  // Get tournaments meta - only get recent ones first
+  const { data: tournamentsMeta } = await supabase
+    .from('tournaments_meta')
+    .select('id, name, alias')
+    .order('name', { ascending: false })
+    .limit(20)
+
+  if (!tournamentsMeta || tournamentsMeta.length === 0) return []
+
+  const tableNameRegex = /^[a-z0-9_]+$/
+  const allGames: UserGame[] = []
+  const nameFilter = buildNameFilter(playerName)
+
+  for (const t of tournamentsMeta) {
+    if (!t.name || !tableNameRegex.test(t.name)) continue
+    if (allGames.length >= limit * 2) break
+
+    try {
+      // Use SQL filter to pre-filter rows containing player name
+      let query = supabase
+        .from(t.name)
+        .select('id, title, pgn, created_at')
+        .order('created_at', { ascending: false })
+
+      // Apply name filter if we have tokens
+      if (nameFilter) {
+        query = query.or(nameFilter, { referencedTable: 'undefined' })
+      }
+
+      const { data: rows, error } = await query.limit(50) // Reduced limit since we're filtering
+
+      if (error || !rows || rows.length === 0) continue
+
+      for (const r of rows) {
+        let white = '', black = '', result = ''
+        
+        if (typeof r.pgn === 'string') {
+          const whiteMatch = r.pgn.match(/\[White\s+"([^"]+)"\]/)
+          const blackMatch = r.pgn.match(/\[Black\s+"([^"]+)"\]/)
+          const resultMatch = r.pgn.match(/\[Result\s+"([^"]+)"\]/)
+          white = whiteMatch?.[1] || ''
+          black = blackMatch?.[1] || ''
+          result = resultMatch?.[1] || ''
+        }
+
+        // Precise fuzzy match
+        const scoreW = enhancedFuzzyScore(white, playerName)
+        const scoreB = enhancedFuzzyScore(black, playerName)
+        const best = Math.max(scoreW, scoreB)
+
+        if (best >= 0.6) {
+          allGames.push({
+            id: String(r.id),
+            title: r.title || null,
+            pgn: r.pgn,
+            created_at: r.created_at || null,
+            white,
+            black,
+            result,
+            tournament: t.alias || t.name.replace(/_games$/, '').replace(/_/g, ' '),
+            table_name: t.name,
+          })
+        }
+      }
+    } catch (e) {
+      continue
+    }
+  }
+
+  return allGames
+    .sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+      return dateB - dateA
+    })
+    .slice(0, limit)
+}
+
+export async function getTotalGamesCount(playerName: string): Promise<number> {
+  if (!playerName) return 0
+
+  const supabase = await createClient()
+  const { enhancedFuzzyScore } = await import('@/services/pgnService')
+
+  // Only check recent tournaments for performance
+  const { data: tournamentsMeta } = await supabase
+    .from('tournaments_meta')
+    .select('name')
+    .order('name', { ascending: false })
+    .limit(30)
+
+  if (!tournamentsMeta) return 0
+
+  let totalGames = 0
+  const tableNameRegex = /^[a-z0-9_]+$/
+  const nameFilter = buildNameFilter(playerName)
+
+  for (const t of tournamentsMeta) {
+    if (!t.name || !tableNameRegex.test(t.name)) continue
+
+    try {
+      let query = supabase
+        .from(t.name)
+        .select('pgn')
+
+      // Apply SQL filter for faster pre-filtering
+      if (nameFilter) {
+        query = query.or(nameFilter, { referencedTable: 'undefined' })
+      }
+
+      const { data: rows } = await query.limit(100)
+
+      if (!rows || rows.length === 0) continue
+
+      for (const r of rows) {
+        let white = '', black = ''
+        if (typeof r.pgn === 'string') {
+          const whiteMatch = r.pgn.match(/\[White\s+"([^"]+)"\]/)
+          const blackMatch = r.pgn.match(/\[Black\s+"([^"]+)"\]/)
+          white = whiteMatch?.[1] || ''
+          black = blackMatch?.[1] || ''
+        }
+        const best = Math.max(enhancedFuzzyScore(white, playerName), enhancedFuzzyScore(black, playerName))
+        if (best >= 0.6) totalGames++
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return totalGames
+}
+
+export type PlayerProfile = {
+  unique_no: string | null
+  name: string | null
+  rating: string | null
+  fed: string | null
+  title: string | null
+  bdate: string | null
+  sex: string | null
+}
+
+export type PlayerMatch = {
+  name: string
+  unique_no: string | null
+  rating: string | null
+  fed: string | null
+  title: string | null
+  score: number
+}
+
+export async function getPlayerProfile(playerName: string): Promise<PlayerProfile | null> {
+  if (!playerName) return null
+
+  const supabase = await createClient()
+  const { enhancedFuzzyScore } = await import('@/services/pgnService')
+
+  const tokens = playerName.trim().split(/\s+/).filter(t => t.length > 1)
+  
+  let query = supabase
+    .from('active_players_august_2025_profiles')
+    .select('UNIQUE_NO, name, RATING, FED, TITLE, BDATE, SEX')
+
+  if (tokens.length > 0) {
+    const nameFilter = tokens.map(token => 
+      `name.ilike.%${token}%`
+    ).join(',')
+    query = query.or(nameFilter, { referencedTable: 'undefined' })
+  }
+
+  const { data: rows } = await query.limit(20)
+
+  if (!rows || rows.length === 0) return null
+
+  let bestMatch: typeof rows[0] | null = null
+  let bestScore = 0
+
+  for (const row of rows) {
+    const score = enhancedFuzzyScore(row.name || '', playerName)
+    if (score > bestScore && score >= 0.8) {
+      bestScore = score
+      bestMatch = row
+    }
+  }
+
+  if (!bestMatch) return null
+
+  return {
+    unique_no: bestMatch.UNIQUE_NO,
+    name: bestMatch.name,
+    rating: bestMatch.RATING,
+    fed: bestMatch.FED,
+    title: bestMatch.TITLE,
+    bdate: bestMatch.BDATE,
+    sex: bestMatch.SEX,
+  }
+}
+
+export async function findClosePlayerMatches(playerName: string): Promise<PlayerMatch[]> {
+  if (!playerName) return []
+
+  const supabase = await createClient()
+  const { enhancedFuzzyScore, normalizeName } = await import('@/services/pgnService')
+
+  const tokens = playerName.trim().split(/\s+/).filter(t => t.length > 1)
+  
+  let query = supabase
+    .from('active_players_august_2025_profiles')
+    .select('UNIQUE_NO, name, RATING, FED, TITLE')
+
+  if (tokens.length > 0) {
+    const nameFilter = tokens.map(token => 
+      `name.ilike.%${token}%`
+    ).join(',')
+    query = query.or(nameFilter, { referencedTable: 'undefined' })
+  }
+
+  const { data: rows } = await query.limit(50)
+
+  if (!rows) return []
+
+  const matches: PlayerMatch[] = []
+  const seenNames = new Set<string>()
+
+  for (const row of rows) {
+    const name = row.name || ''
+    const normalizedName = normalizeName(name)
+    
+    // Skip if we've already seen this normalized name
+    if (seenNames.has(normalizedName)) continue
+    seenNames.add(normalizedName)
+
+    const score = enhancedFuzzyScore(name, playerName)
+    
+    // Include matches with score >= 0.5 (close matches)
+    if (score >= 0.5) {
+      matches.push({
+        name,
+        unique_no: row.UNIQUE_NO,
+        rating: row.RATING,
+        fed: row.FED,
+        title: row.TITLE,
+        score,
+      })
+    }
+  }
+
+  // Sort by score descending
+  return matches.sort((a, b) => b.score - a.score).slice(0, 5)
+}
+
+export type AcademyProgress = {
+  total: number
+  completed: number
+  inProgress: number
+  totalTimeMinutes: number
+  averageQuizScore: number
+}
+
+export async function getAcademyProgress(): Promise<AcademyProgress> {
+  const supabase = await createClient()
+  const { profile } = await import('@/utils/auth/academyAuth').then(m => m.getCurrentUserWithProfile())
+
+  const { data: allProgress, error } = await supabase
+    .from('lesson_progress')
+    .select('*')
+    .eq('student_id', profile.id)
+
+  if (error || !allProgress) {
+    return { total: 0, completed: 0, inProgress: 0, totalTimeMinutes: 0, averageQuizScore: 0 }
+  }
+
+  const completed = allProgress.filter(p => p.status === 'completed').length
+  const inProgress = allProgress.filter(p => p.status === 'in_progress').length
+  const totalTime = allProgress.reduce((sum, p) => sum + (p.time_spent_seconds || 0), 0)
+  const scoredProgress = allProgress.filter(p => p.quiz_score !== null)
+  const averageScore = scoredProgress.length > 0
+    ? scoredProgress.reduce((sum, p) => sum + (p.quiz_score || 0), 0) / scoredProgress.length
+    : 0
+
+  return {
+    total: allProgress.length,
+    completed,
+    inProgress,
+    totalTimeMinutes: Math.round(totalTime / 60),
+    averageQuizScore: Math.round(averageScore),
+  }
+}

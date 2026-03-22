@@ -1,109 +1,97 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { WarningBanner } from '@/components/warning-banner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Card } from '@/components/ui/card'
 
-export default function ProfileViewSkeleton() {
+export default function ProfileOverviewSkeleton() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <WarningBanner message="Still under development: Some services may not work." />
-
-      <div className="mb-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <Skeleton className="h-10 w-64 mb-2" />
+        <Skeleton className="h-4 w-48" />
       </div>
 
-      {/* Two-column layout for desktop, single column for mobile */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
-        {/* Left Column */}
-        <div className="space-y-4">
-          {/* Avatar & Role Card Skeleton */}
-          <Card className="bg-gradient-to-br from-gray-400 to-gray-600 border-0">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                <div className="w-20 h-20 rounded-full bg-white/20 animate-pulse" />
-                <div className="flex-1 text-center sm:text-left space-y-3">
-                  <div className="h-7 w-48 bg-white/20 animate-pulse rounded mx-auto sm:mx-0" />
-                  <div className="h-4 w-40 bg-white/20 animate-pulse rounded mx-auto sm:mx-0" />
-                  <div className="h-6 w-24 bg-white/20 animate-pulse rounded mx-auto sm:mx-0" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left Column - Profile Hero */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Profile Hero Card */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-6">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px]" />
+            <div className="relative flex flex-col items-center text-center">
+              <Skeleton className="w-24 h-24 rounded-full mb-4" />
+              <Skeleton className="h-6 w-40 mb-2" />
+              <Skeleton className="h-4 w-48 mb-4" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-8 w-full mt-5 rounded-md" />
+            </div>
+          </div>
 
-          {/* Profile Details Card Skeleton */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="h-5 w-40 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-                    <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+          {/* Quick Update Card */}
+          <Card className="border-0 bg-white dark:bg-slate-900/50 shadow-sm">
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-5 w-full" />
+            </div>
           </Card>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-4">
-          {/* Match Results Skeleton */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="h-5 w-48 bg-muted animate-pulse rounded" />
-              <div className="h-3 w-56 bg-muted animate-pulse rounded mt-2" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-                <div className="h-8 w-40 bg-muted animate-pulse rounded" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Player Statistics Skeleton */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="h-5 w-40 bg-muted animate-pulse rounded" />
-              <div className="h-3 w-48 bg-muted animate-pulse rounded mt-2" />
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="h-3 w-20 bg-muted animate-pulse rounded" />
-                    <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Recent Tournaments Skeleton */}
-      <Card className="mt-6">
-        <CardHeader className="pb-3">
-          <div className="h-5 w-40 bg-muted animate-pulse rounded" />
-          <div className="h-3 w-56 bg-muted animate-pulse rounded mt-2" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Right Column - Stats & Games */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-3">
-                <div className="h-5 w-full bg-muted animate-pulse rounded" />
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
+              <div key={i} className="rounded-xl p-4 bg-white dark:bg-slate-900/50 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-2 w-16" />
                 </div>
+                <Skeleton className="h-8 w-16" />
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Recent Tournaments */}
+          <Card className="border-0 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex justify-between">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-12" />
+                    <Skeleton className="h-5 w-12 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Recent Games */}
+          <Card className="border-0 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex justify-between">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 flex items-center gap-4">
+                  <Skeleton className="w-10 h-10 rounded" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-5 w-12 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

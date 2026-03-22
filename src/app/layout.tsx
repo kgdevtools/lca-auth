@@ -13,6 +13,7 @@ import { createClient } from "@/utils/supabase/server";
 import FooterNav from "@/components/footer-nav";
 import { Toaster } from "sonner";
 import AutoSyncProvider from "@/components/AutoSyncProvider";
+import HeaderMobileNav from "@/components/HeaderMobileNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -160,26 +161,14 @@ export default async function RootLayout({
                 </div>
               </Link>
               <div className="hidden md:flex items-center gap-1">
+                {/* User Section */}
                 {user ? (
-                  <NavLink href="/user" color="secondary">
-                    User Dashboard
+                  <NavLink href="/user/overview" color="secondary">
+                    Dashboard
                   </NavLink>
                 ) : null}
-                {isAdmin ? (
-                  <NavLink href="/admin/admin-dashboard" color="gray">
-                    Admin Dashboard
-                  </NavLink>
-                ) : null}
-                {user ? (
-                  <NavLink href="/add-game" color="gray">
-                    Add Game
-                  </NavLink>
-                ) : null}
-                {isAdmin ? (
-                  <NavLink href="/admin/upload-tournament" color="gray">
-                    Upload Tournament
-                  </NavLink>
-                ) : null}
+                
+                {/* Main Nav */}
                 <NavLink href="/tournaments" color="gray">
                   Tournaments
                 </NavLink>
@@ -189,21 +178,40 @@ export default async function RootLayout({
                 <NavLink href="/rankings" color="gray">
                   Rankings
                 </NavLink>
+                
+                {/* Resources */}
                 <NavLink href="/blog" color="gray">
                   Blog
+                </NavLink>
+                <NavLink href="/view" color="gray">
+                  Games
                 </NavLink>
                 <NavLink href="/forms" color="gray">
                   Join
                 </NavLink>
-
-                <NavLink href="/view" color="gray">
-                  Games
-                </NavLink>
+                
+                {/* Admin Section */}
+                <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-2" />
+                {isAdmin ? (
+                  <NavLink href="/admin/admin-dashboard" color="gray">
+                    Admin
+                  </NavLink>
+                ) : null}
+                {isAdmin ? (
+                  <NavLink href="/admin/upload-tournament" color="gray">
+                    Upload
+                  </NavLink>
+                ) : null}
+                {user ? (
+                  <NavLink href="/add-game" color="gray">
+                    Add Game
+                  </NavLink>
+                ) : null}
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <ThemeToggle />
-              <MobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
+              <HeaderMobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
               {user ? (
                 <form
                   action={async () => {
