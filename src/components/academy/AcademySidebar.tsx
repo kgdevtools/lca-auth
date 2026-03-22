@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect, useTransition } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import React, { useState, useEffect, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
   ClipboardCheck,
@@ -14,142 +14,147 @@ import {
   Home,
   Settings,
   Clock,
-} from 'lucide-react'
-import { Avatar } from '@/components/ui/avatar'
-import { createClient } from '@/utils/supabase/client'
-import Image from 'next/image'
+} from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { createClient } from "@/utils/supabase/client";
+import Image from "next/image";
 
 interface SidebarItem {
-  title: string
-  href: string
-  icon: any
-  roles?: string[] // If specified, only show for these roles
-  disabled?: boolean
-  comingSoon?: boolean
+  title: string;
+  href: string;
+  icon: any;
+  roles?: string[]; // If specified, only show for these roles
+  disabled?: boolean;
+  comingSoon?: boolean;
 }
 
 // Navigation items for all roles
 const baseSidebarItems: SidebarItem[] = [
   {
-    title: 'Dashboard',
-    href: '/academy',
+    title: "Dashboard",
+    href: "/academy",
     icon: Home,
   },
-]
+];
 
 // Student/everyone items
 const studentItems: SidebarItem[] = [
   {
-    title: 'Lessons',
-    href: '/academy/lessons',
+    title: "Lessons",
+    href: "/academy/lessons",
     icon: BookOpen,
   },
   {
-    title: 'Tests',
-    href: '/academy/tests',
+    title: "Tests",
+    href: "/academy/tests",
     icon: ClipboardCheck,
     disabled: true,
     comingSoon: true,
   },
   {
-    title: 'Puzzles',
-    href: '/academy/puzzles',
+    title: "Puzzles",
+    href: "/academy/puzzles",
     icon: Puzzle,
     disabled: true,
     comingSoon: true,
   },
   {
-    title: 'My Reports',
-    href: '/academy/reports',
+    title: "My Reports",
+    href: "/academy/reports",
     icon: BarChart3,
   },
-]
+];
 
 // Coach-specific items
 const coachItems: SidebarItem[] = [
   {
-    title: 'My Students',
-    href: '/academy/students',
+    title: "My Students",
+    href: "/academy/students",
     icon: Users,
-    roles: ['coach', 'admin'],
+    roles: ["coach", "admin"],
     disabled: true,
     comingSoon: true,
   },
   {
-    title: 'Create Content',
-    href: '/academy/admin',
+    title: "Create Content",
+    href: "/academy/admin",
     icon: Settings,
-    roles: ['coach', 'admin'],
+    roles: ["coach", "admin"],
   },
-]
+];
 
 interface AcademySidebarProps {
-  collapsed?: boolean
-  onToggleCollapse?: () => void
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export default function AcademySidebar({ collapsed = false, onToggleCollapse }: AcademySidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [isPending, startTransition] = useTransition()
-  const [loadingRoute, setLoadingRoute] = useState<string | null>(null)
-  const pathname = usePathname()
-  const router = useRouter()
+export default function AcademySidebar({
+  collapsed = false,
+  onToggleCollapse,
+}: AcademySidebarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [isPending, startTransition] = useTransition();
+  const [loadingRoute, setLoadingRoute] = useState<string | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
 
       if (user) {
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(profileData)
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setProfile(profileData);
       }
     }
-    fetchUser()
-  }, [])
+    fetchUser();
+  }, []);
 
   // Reset loading state when route changes
   useEffect(() => {
-    setLoadingRoute(null)
-  }, [pathname])
+    setLoadingRoute(null);
+  }, [pathname]);
 
   // Build navigation items based on user role
   const getSidebarItems = () => {
-    const items = [...baseSidebarItems]
+    const items = [...baseSidebarItems];
 
     // Add student items (everyone can access)
-    items.push(...studentItems)
+    items.push(...studentItems);
 
     // Add coach items if user is coach or admin
-    if (profile?.role === 'coach' || profile?.role === 'admin') {
-      items.push(...coachItems)
+    if (profile?.role === "coach" || profile?.role === "admin") {
+      items.push(...coachItems);
     }
 
     // Separate active and disabled items
-    const activeItems = items.filter(item => !item.disabled)
-    const disabledItems = items.filter(item => item.disabled)
-    
-    return [...activeItems, ...disabledItems]
-  }
+    const activeItems = items.filter((item) => !item.disabled);
+    const disabledItems = items.filter((item) => item.disabled);
 
-  const sidebarItems = getSidebarItems()
+    return [...activeItems, ...disabledItems];
+  };
+
+  const sidebarItems = getSidebarItems();
 
   const SidebarContent = () => (
     <>
       {/* Header */}
-      <div className="px-3 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-3 py-8 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between gap-2">
           {!collapsed && (
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {/* Logo */}
-              <div className="relative w-8 h-8 flex-shrink-0">
+              {/*<div className="relative w-8 h-8 flex-shrink-0">
                 <Image
                   src="/Picture1.png"
                   alt="LCA Logo"
@@ -164,11 +169,11 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
                   className="object-contain hidden dark:block"
                   sizes="32px"
                 />
-              </div>
+              </div>*/}
               {/* Text */}
               <div className="flex-1 min-w-0">
                 <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tighter leading-tight">
-                  LCA Academy
+                  LCA Academy Online
                 </h1>
                 <p className="text-xs text-gray-600 dark:text-gray-400 tracking-tighter leading-tight">
                   Learning Platform
@@ -176,31 +181,31 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
               </div>
             </div>
           )}
-          {collapsed && (
-            <div className="relative w-8 h-8 mx-auto">
-              <Image
-                src="/Picture1.png"
-                alt="LCA Logo"
-                fill
-                className="object-contain block dark:hidden"
-                sizes="32px"
-              />
-              <Image
-                src="/lca-cyan-dark-bg-updated.png"
-                alt="LCA Logo"
-                fill
-                className="object-contain hidden dark:block"
-                sizes="32px"
-              />
-            </div>
-          )}
+          {/*{collapsed && (
+            // <div className="relative w-8 h-8 mx-auto">
+            //   <Image
+            //     src="/Picture1.png"
+            //     alt="LCA Logo"
+            //     fill
+            //     className="object-contain block dark:hidden"
+            //     sizes="32px"
+            //   />
+            //   <Image
+            //     src="/lca-cyan-dark-bg-updated.png"
+            //     alt="LCA Logo"
+            //     fill
+            //     className="object-contain hidden dark:block"
+            //     sizes="32px"
+            //   />
+            // </div>
+          )}*/}
           <button
             onClick={() => {
-              setMobileOpen(false)
-              onToggleCollapse?.()
+              setMobileOpen(false);
+              onToggleCollapse?.();
             }}
             className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0 hidden lg:block"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? (
               <Menu className="w-4 h-4 text-gray-600 dark:text-gray-400" />
@@ -214,14 +219,16 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {sidebarItems.map((item, index) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== '/academy' && pathname.startsWith(item.href))
-          const isLoading = loadingRoute === item.href
-          const isDisabled = item.disabled
-          
+          const Icon = item.icon;
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/academy" && pathname.startsWith(item.href));
+          const isLoading = loadingRoute === item.href;
+          const isDisabled = item.disabled;
+
           // Check if this is the first disabled item (need divider before it)
-          const prevItem = sidebarItems[index - 1]
-          const showDivider = isDisabled && prevItem && !prevItem.disabled
+          const prevItem = sidebarItems[index - 1];
+          const showDivider = isDisabled && prevItem && !prevItem.disabled;
 
           return (
             <React.Fragment key={item.href}>
@@ -238,13 +245,13 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
               )}
               <button
                 onClick={() => {
-                  if (isDisabled) return
-                  setMobileOpen(false)
+                  if (isDisabled) return;
+                  setMobileOpen(false);
                   if (pathname !== item.href) {
-                    setLoadingRoute(item.href)
+                    setLoadingRoute(item.href);
                     startTransition(() => {
-                      router.push(item.href)
-                    })
+                      router.push(item.href);
+                    });
                   }
                 }}
                 disabled={isLoading || isDisabled}
@@ -253,30 +260,40 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
                   transition-all duration-150
                   ${
                     isActive && !isDisabled
-                      ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300'
+                      ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300"
                       : isDisabled
-                      ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                   }
-                  ${collapsed ? 'justify-center' : ''}
-                  ${isLoading ? 'opacity-70 cursor-wait' : ''}
+                  ${collapsed ? "justify-center" : ""}
+                  ${isLoading ? "opacity-70 cursor-wait" : ""}
                 `}
-                title={isDisabled ? `${item.title} (Coming Soon)` : (collapsed ? item.title : undefined)}
+                title={
+                  isDisabled
+                    ? `${item.title} (Coming Soon)`
+                    : collapsed
+                      ? item.title
+                      : undefined
+                }
               >
                 {isLoading ? (
                   <Loader2
-                    className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} animate-spin flex-shrink-0`}
+                    className={`${collapsed ? "w-5 h-5" : "w-4 h-4 mr-2.5"} animate-spin flex-shrink-0`}
                   />
                 ) : (
                   <Icon
-                    className={`${collapsed ? 'w-5 h-5' : 'w-4 h-4 mr-2.5'} ${
-                      isActive && !isDisabled ? 'text-blue-600 dark:text-blue-400' : ''
+                    className={`${collapsed ? "w-5 h-5" : "w-4 h-4 mr-2.5"} ${
+                      isActive && !isDisabled
+                        ? "text-blue-600 dark:text-blue-400"
+                        : ""
                     } flex-shrink-0`}
                   />
                 )}
                 {!collapsed && (
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="tracking-tight leading-tight truncate">{item.title}</span>
+                    <span className="tracking-tight leading-tight truncate">
+                      {item.title}
+                    </span>
                     {isDisabled && (
                       <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0">
                         <Clock className="w-3 h-3" />
@@ -287,7 +304,7 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
                 )}
               </button>
             </React.Fragment>
-          )
+          );
         })}
       </nav>
 
@@ -295,28 +312,28 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
         <div
           className={`flex items-center gap-2.5 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${
-            collapsed ? 'justify-center' : ''
+            collapsed ? "justify-center" : ""
           }`}
         >
           <Avatar
-            name={profile?.full_name || user?.email || 'User'}
+            name={profile?.full_name || user?.email || "User"}
             size={32}
             className="flex-shrink-0"
           />
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate tracking-tight leading-tight">
-                {profile?.full_name || 'User'}
+                {profile?.full_name || "User"}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 truncate tracking-tight leading-tight capitalize">
-                {profile?.role || 'Student'}
+                {profile?.role || "Student"}
               </p>
             </div>
           )}
         </div>
       </div>
     </>
-  )
+  );
 
   return (
     <>
@@ -343,7 +360,7 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
         w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700
         transform transition-transform duration-300 ease-in-out
         lg:hidden flex flex-col
-        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
       `}
       >
         <SidebarContent />
@@ -354,7 +371,7 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
         className={`
         hidden lg:flex lg:flex-col
         fixed top-16 bottom-0 left-0 z-30
-        ${collapsed ? 'w-16' : 'w-72'}
+        ${collapsed ? "w-16" : "w-72"}
         bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700
         transition-all duration-300 ease-in-out
       `}
@@ -363,7 +380,9 @@ export default function AcademySidebar({ collapsed = false, onToggleCollapse }: 
       </div>
 
       {/* Desktop Sidebar Spacer */}
-      <div className={`hidden lg:block ${collapsed ? 'w-16' : 'w-72'} flex-shrink-0 transition-all duration-300`} />
+      <div
+        className={`hidden lg:block ${collapsed ? "w-16" : "w-72"} flex-shrink-0 transition-all duration-300`}
+      />
     </>
-  )
+  );
 }

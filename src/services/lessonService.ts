@@ -21,7 +21,7 @@ export interface Lesson {
   slug: string
   description: string | null
   category_id: string | null
-  content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'mixed'
+  content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'pgn' | 'mixed'
   content_data: any
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null
   estimated_duration_minutes: number | null
@@ -234,7 +234,7 @@ export async function createLesson(lessonData: {
   slug: string
   description?: string
   category_id?: string
-  content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'mixed'
+  content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'pgn' | 'mixed'
   content_data: any
   difficulty?: 'beginner' | 'intermediate' | 'advanced'
   estimated_duration_minutes?: number
@@ -285,7 +285,7 @@ export async function updateLesson(
     slug: string
     description: string
     category_id: string
-    content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'mixed'
+  content_type: 'text' | 'video' | 'quiz' | 'puzzle' | 'pgn' | 'mixed'
     content_data: any
     difficulty: 'beginner' | 'intermediate' | 'advanced'
     estimated_duration_minutes: number
