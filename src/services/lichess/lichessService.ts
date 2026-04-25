@@ -1,5 +1,3 @@
-import axios from 'axios'
-
 const LICHESS_API = 'https://lichess.org/api'
 
 export interface LichessStudy {
@@ -17,10 +15,11 @@ export interface LichessChapter {
 
 export async function fetchStudy(studyId: string): Promise<LichessStudy | null> {
   try {
-    const response = await axios.get(`${LICHESS_API}/study/${studyId}`, {
+    const res = await fetch(`${LICHESS_API}/study/${studyId}`, {
       headers: { Accept: 'application/json' },
     })
-    return response.data
+    if (!res.ok) return null
+    return res.json()
   } catch (error) {
     console.error('Failed to fetch study:', error)
     return null
@@ -29,10 +28,11 @@ export async function fetchStudy(studyId: string): Promise<LichessStudy | null> 
 
 export async function fetchStudyChapters(studyId: string): Promise<LichessChapter[]> {
   try {
-    const response = await axios.get(`${LICHESS_API}/study/${studyId}/chapters`, {
+    const res = await fetch(`${LICHESS_API}/study/${studyId}/chapters`, {
       headers: { Accept: 'application/json' },
     })
-    return response.data
+    if (!res.ok) return []
+    return res.json()
   } catch (error) {
     console.error('Failed to fetch study chapters:', error)
     return []
@@ -41,11 +41,12 @@ export async function fetchStudyChapters(studyId: string): Promise<LichessChapte
 
 export async function fetchChapterPgn(studyId: string, chapterId: string): Promise<string> {
   try {
-    const response = await axios.get(
+    const res = await fetch(
       `${LICHESS_API}/study/${studyId}/chapter/${chapterId}.pgn`,
       { headers: { Accept: 'application/x-chess-pgn' } }
     )
-    return response.data
+    if (!res.ok) return ''
+    return res.text()
   } catch (error) {
     console.error('Failed to fetch chapter PGN:', error)
     return ''
@@ -54,10 +55,11 @@ export async function fetchChapterPgn(studyId: string, chapterId: string): Promi
 
 export async function fetchUserStudies(username: string): Promise<LichessStudy[]> {
   try {
-    const response = await axios.get(`${LICHESS_API}/study/of/${username}`, {
+    const res = await fetch(`${LICHESS_API}/study/of/${username}`, {
       headers: { Accept: 'application/json' },
     })
-    return response.data
+    if (!res.ok) return []
+    return res.json()
   } catch (error) {
     console.error('Failed to fetch user studies:', error)
     return []
