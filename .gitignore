@@ -48,6 +48,23 @@ nul
 # SQL files in root directory (keep migrations in subdirectories)
 /*.sql
 
+# Supabase migrations (DB schema managed outside repo)
+/supabase/migrations/
+
+# Internal docs / session notes (not for repo)
+/SESSION_SUMMARY.md
+/RULES.md
+/REFACTOR_PLAN.md
+/ADMIN_DASHBOARD_TODO.md
+/GAMIFICATION_DESIGN.md
+/GAMIFICATION_TASKS.md
+/LESSON_BUILDER_TASKS.md
+/STUDENT_TRACKING_SUMMARY.md
+/GOOGLE_OAUTH_SIGNUP_FIX.md
+/INTERACTIVE_STUDY_BUILD.md
+/INTERACTIVE_AND_PUZZLE_LESSON_UPDATES.md
+/CURL_LICHESS_API_TESTING.md
+
 #AI md files
 *.ai.md
 *.ai.mdx
