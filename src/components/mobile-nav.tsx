@@ -1,158 +1,173 @@
 "use client";
 
 import * as React from "react";
-import { Menu, X, UserPlus, Trophy, Calendar, TrendingUp, Newspaper, Gamepad2, FileText, Shield, Upload } from "lucide-react";
-import { NavLink } from "@/components/nav-links";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import {
+  Menu, X, Trophy, TrendingUp, Gamepad2, Newspaper,
+  Calendar, FileText, Shield, Upload, LayoutDashboard, UserPlus,
+  Info, Phone,
+} from "lucide-react";
 
 interface MobileNavProps {
   isAuthenticated: boolean;
   isAdmin?: boolean;
 }
 
-export function MobileNav({
-  isAuthenticated,
-  isAdmin = false,
-}: MobileNavProps) {
+// ── Section label ─────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-mono font-bold tracking-widest uppercase text-muted-foreground/60 px-2 mb-1 mt-0.5">
+      {children}
+    </p>
+  );
+}
+
+// ── Mobile nav item ──────────────────────────────────────────────────────────
+
+function MobileNavItem({
+  href,
+  icon: Icon,
+  children,
+  onClick,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const pathname = usePathname();
+  const isActive = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 rounded-sm px-2.5 py-2.5 font-mono font-semibold tracking-tight text-[13px] transition-colors",
+        isActive
+          ? "bg-primary/10 text-primary"
+          : "text-foreground hover:bg-accent/50",
+      )}
+    >
+      <Icon className="w-4 h-4 flex-shrink-0 opacity-70" />
+      {children}
+    </Link>
+  );
+}
+
+// ── MobileNav ────────────────────────────────────────────────────────────────
+
+export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
-
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
+  // Close on escape
   React.useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // Close on outside click
   React.useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) {
+    const onClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
-    }
-    if (open) {
-      document.addEventListener("mousedown", onClickOutside);
-    }
+    };
+    if (open) document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  React.useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // Close on navigate
+  React.useEffect(() => { setOpen(false); }, [pathname]);
+
+  const close = () => setOpen(false);
 
   return (
     <div className="relative md:hidden" ref={containerRef}>
+      {/* Trigger */}
       <button
         type="button"
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
+        onClick={() => setOpen(v => !v)}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-sm border border-border bg-background/80 backdrop-blur-sm hover:bg-accent/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        {open ? (
-          <X className="h-4 w-4 text-gray-700 dark:text-gray-300" aria-hidden />
-        ) : (
-          <Menu className="h-4 w-4 text-gray-700 dark:text-gray-300" aria-hidden />
-        )}
+        {open
+          ? <X    className="h-4 w-4 text-muted-foreground" aria-hidden />
+          : <Menu className="h-4 w-4 text-muted-foreground" aria-hidden />
+        }
       </button>
-      {open ? (
+
+      {/* Drawer */}
+      {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-64 rounded-sm border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-2 shadow-lg"
+          className="fixed top-20 left-3 right-3 rounded-sm border border-border bg-background/95 backdrop-blur-md shadow-lg z-[200] overflow-hidden"
         >
-          <div className="flex flex-col gap-0.5">
-            {/* User Section */}
-            {isAuthenticated ? (
-              <NavLink href="/user/overview" color="secondary">
-                Dashboard
-              </NavLink>
-            ) : null}
-            
-            {/* Main Nav */}
-            <div className="px-3 py-1.5">
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Chess</p>
-              <div className="flex flex-col gap-0.5">
-                <NavLink href="/tournaments" color="gray" icon={<Trophy className="h-4 w-4" />}>
-                  Tournaments
-                </NavLink>
-                <NavLink href="/rankings" color="gray" icon={<TrendingUp className="h-4 w-4" />}>
-                  Rankings
-                </NavLink>
-                <NavLink href="/view" color="gray" icon={<Gamepad2 className="h-4 w-4" />}>
-                  Games
-                </NavLink>
-              </div>
-            </div>
+          <div className="flex flex-col gap-0 p-2.5">
 
-            <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-
-            {/* Community */}
-            <div className="px-3 py-1.5">
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Community</p>
-              <div className="flex flex-col gap-0.5">
-                <NavLink href="/events" color="gray" icon={<Calendar className="h-4 w-4" />}>
-                  Events
-                </NavLink>
-                <NavLink href="/blog" color="gray" icon={<Newspaper className="h-4 w-4" />}>
-                  Blog
-                </NavLink>
-                <NavLink href="/forms" color="gray" icon={<FileText className="h-4 w-4" />}>
-                  Join
-                </NavLink>
-              </div>
-            </div>
-
-            {/* Admin Section */}
-            {isAdmin && (
-              <>
-                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-                <div className="px-3 py-1.5">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-1">Admin</p>
-                  <div className="flex flex-col gap-0.5">
-                    <NavLink href="/admin/admin-dashboard" color="gray" icon={<Shield className="h-4 w-4" />}>
-                      Admin Dashboard
-                    </NavLink>
-                    <NavLink href="/admin/upload-tournament" color="gray" icon={<Upload className="h-4 w-4" />}>
-                      Upload Tournament
-                    </NavLink>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* User Actions */}
+            {/* Dashboard */}
             {isAuthenticated && (
               <>
-                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-                <div className="px-3 py-1.5">
-                  <div className="flex flex-col gap-0.5">
-                    <NavLink href="/add-game" color="gray" icon={<Gamepad2 className="h-4 w-4" />}>
-                      Add Game
-                    </NavLink>
-                  </div>
+                <MobileNavItem href="/user/overview" icon={LayoutDashboard} onClick={close}>
+                  Dashboard
+                </MobileNavItem>
+                <div className="my-2 border-t border-border/50" />
+              </>
+            )}
+
+            {/* LCA DB */}
+            <SectionLabel>LCA DB</SectionLabel>
+            <div className="space-y-0.5 mb-1">
+              <MobileNavItem href="/tournaments" icon={Trophy}     onClick={close}>Tournaments</MobileNavItem>
+              <MobileNavItem href="/view"        icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
+              <MobileNavItem href="/rankings"    icon={TrendingUp} onClick={close}>Rankings</MobileNavItem>
+              <MobileNavItem href="/blog"        icon={Newspaper}  onClick={close}>Blog</MobileNavItem>
+            </div>
+
+            <div className="my-2 border-t border-border/50" />
+
+            {/* Community */}
+            <SectionLabel>Community</SectionLabel>
+            <div className="space-y-0.5 mb-1">
+              <MobileNavItem href="/events"           icon={Calendar}  onClick={close}>Calendar</MobileNavItem>
+              <MobileNavItem href="/forms"            icon={FileText}  onClick={close}>Join Us</MobileNavItem>
+              <MobileNavItem href="/about"            icon={Info}      onClick={close}>About</MobileNavItem>
+              <MobileNavItem href="/forms/contact-us" icon={Phone}     onClick={close}>Contact Us</MobileNavItem>
+            </div>
+
+            {/* Admin */}
+            {isAdmin && (
+              <>
+                <div className="my-2 border-t border-border/50" />
+                <SectionLabel>Admin</SectionLabel>
+                <div className="space-y-0.5 mb-1">
+                  <MobileNavItem href="/admin/admin-dashboard"   icon={Shield}          onClick={close}>Dashboard</MobileNavItem>
+                  <MobileNavItem href="/add-game"                icon={Gamepad2}        onClick={close}>Add Game</MobileNavItem>
+                  <MobileNavItem href="/admin/upload-tournament" icon={Upload}          onClick={close}>Add Tournament</MobileNavItem>
                 </div>
               </>
             )}
 
-            {/* Auth */}
+            {/* Auth CTA — unauthenticated only */}
             {!isAuthenticated && (
               <>
-                <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-                <div className="px-3 py-1.5">
-                  <span className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-gray-500 cursor-not-allowed opacity-60">
-                    <UserPlus className="h-4 w-4" />
-                    Sign Up
-                  </span>
-                </div>
+                <div className="my-2 border-t border-border/50" />
+                <MobileNavItem href="/signup" icon={UserPlus} onClick={close}>
+                  Sign Up
+                </MobileNavItem>
               </>
             )}
+
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

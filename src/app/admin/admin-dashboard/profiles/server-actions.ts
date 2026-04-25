@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { checkAdminRole } from '@/utils/auth/adminAuth'
 import type { Profile, TableResponse, FilterOptions } from '@/types/admin'
+import { findPlayerMatches, type MatchResult } from '@/app/user/tournament-actions'
 
 /**
  * Get profiles with pagination and filtering
@@ -150,6 +151,135 @@ export async function updateProfile(
       success: false,
       error: error instanceof Error ? error.message : 'Unexpected error occurred',
     }
+  }
+}
+
+/**
+ * Admin override for a profile's tournament_fullname
+ */
+export async function adminUpdateTournamentFullname(
+  profileId: string,
+  newName: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ tournament_fullname: newName.trim() || null })
+      .eq('id', profileId)
+    if (error) {
+      console.error('Error updating tournament_fullname:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
+  }
+}
+
+/**
+ * Update the confirmed tournament name aliases for a profile
+ */
+export async function updateProfileAliases(
+  profileId: string,
+  aliases: string[]
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ tournament_aliases: aliases })
+      .eq('id', profileId)
+    if (error) {
+      console.error('Error updating tournament_aliases:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' }
+  }
+}
+
+/**
+ * Get Chess SA player name matches for a profile
+ */
+export async function getNameMatchesForProfile(
+  profileId: string
+): Promise<{ data: MatchResult | null; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('tournament_fullname')
+      .eq('id', profileId)
+      .single()
+
+    if (error || !profile?.tournament_fullname) {
+      return { data: { exactMatch: null, closeMatches: [] }, error: null }
+    }
+
+    const matchResult = await findPlayerMatches(profile.tournament_fullname)
+    return { data: matchResult, error: null }
+  } catch (error) {
+    console.error('Unexpected error in getNameMatchesForProfile:', error)
+    return { data: null, error: error instanceof Error ? error.message : 'Unexpected error' }
+  }
+}
+
+export async function approvePendingFullname(
+  profileId: string,
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('tournament_fullname_pending')
+      .eq('id', profileId)
+      .single()
+
+    if (fetchError || !profile?.tournament_fullname_pending) {
+      return { success: false, error: 'No pending name found.' }
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        tournament_fullname: profile.tournament_fullname_pending,
+        tournament_fullname_pending: null,
+      })
+      .eq('id', profileId)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, error: null }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' }
+  }
+}
+
+export async function rejectPendingFullname(
+  profileId: string,
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ tournament_fullname_pending: null })
+      .eq('id', profileId)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, error: null }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' }
   }
 }
 

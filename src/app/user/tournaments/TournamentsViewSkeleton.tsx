@@ -1,55 +1,54 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { WarningBanner } from '@/components/warning-banner'
-
 export default function TournamentsViewSkeleton() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <WarningBanner message="Still under development: Some services may not work." />
+    <div className="min-h-screen">
+      <div className="max-w-2xl mx-auto px-4 py-8">
 
-      <div className="mb-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" />
-      </div>
+        {/* Header */}
+        <div className="pb-5 border-b border-border">
+          <div className="h-8 w-36 bg-muted animate-pulse rounded-sm" />
+          <div className="h-3 w-40 bg-muted animate-pulse rounded-sm mt-2" />
+        </div>
 
-      {/* Player Statistics Skeleton */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <div className="h-5 w-40 bg-muted animate-pulse rounded" />
-          <div className="h-3 w-56 bg-muted animate-pulse rounded mt-2" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Stats strip */}
+        <div className="py-4 border-b border-border flex items-center gap-5">
+          {[32, 24, 28, 24].map((w, i) => (
+            <div key={i}>
+              <div className={`h-5 w-${w} bg-muted animate-pulse rounded-sm`} />
+              <div className="h-2.5 w-16 bg-muted animate-pulse rounded-sm mt-1.5" />
+            </div>
+          ))}
+        </div>
+
+        {/* Tournament history rows */}
+        <div className="py-5 border-b border-border">
+          <div className="h-2.5 w-32 bg-muted animate-pulse rounded-sm mb-4" />
+          <div className="divide-y divide-border/50">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="space-y-2">
-                <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-                <div className="h-8 w-20 bg-muted animate-pulse rounded" />
+              <div key={i} className="flex items-center justify-between py-2">
+                <div className="h-4 bg-muted animate-pulse rounded-sm w-2/3" />
+                <div className="h-3 bg-muted animate-pulse rounded-sm w-16" />
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Tournament History Skeleton */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="h-5 w-44 bg-muted animate-pulse rounded" />
-          <div className="h-3 w-64 bg-muted animate-pulse rounded mt-2" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="border rounded-lg p-4 space-y-3">
-                <div className="h-5 w-full bg-muted animate-pulse rounded" />
-                <div className="space-y-2">
-                  <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
+        {/* Games rows */}
+        <div className="py-5">
+          <div className="h-2.5 w-16 bg-muted animate-pulse rounded-sm mb-4" />
+          <div className="divide-y divide-border/50">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="py-2 space-y-1">
+                <div className="flex justify-between">
+                  <div className="h-4 bg-muted animate-pulse rounded-sm w-3/4" />
+                  <div className="h-4 bg-muted animate-pulse rounded-sm w-10" />
                 </div>
+                <div className="h-3 bg-muted animate-pulse rounded-sm w-1/2" />
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+      </div>
     </div>
   )
 }

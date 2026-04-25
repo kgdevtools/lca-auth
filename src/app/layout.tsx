@@ -5,15 +5,17 @@ import "./globals.css";
 import Link from "next/link";
 import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
-import { NavLink } from "@/components/nav-links";
+import { NavGroup } from "@/components/nav-links";
 import { LogIn } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { MobileNav } from "@/components/mobile-nav";
 import { createClient } from "@/utils/supabase/server";
 import FooterNav from "@/components/footer-nav";
 import { Toaster } from "sonner";
 import AutoSyncProvider from "@/components/AutoSyncProvider";
 import HeaderMobileNav from "@/components/HeaderMobileNav";
+import { ScrollNavbar } from "@/components/ScrollNavbar";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -98,20 +100,28 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname') ?? '';
+  const isAuthPage = pathname === '/login' || pathname.startsWith('/signup');
+  const isProtectedPage = pathname.startsWith('/user') || pathname.startsWith('/admin') || pathname.startsWith('/academy');
 
-  // Fetch user role from profiles table
+  let user = null;
   let isAdmin = false;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
 
-    isAdmin = profile?.role === "admin";
+  if (!isAuthPage) {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      isAdmin = profile?.role === "admin";
+    }
   }
 
   return (
@@ -124,138 +134,140 @@ export default async function RootLayout({
             __html: `(() => { try { var t = localStorage.getItem('theme'); var d = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches); if (d) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); } catch (e) {} })();`,
           }}
         />
-        <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-background/60">
-          <nav className="px-1 sm:px-2 h-20 flex items-center justify-between relative">
-            <div className="flex items-center gap-2 h-full">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 h-full p-2"
-                aria-label="Limpopo Chess Academy"
-              >
-                <div
-                  className="relative h-[56px] sm:h-[64px] md:h-[72px] lg:h-[80px] w-[160px] sm:w-[200px] md:w-[240px]
-                             transition-all duration-300 ease-in-out
-                             hover:scale-105
-                             shadow-[0_4px_10px_rgba(0,0,0,0.05)]
-                             hover:shadow-[0_8px_25px_rgba(0,0,0,0.1)]
-                             dark:shadow-[0_4px_10px_rgba(0,0,0,0.2),_0_0_20px_rgba(255,255,255,0.05)]
-                             dark:hover:shadow-[0_8px_25px_rgba(0,0,0,0.3),_0_0_30px_rgba(255,255,255,0.1)]
-                             rounded-lg overflow-hidden"
+
+        {isAuthPage && (
+          <div className="fixed top-4 right-4 z-10">
+            <ThemeToggle />
+          </div>
+        )}
+
+        {!isAuthPage && (
+          <ScrollNavbar>
+            <header className="w-full backdrop-blur-md bg-background/60 dark:bg-background/95 shadow-sm">
+              <nav className="px-1 sm:px-2 h-20 flex items-center relative gap-2">
+                {/* Logo — far left */}
+                <Link
+                  href="/"
+                  className="inline-flex items-center h-full px-1 flex-shrink-0"
+                  aria-label="Limpopo Chess Academy"
                 >
-                  <Image
-                    src="/lca-no-bg-1.png"
-                    alt="Limpopo Chess Academy"
-                    fill
-                    priority
-                    className="object-contain block dark:hidden"
-                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
-                  />
-                  <Image
-                    src="/lca-no-bg-1.png"
-                    alt="Limpopo Chess Academy"
-                    fill
-                    priority
-                    className="object-contain hidden dark:block"
-                    sizes="(min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
-                  />
-                </div>
-              </Link>
-              <div className="hidden md:flex items-center gap-1">
-                {/* User Section */}
-                {user ? (
-                  <NavLink href="/user/overview" color="secondary">
-                    Dashboard
-                  </NavLink>
-                ) : null}
-                
-                {/* Main Nav */}
-                <NavLink href="/tournaments" color="gray">
-                  Tournaments
-                </NavLink>
-                <NavLink href="/events" color="gray">
-                  Events
-                </NavLink>
-                <NavLink href="/rankings" color="gray">
-                  Rankings
-                </NavLink>
-                
-                {/* Resources */}
-                <NavLink href="/blog" color="gray">
-                  Blog
-                </NavLink>
-                <NavLink href="/view" color="gray">
-                  Games
-                </NavLink>
-                <NavLink href="/forms" color="gray">
-                  Join
-                </NavLink>
-                
-                {/* Admin Section */}
-                <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-2" />
-                {isAdmin ? (
-                  <NavLink href="/admin/admin-dashboard" color="gray">
-                    Admin
-                  </NavLink>
-                ) : null}
-                {isAdmin ? (
-                  <NavLink href="/admin/upload-tournament" color="gray">
-                    Upload
-                  </NavLink>
-                ) : null}
-                {user ? (
-                  <NavLink href="/add-game" color="gray">
-                    Add Game
-                  </NavLink>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <ThemeToggle />
-              <HeaderMobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
-              {user ? (
-                <form
-                  action={async () => {
-                    "use server";
-                    const server = await createClient();
-                    await server.auth.signOut();
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Avatar name={user.email ?? "User"} />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-200 hidden lg:inline max-w-32 truncate">
-                      {user.email}
-                    </span>
-                    <button
-                      className="text-xs rounded-md border px-2 py-1 hover:bg-neutral-50 dark:hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-offset-2 whitespace-nowrap"
-                      type="submit"
-                    >
-                      Sign out
-                    </button>
+                  <div className="relative h-[68px] w-[84px] transition-all duration-300 ease-in-out hover:scale-105">
+                    <Image
+                      src="/lca_pawn_light_bg.png"
+                      alt="Limpopo Chess Academy"
+                      fill
+                      priority
+                      className="object-contain block dark:hidden"
+                      sizes="84px"
+                    />
+                    <Image
+                      src="/lca_pawn_dark_bg.png"
+                      alt="Limpopo Chess Academy"
+                      fill
+                      priority
+                      className="object-contain hidden dark:block"
+                      sizes="84px"
+                    />
                   </div>
-                </form>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="text-xs rounded-md border px-2 py-1 hover:bg-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    <LogIn className="h-3 w-3" aria-hidden />
-                    <span>Login</span>
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="text-xs rounded-md border px-2 py-1 hover:bg-accent transition-colors inline-flex items-center gap-1"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </div>
-          </nav>
-        </header>
-        <AutoSyncProvider />
-        <main className="flex-1">{children}</main>
-        <FooterNav />
+                </Link>
+
+                {/* Spacer — pushes nav links right */}
+                <div className="flex-1" />
+
+                {/* Nav links — right of center */}
+                <div className="hidden md:flex items-center gap-0.5">
+                  <NavGroup
+                    label="LCA DB"
+                    groupIcon="database"
+                    items={[
+                      { href: "/tournaments", label: "Tournaments", icon: "trophy"    },
+                      { href: "/view",        label: "View Games",  icon: "gamepad"   },
+                      { href: "/rankings",    label: "Rankings",    icon: "trending"  },
+                      { href: "/blog",        label: "Blog",        icon: "newspaper" },
+                    ]}
+                  />
+                  <NavGroup
+                    label="Community"
+                    groupIcon="user-plus"
+                    items={[
+                      { href: "/events",           label: "Calendar",   icon: "calendar",   sectionLabel: "Events"     },
+                      { href: "/forms",            label: "Join Us",    icon: "user-plus",  sectionLabel: "Membership" },
+                      { href: "/about",            label: "About",      icon: "info",       sectionLabel: "Info"       },
+                      { href: "/forms/contact-us", label: "Contact Us", icon: "phone"                                  },
+                    ]}
+                  />
+                  {isAdmin && (
+                    <>
+                      <div className="w-px h-5 bg-border mx-1" />
+                      <NavGroup
+                        label="Admin"
+                        groupIcon="shield"
+                        items={[
+                          { href: "/admin/admin-dashboard",   label: "Dashboard",      icon: "layout-dashboard" },
+                          { href: "/add-game",                label: "Add Game",       icon: "gamepad"          },
+                          { href: "/admin/upload-tournament", label: "Add Tournament", icon: "upload"           },
+                        ]}
+                      />
+                    </>
+                  )}
+                </div>
+
+                {/* Right section */}
+                <div className="flex items-center gap-2 flex-shrink-0 pr-2 sm:pr-4">
+                  <ThemeToggle />
+                  <HeaderMobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
+                  {user ? (
+                    <form
+                      action={async () => {
+                        "use server";
+                        const server = await createClient();
+                        await server.auth.signOut();
+                        redirect("/login");
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      {/* Avatar doubles as dashboard link */}
+                      <Link
+                        href="/user/overview"
+                        className="rounded-full ring-2 ring-transparent hover:ring-primary/40 transition-all"
+                        aria-label="Go to dashboard"
+                      >
+                        <Avatar name={user.email ?? "User"} />
+                      </Link>
+                      <button
+                        className="hidden lg:block font-mono font-semibold tracking-wider text-xs uppercase rounded-sm border border-border px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors whitespace-nowrap"
+                        type="submit"
+                      >
+                        Sign out
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        className="font-mono font-semibold tracking-wider text-xs uppercase rounded-sm border border-border px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <LogIn className="h-3.5 w-3.5" aria-hidden />
+                        Login
+                      </Link>
+                      <Link
+                        href="/signup"
+                        className="font-mono font-semibold tracking-wider text-xs uppercase rounded-sm border border-border px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
+                      >
+                        Sign Up
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </nav>
+            </header>
+          </ScrollNavbar>
+        )}
+
+        <main className={isAuthPage ? "flex-1" : "flex-1 pt-20"}>{children}</main>
+
+        {!isAuthPage && !isProtectedPage && <FooterNav />}
+        {!isAuthPage && <AutoSyncProvider />}
         <Toaster />
       </body>
     </html>

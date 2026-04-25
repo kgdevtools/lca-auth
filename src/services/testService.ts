@@ -164,7 +164,7 @@ export async function createTest(testData: {
   }
 
   revalidatePath('/academy/tests')
-  revalidatePath('/academy/admin')
+  revalidatePath('/academy/lesson')
   return data
 }
 
@@ -201,7 +201,7 @@ export async function updateTest(
   }
 
   revalidatePath('/academy/tests')
-  revalidatePath('/academy/admin')
+  revalidatePath('/academy/lesson')
   return data
 }
 
@@ -221,7 +221,7 @@ export async function deleteTest(testId: string) {
   }
 
   revalidatePath('/academy/tests')
-  revalidatePath('/academy/admin')
+  revalidatePath('/academy/lesson')
   return { success: true }
 }
 
@@ -246,7 +246,7 @@ export async function toggleTestPublished(testId: string, published: boolean) {
   }
 
   revalidatePath('/academy/tests')
-  revalidatePath('/academy/admin')
+  revalidatePath('/academy/lesson')
   return data
 }
 

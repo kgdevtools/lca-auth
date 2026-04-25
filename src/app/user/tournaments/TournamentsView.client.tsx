@@ -1,315 +1,368 @@
-"use client"
-import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { WarningBanner } from '@/components/warning-banner'
-import { Loader2, Check } from 'lucide-react'
-import type { ProfilePageData } from '../actions'
+'use client'
+
+import React, { useState } from 'react'
+import { Loader2, Check, ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { ProfilePageData, UserGame } from '../actions'
+import { addConfirmedAlias } from '../actions'
 import { getActivePlayerData, getPlayerStatistics } from '../tournament-actions'
 
-interface Props extends ProfilePageData {}
+interface Props extends ProfilePageData {
+  games: UserGame[]
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function shortDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-ZA', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+}
+
+function relativeDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const d    = new Date(dateStr)
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
+  if (days === 0)  return 'today'
+  if (days === 1)  return 'yesterday'
+  if (days < 7)   return `${days}d ago`
+  if (days < 30)  return `${Math.floor(days / 7)}w ago`
+  return shortDate(dateStr)
+}
+
+// ── Section wrapper ───────────────────────────────────────────────────────────
+
+function Section({
+  label,
+  count,
+  children,
+  collapsible = false,
+}: {
+  label:        string
+  count?:       number
+  children:     React.ReactNode
+  collapsible?: boolean
+}) {
+  const [open, setOpen] = useState(!collapsible)
+
+  return (
+    <div className="py-5 border-b border-border last:border-b-0">
+      <button
+        onClick={() => collapsible && setOpen(v => !v)}
+        className={cn(
+          'flex items-baseline gap-2 mb-3 w-full text-left',
+          collapsible && 'cursor-pointer'
+        )}
+        disabled={!collapsible}
+      >
+        <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-muted-foreground">
+          {label}
+        </span>
+        {count !== undefined && (
+          <span className="text-[10px] font-mono text-muted-foreground/50">{count}</span>
+        )}
+        {collapsible && (
+          <ChevronDown
+            className={cn(
+              'w-3 h-3 text-muted-foreground/50 ml-auto transition-transform',
+              open && 'rotate-180'
+            )}
+          />
+        )}
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <p className="text-xs text-muted-foreground/60 py-1">{text}</p>
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function TournamentsView({
-  user,
   profile,
   activePlayerData,
   playerStats,
   matchResult,
+  games,
 }: Props) {
-  const playerName = profile?.full_name || profile?.tournament_fullname || 'Your'
-  const displayName = playerName === 'Your' ? 'Your' : `${playerName}'s`
+  const playerName    = profile?.tournament_fullname || profile?.full_name || ''
+  const hasTournData  = Boolean(profile?.tournament_fullname)
 
-  // State for "Is this you?" functionality
-  const [loadingPlayer, setLoadingPlayer] = React.useState<string | null>(null)
-  const [updatedPlayerData, setUpdatedPlayerData] = React.useState(activePlayerData)
-  const [updatedPlayerStats, setUpdatedPlayerStats] = React.useState(playerStats)
-  const [confirmedMatches, setConfirmedMatches] = React.useState<Set<string>>(new Set())
+  // Merge state for "Is this you?" close-matches feature
+  const [loadingPlayer, setLoadingPlayer]     = useState<string | null>(null)
+  const [mergedData, setMergedData]           = useState(activePlayerData)
+  const [mergedStats, setMergedStats]         = useState(playerStats)
+  const [confirmedMatches, setConfirmedMatches] = useState<Set<string>>(new Set())
 
-  // Update local state when props change
-  React.useEffect(() => {
-    setUpdatedPlayerData(activePlayerData)
-    setUpdatedPlayerStats(playerStats)
-  }, [activePlayerData, playerStats])
-
-  const handleSelectPlayer = async (playerName: string, uniqueNo: string) => {
-    setLoadingPlayer(playerName)
-
+  const handleSelectPlayer = async (name: string, uniqueNo: string) => {
+    setLoadingPlayer(name)
     try {
-      // Fetch new data for the selected player
-      const newPlayerData = await getActivePlayerData(playerName)
-      const newPlayerStats = await getPlayerStatistics(playerName)
+      const [newData, newStats] = await Promise.all([
+        getActivePlayerData(name),
+        getPlayerStatistics(name),
+      ])
 
-      // Combine the data with existing data
-      if (newPlayerData && newPlayerStats && updatedPlayerStats) {
-        // Merge tournament data - remove duplicates
-        const combinedTournaments = [...updatedPlayerData]
-        newPlayerData.forEach(newTournament => {
-          const exists = combinedTournaments.some(
-            existing =>
-              existing.tournament_name === newTournament.tournament_name &&
-              existing.created_at === newTournament.created_at
+      if (newData && newStats && mergedStats) {
+        const combined = [...mergedData]
+        newData.forEach(t => {
+          const exists = combined.some(
+            e => e.tournament_name === t.tournament_name && e.created_at === t.created_at
           )
-          if (!exists) {
-            combinedTournaments.push(newTournament)
-          }
+          if (!exists) combined.push(t)
         })
 
-        // Combine player statistics
-        const maxLatestRating = Math.max(
-          typeof updatedPlayerStats.latestRating === 'number' ? updatedPlayerStats.latestRating : parseInt(updatedPlayerStats.latestRating) || 0,
-          typeof newPlayerStats.latestRating === 'number' ? newPlayerStats.latestRating : parseInt(newPlayerStats.latestRating) || 0
+        const maxRating  = Math.max(
+          Number(mergedStats.latestRating  || 0),
+          Number(newStats.latestRating     || 0),
         )
-        const maxHighestRating = Math.max(
-          typeof updatedPlayerStats.highestRating === 'number' ? updatedPlayerStats.highestRating : parseInt(String(updatedPlayerStats.highestRating)) || 0,
-          typeof newPlayerStats.highestRating === 'number' ? newPlayerStats.highestRating : parseInt(String(newPlayerStats.highestRating)) || 0
+        const maxHighest = Math.max(
+          Number(mergedStats.highestRating || 0),
+          Number(newStats.highestRating    || 0),
         )
-        const calculatedAvgPerformance = ((
-          (typeof updatedPlayerStats.avgPerformance === 'number' ? updatedPlayerStats.avgPerformance : parseFloat(String(updatedPlayerStats.avgPerformance)) || 0) * updatedPlayerStats.tournaments
-        ) + (
-          (typeof newPlayerStats.avgPerformance === 'number' ? newPlayerStats.avgPerformance : parseFloat(String(newPlayerStats.avgPerformance)) || 0) * newPlayerStats.tournaments
-        )) / (updatedPlayerStats.tournaments + newPlayerStats.tournaments)
+        const totalTournaments = mergedStats.tournaments + newStats.tournaments
+        const avgPerf = totalTournaments > 0
+          ? ((Number(mergedStats.avgPerformance || 0) * mergedStats.tournaments) +
+             (Number(newStats.avgPerformance    || 0) * newStats.tournaments)) / totalTournaments
+          : 0
 
-        const combinedStats = {
-          totalGames: updatedPlayerStats.totalGames + newPlayerStats.totalGames,
-          tournaments: updatedPlayerStats.tournaments + newPlayerStats.tournaments,
-          latestRating: String(maxLatestRating),
-          highestRating: maxHighestRating,
-          avgPerformance: calculatedAvgPerformance,
-          federation: updatedPlayerStats.federation || newPlayerStats.federation,
-          chessaId: uniqueNo || updatedPlayerStats.chessaId || newPlayerStats.chessaId
-        }
-
-        // Update local state with combined data
-        setUpdatedPlayerData(combinedTournaments)
-        setUpdatedPlayerStats(combinedStats)
-        setConfirmedMatches(prev => new Set(prev).add(playerName))
+        setMergedData(combined)
+        setMergedStats({
+          totalGames:     mergedStats.totalGames + newStats.totalGames,
+          tournaments:    totalTournaments,
+          latestRating:   String(maxRating),
+          highestRating:  maxHighest,
+          avgPerformance: avgPerf,
+          federation:     mergedStats.federation || newStats.federation,
+          chessaId:       uniqueNo || mergedStats.chessaId || newStats.chessaId,
+        })
+        setConfirmedMatches(prev => new Set(prev).add(name))
+        addConfirmedAlias(name).catch(() => {})
       }
-    } catch (error) {
-      console.error('Error fetching player data:', error)
+    } catch (e) {
+      console.error('Error merging player:', e)
     } finally {
       setLoadingPlayer(null)
     }
   }
 
+  // Sort tournaments by date descending
+  const sortedTournaments = [...(mergedData ?? [])]
+    .sort((a, b) => ((b.created_at ?? '') > (a.created_at ?? '') ? 1 : -1))
+
+  const hasCloseMatches = matchResult &&
+    (matchResult.exactMatch || matchResult.closeMatches.length > 0)
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <WarningBanner message="Still under development: Some services may not work." />
+    <div className="min-h-screen">
+      <div className="max-w-2xl mx-auto px-4 py-8">
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-          {displayName} Tournaments
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          View {displayName === 'Your' ? 'your' : 'your'} tournament history and performance statistics
-        </p>
-      </div>
-
-      {/* Match Results */}
-      {profile?.tournament_fullname && matchResult && (matchResult.exactMatch || matchResult.closeMatches.length > 0) && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">Additional Player Profiles</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              We found similar names in our tournament records - select any that belong to you to combine your statistics
+        {/* ── Header ──────────────────────────────────────────────────── */}
+        <div className="pb-5 border-b border-border">
+          <h1 className="font-mono font-bold tracking-tighter text-2xl leading-tight text-foreground">
+            Tournaments
+          </h1>
+          {playerName && (
+            <p className="text-[11px] text-muted-foreground mt-1 font-mono">
+              {playerName}
             </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {matchResult.exactMatch && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Exact Match</p>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30">
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                    ✓ {matchResult.exactMatch}
-                  </span>
-                </div>
+          )}
+        </div>
+
+        {/* No tournament name set */}
+        {!hasTournData && (
+          <div className="py-8">
+            <p className="text-sm text-muted-foreground mb-2">
+              Set your tournament name in your profile to see your history.
+            </p>
+            <a
+              href="/user/profile"
+              className="text-sm font-mono font-semibold hover:underline"
+            >
+              Edit profile →
+            </a>
+          </div>
+        )}
+
+        {hasTournData && (
+          <>
+            {/* ── Stats strip ─────────────────────────────────────────── */}
+            {mergedStats && (
+              <div className="py-4 border-b border-border flex flex-wrap items-center gap-x-5 gap-y-3">
+                {[
+                  { label: 'Tournaments',  value: mergedStats.tournaments },
+                  { label: 'Games',        value: mergedStats.totalGames },
+                  { label: 'Rating',       value: mergedStats.latestRating || '—' },
+                  { label: 'Best',         value: mergedStats.highestRating || '—' },
+                  mergedStats.avgPerformance
+                    ? { label: 'Avg Perf', value: typeof mergedStats.avgPerformance === 'number'
+                        ? mergedStats.avgPerformance.toFixed(0)
+                        : mergedStats.avgPerformance }
+                    : null,
+                  mergedStats.federation
+                    ? { label: 'Fed', value: mergedStats.federation }
+                    : null,
+                ].filter(Boolean).map((s: any, i, arr) => (
+                  <React.Fragment key={s.label}>
+                    <div>
+                      <p className="font-mono font-bold text-base leading-none tracking-tight">
+                        {s.value}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{s.label}</p>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="w-px h-6 bg-border hidden sm:block" />
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
             )}
 
-            {matchResult.closeMatches.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  Close Matches{!matchResult.exactMatch && ' (Similar Names)'}
-                </p>
-                <div className="space-y-2">
-                  {matchResult.closeMatches.map((match, idx) => {
-                    const isConfirmed = confirmedMatches.has(match.name)
-                    const isLoading = loadingPlayer === match.name
+            {/* ── Tournament history ───────────────────────────────────── */}
+            <Section label="Tournament History" count={sortedTournaments.length}>
+              {sortedTournaments.length === 0 ? (
+                <EmptyState text="No tournament data found." />
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {sortedTournaments.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 py-2">
+                      <span className="text-sm font-medium text-foreground truncate leading-tight">
+                        {t.tournament_name || 'Unknown Tournament'}
+                      </span>
+                      <div className="flex items-center gap-2.5 flex-shrink-0 text-[11px] font-mono text-muted-foreground">
+                        {(t.RATING || t.player_rating) && (
+                          <span>{t.RATING || t.player_rating}</span>
+                        )}
+                        {t.performance_rating && (
+                          <span className="text-muted-foreground/50">
+                            ({t.performance_rating})
+                          </span>
+                        )}
+                        {t.created_at && (
+                          <span className="text-muted-foreground/50 text-[10px]">
+                            {shortDate(t.created_at)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+            {/* ── Games ───────────────────────────────────────────────── */}
+            <Section label="Games" count={games.length}>
+              {games.length === 0 ? (
+                <EmptyState text="No games found in the database for your name." />
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {games.map(game => {
+                    const myName   = (profile?.tournament_fullname ?? '').toLowerCase()
+                    const firstName = myName.split(' ')[0]
+                    const isWhite  = (game.white ?? '').toLowerCase().includes(firstName)
+                    const result   = game.result
+
+                    const won  = (result === '1-0' && isWhite) || (result === '0-1' && !isWhite)
+                    const drew = result === '1/2-1/2'
 
                     return (
-                      <div
-                        key={idx}
-                        className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-all ${
-                          isConfirmed
-                            ? 'bg-green-500/10 border border-green-500/30'
-                            : 'bg-blue-500/10 border border-blue-500/30'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className={`text-sm font-medium truncate ${
-                            isConfirmed
-                              ? 'text-green-700 dark:text-green-400'
-                              : 'text-blue-700 dark:text-blue-400'
-                          }`}>
-                            {match.name}
+                      <div key={game.id} className="py-2">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium text-foreground leading-tight truncate">
+                            {game.white}
+                            <span className="text-muted-foreground font-normal mx-1">vs</span>
+                            {game.black}
                           </span>
-                          {match.unique_no && (
-                            <span className={`text-xs font-mono flex-shrink-0 ${
-                              isConfirmed
-                                ? 'text-green-600/70 dark:text-green-400/70'
-                                : 'text-blue-600/70 dark:text-blue-400/70'
-                            }`}>
-                              #{match.unique_no}
-                            </span>
-                          )}
-                          {isConfirmed && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-600 text-white text-xs font-semibold flex-shrink-0">
-                              <Check className="w-3 h-3" />
-                              Confirmed
-                            </span>
+                          <span className={cn(
+                            'text-[11px] font-mono font-semibold flex-shrink-0',
+                            won  && 'text-green-600 dark:text-green-500',
+                            drew && 'text-amber-500',
+                            !won && !drew && 'text-muted-foreground',
+                          )}>
+                            {result || '—'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          <span className="truncate">{game.tournament}</span>
+                          {game.created_at && (
+                            <>
+                              <span className="text-border flex-shrink-0">·</span>
+                              <span className="flex-shrink-0">{relativeDate(game.created_at)}</span>
+                            </>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectPlayer(match.name, match.unique_no || '')}
-                          disabled={isLoading || isConfirmed}
-                          className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isConfirmed
-                              ? 'bg-green-600 text-white'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white'
-                          }`}
-                        >
-                          {isLoading ? (
-                            <span className="flex items-center gap-1.5">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Loading...
-                            </span>
-                          ) : isConfirmed ? (
-                            'Yes'
-                          ) : (
-                            'Is this you?'
-                          )}
-                        </button>
                       </div>
                     )
                   })}
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
+            </Section>
 
-      {/* Player Statistics Card */}
-      {updatedPlayerStats && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">Player Statistics</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Based on tournament performance data
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Games</p>
-                <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.totalGames}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tournaments</p>
-                <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.tournaments}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Current Rating</p>
-                <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.latestRating}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Highest Rating</p>
-                <p className="text-2xl sm:text-3xl font-bold">{updatedPlayerStats.highestRating}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Avg Performance</p>
-                <p className="text-2xl sm:text-3xl font-bold">
-                  {typeof updatedPlayerStats.avgPerformance === 'number'
-                    ? updatedPlayerStats.avgPerformance.toFixed(1)
-                    : updatedPlayerStats.avgPerformance}
+            {/* ── Similar profiles (close matches) ────────────────────── */}
+            {hasCloseMatches && (
+              <Section label="Similar Profiles" collapsible>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Similar names found in the database. Confirm any that belong to you to combine your stats.
                 </p>
-              </div>
-              {updatedPlayerStats.federation && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Federation</p>
-                  <p className="text-xl sm:text-2xl font-bold">{updatedPlayerStats.federation}</p>
-                </div>
-              )}
-              {updatedPlayerStats.chessaId && (
-                <div className="col-span-2 space-y-1 pt-2 border-t">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chess SA ID</p>
-                  <p className="text-lg font-mono font-bold">{updatedPlayerStats.chessaId}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Recent Tournaments Section */}
-      {updatedPlayerData && updatedPlayerData.length > 0 ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">Tournament History</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              All your tournament performances from Chess SA database
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {updatedPlayerData.map((tournament, idx) => (
-                <div key={idx} className="border rounded-lg p-4 space-y-3 hover:bg-accent/50 transition-colors">
-                  <p className="font-semibold text-sm sm:text-base line-clamp-2" title={tournament.tournament_name || 'Unknown Tournament'}>
-                    {tournament.tournament_name || 'Unknown Tournament'}
-                  </p>
-                  <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Rating:</span>
-                      <span>{tournament.RATING || tournament.player_rating || 'N/A'}</span>
-                    </div>
-                    {tournament.performance_rating && (
-                      <div className="flex justify-between">
-                        <span className="font-medium">Performance:</span>
-                        <span>{tournament.performance_rating}</span>
-                      </div>
-                    )}
-                    {tournament.created_at && (
-                      <div className="flex justify-between">
-                        <span className="font-medium">Date:</span>
-                        <span>{new Date(tournament.created_at).toLocaleDateString()}</span>
-                      </div>
-                    )}
+                {matchResult.exactMatch && (
+                  <div className="flex items-center gap-2 py-1.5">
+                    <span className="text-[10px] font-mono text-green-600 dark:text-green-500 font-semibold">
+                      ✓ exact
+                    </span>
+                    <span className="text-sm font-medium">{matchResult.exactMatch}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">Tournament Data</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {profile?.tournament_fullname ? (
-                <>
-                  No tournament data found for "<span className="font-semibold">{profile.tournament_fullname}</span>" in the active players database.
-                  Please ensure your tournament name matches exactly with Chess SA records.
-                </>
-              ) : (
-                <>
-                  Please set your tournament name in your <a href="/user/profile" className="text-primary underline">profile settings</a> to view your tournament history.
-                </>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+                )}
+
+                {matchResult.closeMatches.map((match, i) => {
+                  const isConfirmed = confirmedMatches.has(match.name)
+                  const isLoading   = loadingPlayer === match.name
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between gap-3 py-1.5 border-b border-border/50 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">{match.name}</span>
+                        {match.unique_no && (
+                          <span className="text-[10px] font-mono text-muted-foreground flex-shrink-0">
+                            #{match.unique_no}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPlayer(match.name, match.unique_no || '')}
+                        disabled={isLoading || isConfirmed}
+                        className={cn(
+                          'text-[11px] font-mono px-2.5 py-1 rounded-sm transition-colors flex-shrink-0',
+                          'disabled:opacity-50 disabled:cursor-not-allowed',
+                          isConfirmed
+                            ? 'bg-green-600/10 text-green-600 dark:text-green-500 border border-green-600/20'
+                            : 'border border-border hover:bg-muted text-foreground',
+                        )}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : isConfirmed ? (
+                          <span className="flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Yes
+                          </span>
+                        ) : (
+                          'Is this you?'
+                        )}
+                      </button>
+                    </div>
+                  )
+                })}
+              </Section>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

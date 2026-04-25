@@ -16,7 +16,6 @@ export async function POST(request: Request) {
         id: user.id,
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
         avatar_url: user.user_metadata?.avatar_url || null,
-        role: 'student',
       }, { onConflict: 'id' })
 
     if (error) {

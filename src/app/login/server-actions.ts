@@ -8,14 +8,18 @@ async function getRedirectUrl() {
   const headersList = await headers()
   const host = headersList.get('host') || ''
   
-  // Check if we're in development by looking at the host
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1')
+  // Check if we're in development (localhost, 127.0.0.1, or local network IP)
+  const isLocal = host.includes('localhost') || 
+                  host.includes('127.0.0.1') ||
+                  host.match(/^192\.168\.\d+\.\d+:?\d*$/) ||
+                  host.match(/^10\.\d+\.\d+\.\d+:?\d*$/) ||
+                  host.match(/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+:?\d*$/)
   
-  if (isLocalhost) {
+  if (isLocal) {
     return `http://${host}/auth/callback`
   }
   
-  // In production, use the origin or fallback to env variable
+  // Production
   const origin = headersList.get('origin')
   return `${origin || process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
 }
@@ -69,29 +73,32 @@ export async function signInWithGoogle() {
 }
 
 export async function signInWithEmail(formData: FormData) {
+  const email = (formData.get('email') as string)?.trim()
+  const password = formData.get('password') as string
+
+  if (!email || !password) {
+    redirect('/login?message=Email and password are required')
+  }
+
+  let authError: string | null = null
+
   try {
-    const email = (formData.get('email') as string)?.trim()
-    const password = formData.get('password') as string
-
-    if (!email || !password) {
-      redirect('/login?message=Email and password are required')
-    }
-
     const supabase = await createClientForServerAction()
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      redirect(`/login?message=${encodeURIComponent(error.message)}`)
+      authError = error.message
+      console.error('signInWithEmail auth error:', error.message)
     }
-
-    redirect('/user')
-  } catch (error) {
+  } catch (err) {
+    console.error('signInWithEmail unexpected error:', err)
     redirect('/login?message=An unexpected error occurred. Please try again.')
   }
+
+  if (authError) {
+    redirect('/login?message=Invalid+email+or+password')
+  }
+
+  redirect('/user/overview')
 }
 
 export async function signInWithFacebook() {

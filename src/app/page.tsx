@@ -34,7 +34,7 @@ export default function Home() {
         <div className="w-full md:col-span-2 bg-transparent">
           <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[2/1] lg:aspect-[16/9] md:min-h-[300px] lg:min-h-[360px] xl:min-h-[420px]">
             <Image
-              src="/lca-no-bg-1.png"
+              src="/lca-logo-no-bg2-removebg-preview.png"
               alt="Limpopo Chess Academy logo"
               fill
               priority
@@ -42,7 +42,7 @@ export default function Home() {
               className="object-contain block dark:hidden"
             />
             <Image
-              src="/lca-no-bg-1.png"
+              src="/lca-logo-no-bg2-removebg-preview.png"
               alt="Limpopo Chess Academy logo"
               fill
               priority

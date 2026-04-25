@@ -3,6 +3,15 @@
 import { createClient } from '@/utils/supabase/server'
 import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import { revalidatePath } from 'next/cache'
+import {
+  onLessonCompleted,
+  onPuzzleBlockSolved,
+  onStudyChapterCompleted,
+  onInteractiveSolvePointCleared,
+  triggerDailyActivity,
+  type GamificationResult,
+  type PuzzleOutcome,
+} from '@/services/gamificationService'
 
 export interface LessonProgress {
   id: string
@@ -91,6 +100,10 @@ export async function startLesson(lessonId: string): Promise<LessonProgress> {
       throw new Error('Failed to update lesson progress')
     }
 
+    try { await triggerDailyActivity(profile.id) } catch (e) {
+      console.error('[gamification] triggerDailyActivity failed:', e)
+    }
+
     revalidatePath('/academy/lessons')
     return data
   }
@@ -116,6 +129,10 @@ export async function startLesson(lessonId: string): Promise<LessonProgress> {
     throw new Error('Failed to start lesson')
   }
 
+  try { await triggerDailyActivity(profile.id) } catch (e) {
+    console.error('[gamification] triggerDailyActivity failed:', e)
+  }
+
   revalidatePath('/academy/lessons')
   return data
 }
@@ -123,7 +140,9 @@ export async function startLesson(lessonId: string): Promise<LessonProgress> {
 /**
  * Mark lesson as complete
  */
-export async function markLessonComplete(lessonId: string): Promise<LessonProgress> {
+export async function markLessonComplete(
+  lessonId: string
+): Promise<{ progress: LessonProgress; gamification: GamificationResult | null }> {
   const supabase = await createClient()
   const { profile } = await getCurrentUserWithProfile()
 
@@ -131,7 +150,6 @@ export async function markLessonComplete(lessonId: string): Promise<LessonProgre
   let existing = await getLessonProgress(lessonId)
 
   if (!existing) {
-    // Start the lesson first
     existing = await startLesson(lessonId)
   }
 
@@ -152,9 +170,21 @@ export async function markLessonComplete(lessonId: string): Promise<LessonProgre
     throw new Error('Failed to mark lesson as complete')
   }
 
+  let gamification: GamificationResult | null = null
+  try {
+    gamification = await onLessonCompleted(
+      profile.id,
+      lessonId,
+      existing.quiz_score,
+      existing.attempts,
+    )
+  } catch (e) {
+    console.error('[gamification] onLessonCompleted failed:', e)
+  }
+
   revalidatePath('/academy/lessons')
   revalidatePath('/academy/reports')
-  return data
+  return { progress: data, gamification }
 }
 
 /**
@@ -227,6 +257,44 @@ export async function updateTimeSpent(
   }
 
   return data
+}
+
+export async function trackPuzzleBlockOutcome(
+  lessonId: string,
+  outcome:  PuzzleOutcome,
+): Promise<{ pointsEarned: number }> {
+  const { profile } = await getCurrentUserWithProfile()
+  try {
+    return await onPuzzleBlockSolved(profile.id, lessonId, outcome)
+  } catch (e) {
+    console.error('[gamification] trackPuzzleBlockOutcome failed:', e)
+    return { pointsEarned: 0 }
+  }
+}
+
+export async function trackStudyChapterComplete(
+  lessonId: string,
+): Promise<{ pointsEarned: number }> {
+  const { profile } = await getCurrentUserWithProfile()
+  try {
+    return await onStudyChapterCompleted(profile.id, lessonId)
+  } catch (e) {
+    console.error('[gamification] trackStudyChapterComplete failed:', e)
+    return { pointsEarned: 0 }
+  }
+}
+
+export async function trackInteractiveSolvePoint(
+  lessonId:      string,
+  isAlternative: boolean,
+): Promise<{ pointsEarned: number }> {
+  const { profile } = await getCurrentUserWithProfile()
+  try {
+    return await onInteractiveSolvePointCleared(profile.id, lessonId, isAlternative)
+  } catch (e) {
+    console.error('[gamification] trackInteractiveSolvePoint failed:', e)
+    return { pointsEarned: 0 }
+  }
 }
 
 /**

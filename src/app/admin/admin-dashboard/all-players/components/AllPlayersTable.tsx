@@ -9,6 +9,7 @@ import {
   getAllPlayersForExport,
   getUniqueFederationsForPlayers,
   getTournamentsForPlayers,
+  deletePlayer,
 } from '../server-actions'
 import type { Player } from '@/types/admin'
 import {
@@ -38,6 +39,7 @@ import {
   RefreshCw,
   X,
   Eye,
+  Trash2,
 } from 'lucide-react'
 import {
   Dialog,
@@ -183,12 +185,22 @@ export function AllPlayersTable() {
     }
   }
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete player "${name}"? This cannot be undone.`)) return
+    const result = await deletePlayer(id)
+    if (result.success) {
+      setPlayers((prev) => prev.filter((p) => p.id !== id))
+      setTotalCount((prev) => prev - 1)
+      if (selectedPlayer?.id === id) setSelectedPlayer(null)
+    }
+  }
+
   // Loading skeleton
   if (loading && players.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="h-10 bg-gray-200 animate-pulse rounded" />
-        <div className="h-64 bg-gray-200 animate-pulse rounded" />
+        <div className="h-10 bg-muted animate-pulse rounded" />
+        <div className="h-64 bg-muted animate-pulse rounded" />
       </div>
     )
   }
@@ -263,7 +275,7 @@ export function AllPlayersTable() {
           {/* Actions Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Showing {(page - 1) * itemsPerPage + 1} -{' '}
                 {Math.min(page * itemsPerPage, totalCount)} of {totalCount}
               </span>
@@ -322,8 +334,8 @@ export function AllPlayersTable() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-destructive/10 border border-destructive/20 rounded p-4">
+          <p className="text-destructive">{error}</p>
           <Button onClick={loadPlayers} className="mt-2" variant="outline">
             Retry
           </Button>
@@ -333,40 +345,40 @@ export function AllPlayersTable() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Rank</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden sm:table-cell">Federation</TableHead>
+                <TableHead className="hidden md:table-cell">Rating</TableHead>
+                <TableHead>Points</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableHead>Rank</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Federation</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                ) : players.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      No players found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  players.map((player, index) => (
-                    <TableRow key={player.id || index}>
-                      <TableCell className="font-medium">{player.rank}</TableCell>
-                      <TableCell>{player.name}</TableCell>
-                      <TableCell>{player.federation}</TableCell>
-                      <TableCell>{player.rating}</TableCell>
-                      <TableCell>{player.points}</TableCell>
-                      <TableCell>
+              ) : players.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    No players found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                players.map((player, index) => (
+                  <TableRow key={player.id || index}>
+                    <TableCell className="font-medium">{player.rank}</TableCell>
+                    <TableCell>{player.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{player.federation}</TableCell>
+                    <TableCell className="hidden md:table-cell">{player.rating}</TableCell>
+                    <TableCell>{player.points}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -374,20 +386,27 @@ export function AllPlayersTable() {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(player.id || '', player.name || '')}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </div>
           <div className="flex gap-2">
@@ -456,27 +475,27 @@ export function AllPlayersTable() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Rank</p>
+                  <p className="text-sm text-muted-foreground">Rank</p>
                   <p className="font-medium">{selectedPlayer.rank}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Federation</p>
+                  <p className="text-sm text-muted-foreground">Federation</p>
                   <p className="font-medium">{selectedPlayer.federation}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Rating</p>
+                  <p className="text-sm text-muted-foreground">Rating</p>
                   <p className="font-medium">{selectedPlayer.rating}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Points</p>
+                  <p className="text-sm text-muted-foreground">Points</p>
                   <p className="font-medium">{selectedPlayer.points}</p>
                 </div>
               </div>
 
               {selectedPlayer.rounds && (
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Rounds</p>
-                  <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto">
+                  <p className="text-sm text-muted-foreground mb-2">Rounds</p>
+                  <pre className="bg-muted p-4 rounded text-xs overflow-x-auto">
                     {JSON.stringify(selectedPlayer.rounds, null, 2)}
                   </pre>
                 </div>
@@ -484,8 +503,8 @@ export function AllPlayersTable() {
 
               {selectedPlayer.tie_breaks && (
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Tie Breaks</p>
-                  <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto">
+                  <p className="text-sm text-muted-foreground mb-2">Tie Breaks</p>
+                  <pre className="bg-muted p-4 rounded text-xs overflow-x-auto">
                     {JSON.stringify(selectedPlayer.tie_breaks, null, 2)}
                   </pre>
                 </div>

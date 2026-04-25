@@ -1,37 +1,38 @@
 import { Suspense } from 'react'
 import { ProfilesTable } from './components/ProfilesTable'
+import type { Metadata } from 'next'
 
-export const metadata = {
-  title: 'User Profiles | Admin Dashboard',
-  description: 'View and manage user profiles',
+export const metadata: Metadata = {
+  title: 'Profiles | Admin Dashboard',
 }
 
 export default function ProfilesPage() {
   return (
-    <div className="px-2 py-4 lg:px-8 lg:py-8 max-w-full">
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div className="pb-4 border-b border-gray-200 dark:border-gray-700">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
-            User Profiles Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm tracking-tight leading-tight">
-            Manage user accounts, roles, and profile information for the chess academy
-          </p>
-        </div>
-
-        <Suspense
-          fallback={
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4 animate-pulse"></div>
-              </div>
-            </div>
-          }
-        >
-          <ProfilesTable />
-        </Suspense>
+    <div className="p-6 lg:p-8">
+      <div className="pb-5 border-b border-border mb-6">
+        <h1 className="font-mono font-bold tracking-tighter text-2xl leading-tight text-foreground">
+          User Profiles
+        </h1>
+        <p className="text-[11px] font-mono text-muted-foreground mt-1">
+          Manage accounts, roles, and profile information
+        </p>
       </div>
+
+      <Suspense
+        fallback={
+          <div className="space-y-0">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex gap-4 py-3 border-b border-border/50">
+                <div className="h-4 bg-muted animate-pulse rounded-sm w-1/3" />
+                <div className="h-4 bg-muted animate-pulse rounded-sm w-1/4" />
+                <div className="h-4 bg-muted animate-pulse rounded-sm w-1/6" />
+              </div>
+            ))}
+          </div>
+        }
+      >
+        <ProfilesTable />
+      </Suspense>
     </div>
   )
 }

@@ -25,7 +25,6 @@ import {
   ChevronDown,
   Play,
   Pause,
-  Expand,
   Trophy,
   Calendar,
 } from "lucide-react";
@@ -107,9 +106,8 @@ export default function ViewOnlyPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const boardWrapperRef = useRef<HTMLDivElement>(null);
+  const boardAreaRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState<number>(0);
-  const [boardContainerWidth, setBoardContainerWidth] = useState<number>(500);
-  const [isResizing, setIsResizing] = useState(false);
 
   const [isReplaying, setIsReplaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -230,15 +228,29 @@ export default function ViewOnlyPage() {
   }, [currentPgn]);
 
   useEffect(() => {
-    function measure() {
-      if (boardWrapperRef.current) {
-        setBoardWidth(boardWrapperRef.current.offsetWidth);
-      }
+    if (isDesktop) {
+      // Desktop: measure the board area container and compute max square that fits
+      const el = boardAreaRef.current;
+      if (!el) return;
+      const compute = () => {
+        const h = el.offsetHeight;
+        const w = el.offsetWidth - 22; // 16px eval bar + 6px gap
+        setBoardWidth(Math.max(0, Math.min(h, w)));
+      };
+      const ro = new ResizeObserver(compute);
+      ro.observe(el);
+      compute();
+      return () => ro.disconnect();
+    } else {
+      // Mobile/tablet: measure wrapper width directly
+      const el = boardWrapperRef.current;
+      if (!el) return;
+      const ro = new ResizeObserver(() => setBoardWidth(el.offsetWidth));
+      ro.observe(el);
+      setBoardWidth(el.offsetWidth);
+      return () => ro.disconnect();
     }
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [isLoading, boardContainerWidth, screenSize]);
+  }, [isLoading, screenSize, isDesktop]);
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && gameHistory.moves[currentMoveIndex]) {
@@ -325,28 +337,6 @@ export default function ViewOnlyPage() {
     stopReplay();
   }, [currentPgn, stopReplay]);
 
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsResizing(true);
-      const startX = e.clientX;
-      const startWidth = boardContainerWidth;
-      function onMove(ev: MouseEvent) {
-        setBoardContainerWidth(
-          Math.max(250, Math.min(startWidth + (ev.clientX - startX), 650)),
-        );
-      }
-      function onUp() {
-        setIsResizing(false);
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-      }
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    },
-    [boardContainerWidth],
-  );
-
   const handleEngineToggle = useCallback((enabled: boolean) => {
     setEngineEnabled(enabled);
     if (!enabled) {
@@ -383,257 +373,192 @@ export default function ViewOnlyPage() {
       }
     : {};
 
+  // ── Shared board + controls (mobile / tablet) ─────────────────────────────
   const boardAndControls = (
     <div className="space-y-2">
       <div className="flex gap-1.5 items-stretch w-full">
-        <EvalBar
-          score={evalScore}
-          mate={evalMate}
-          isEnabled={engineEnabled}
-          height={boardWidth || 300}
-        />
-        <div
-          ref={boardWrapperRef}
-          className={cn(
-            "flex-1 aspect-square rounded-sm overflow-hidden border border-border shadow-md relative",
-            isResizing && "ring-2 ring-primary/50",
-          )}
-        >
-          {boardWidth > 0 ? (
-            <Chessboard
-              boardWidth={boardWidth}
-              position={currentFen || "start"}
-              arePiecesDraggable={false}
-              customSquareStyles={squareStyles}
-            />
-          ) : (
-            <div className="w-full h-full bg-muted animate-pulse" />
-          )}
-          {isDesktop && (
-            <button
-              className="absolute bottom-2 right-2 w-6 h-6 bg-muted/90 hover:bg-muted border border-border rounded-sm flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity shadow-sm"
-              style={{ cursor: "se-resize" }}
-              onMouseDown={handleResizeStart}
-              aria-label="Resize board"
-            >
-              <Expand className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-          )}
+        <EvalBar score={evalScore} mate={evalMate} isEnabled={engineEnabled} height={boardWidth || 300} />
+        <div ref={boardWrapperRef} className="flex-1 aspect-square rounded-sm overflow-hidden border border-border shadow-md">
+          {boardWidth > 0
+            ? <Chessboard boardWidth={boardWidth} position={currentFen || "start"} arePiecesDraggable={false} customSquareStyles={squareStyles} />
+            : <div className="w-full h-full bg-muted animate-pulse" />
+          }
         </div>
       </div>
       <Controls
-        onStart={() => navigateTo(-1)}
-        onPrev={() => navigateTo(currentMoveIndex - 1)}
-        onNext={() => navigateTo(currentMoveIndex + 1)}
-        onEnd={() => navigateTo(gameHistory.moves.length - 1)}
-        onReplay={toggleReplay}
-        canGoBack={currentMoveIndex > -1}
+        onStart={() => navigateTo(-1)} onPrev={() => navigateTo(currentMoveIndex - 1)}
+        onNext={() => navigateTo(currentMoveIndex + 1)} onEnd={() => navigateTo(gameHistory.moves.length - 1)}
+        onReplay={toggleReplay} canGoBack={currentMoveIndex > -1}
         canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
-        isReplaying={isReplaying}
-        isPaused={isPaused}
+        isReplaying={isReplaying} isPaused={isPaused}
       />
     </div>
   );
 
+  // ── Selector dropdowns (shared) ────────────────────────────────────────────
+  const tournamentSelector = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-sm px-2.5 h-8 text-xs shadow-sm">
+          <span className="truncate font-medium">{selectedTournamentName}</span>
+          <ChevronDown className="ml-1 w-3 h-3 flex-shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[90vw] sm:w-64 rounded-sm bg-card p-1.5 border border-border shadow-xl">
+        {tournaments.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-muted-foreground">No tournaments available</div>
+        ) : tournaments.map((t, i) => (
+          <DropdownMenuItem key={t.name} onSelect={() => { if (t.name !== selectedTournamentId) setSelectedTournamentId(t.name as TournamentId); }}
+            className={cn("cursor-pointer flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-sm text-xs", i % 2 === 0 && "bg-accent/20")}>
+            <span className="truncate font-medium">{t.alias || t.display_name || t.name}</span>
+            {isNewItem(t.created_at) && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">New</span>}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const gameSelector = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={isLoading || games.length === 0}>
+        <Button variant="outline" className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-sm px-2.5 h-8 text-xs shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+          <span className="truncate font-medium">{isLoading ? "Loading…" : selectedGameTitle}</span>
+          <ChevronDown className="ml-1 w-3 h-3 flex-shrink-0 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[90vw] sm:w-72 max-h-[55vh] overflow-y-auto rounded-sm bg-card p-1.5 border border-border shadow-xl">
+        {games.map((g, i) => (
+          <DropdownMenuItem key={g.id} onSelect={() => setCurrentGameIndex(i)}
+            className={cn("cursor-pointer flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-sm text-xs", i % 2 === 0 && "bg-accent/20")}>
+            <div className="min-w-0">
+              <span className="block truncate font-medium">
+                {(() => { const w = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m); const b = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m); return `${w?.[1] ?? "?"} vs ${b?.[1] ?? "?"}`; })()}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate block">{g.title}</span>
+            </div>
+            {isNewItem(g.created_at) && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">New</span>}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  // ── Mobile / Tablet (scrollable) ───────────────────────────────────────────
+  if (!isDesktop) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="max-w-3xl mx-auto space-y-3 p-2 sm:p-3">
+          <header className="text-center pt-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Limpopo Chess Academy</h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Games Database · Updated regularly</p>
+          </header>
+          <div className="grid grid-cols-2 gap-2 bg-card border border-border p-2.5 rounded-sm shadow-sm">
+            <div><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Tournament</p>{tournamentSelector}</div>
+            <div><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Game</p>{gameSelector}</div>
+          </div>
+          {isLoading ? (
+            <div className="bg-muted animate-pulse rounded-sm w-full aspect-square max-w-sm mx-auto" />
+          ) : games.length === 0 ? (
+            <div className="bg-card border border-border p-6 rounded-sm text-center">
+              <p className="text-muted-foreground text-sm">No games available for this tournament.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <GameInfoStrip headers={gameHeaders} />
+              {!isMobile && <AnalysisPanel fen={currentFen} onToggle={handleEngineToggle} onEvalUpdate={handleEvalUpdate} />}
+              {boardAndControls}
+              {isMobile && <AnalysisPanel fen={currentFen} onToggle={handleEngineToggle} onEvalUpdate={handleEvalUpdate} />}
+              <MovesList moves={gameHistory.moves} currentMoveIndex={currentMoveIndex} onMoveSelect={navigateTo} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Desktop: 2-column grid (65% board | 35% sidebar) ──────────────────────
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-7xl mx-auto space-y-3 p-2 sm:p-3 md:p-4">
-        {/* Header */}
-        <header className="text-center pt-1 pb-1">
-          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight">
-            Limpopo Chess Academy
-          </h1>
-          <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-            Games Database · Updated regularly
-          </p>
-        </header>
-
-        {/* Selectors */}
-        <div className="grid grid-cols-2 gap-2 bg-card border border-border p-2.5 rounded-lg shadow-sm">
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
-              Tournament
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-2.5 h-9 text-xs transition-all shadow-sm"
-                >
-                  <span className="truncate font-medium">
-                    {selectedTournamentName}
-                  </span>
-                  <ChevronDown className="ml-1 w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[90vw] sm:w-[var(--radix-dropdown-menu-trigger-width)] rounded-lg bg-card p-1.5 border border-border shadow-xl">
-                {tournaments.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No tournaments available
-                  </div>
-                ) : (
-                  tournaments.map((t, i) => (
-                    <DropdownMenuItem
-                      key={t.name}
-                      onSelect={() => {
-                        if (t.name !== selectedTournamentId)
-                          setSelectedTournamentId(t.name as TournamentId);
-                      }}
-                      className={cn(
-                        "cursor-pointer flex items-center justify-between gap-2 px-2.5 py-2 rounded-md text-sm",
-                        i % 2 === 0 && "bg-accent/20",
-                      )}
-                    >
-                      <span className="truncate font-medium">
-                        {t.alias || t.display_name || t.name}
-                      </span>
-                      {isNewItem(t.created_at) && (
-                        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">
-                          New
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
-              Game
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                asChild
-                disabled={isLoading || games.length === 0}
+    <div
+      className="h-[calc(100dvh-5rem)] bg-background text-foreground overflow-hidden grid"
+      style={{ gridTemplateColumns: "65% 1fr" }}
+    >
+      {/* ── Left column: Board + Controls ── */}
+      <div className="flex flex-col h-full min-w-0 p-2 gap-2">
+        {/* Board area — always mounted so ResizeObserver can measure */}
+        <div ref={boardAreaRef} className="flex-1 min-h-0 flex gap-1.5 items-center justify-center overflow-hidden">
+          {isLoading ? (
+            <div className="w-64 h-64 bg-muted animate-pulse rounded-sm" />
+          ) : games.length === 0 ? null : (
+            <>
+              <EvalBar score={evalScore} mate={evalMate} isEnabled={engineEnabled} height={boardWidth || 400} />
+              <div
+                ref={boardWrapperRef}
+                className="rounded-sm overflow-hidden border border-border shadow-md flex-shrink-0"
+                style={{ width: boardWidth || 0, height: boardWidth || 0 }}
               >
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-between bg-background hover:bg-accent/50 border-border rounded-md px-2.5 h-9 text-xs transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <span className="truncate font-medium">
-                    {isLoading ? "Loading…" : selectedGameTitle}
-                  </span>
-                  <ChevronDown className="ml-1 w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[90vw] sm:w-[var(--radix-dropdown-menu-trigger-width)] max-h-[55vh] overflow-y-auto rounded-lg bg-card p-1.5 border border-border shadow-xl">
-                {games.map((g, i) => (
-                  <DropdownMenuItem
-                    key={g.id}
-                    onSelect={() => setCurrentGameIndex(i)}
-                    className={cn(
-                      "cursor-pointer flex items-center justify-between gap-2 px-2.5 py-2 rounded-md text-sm",
-                      i % 2 === 0 && "bg-accent/20",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <span className="block truncate font-medium">
-                        {(() => {
-                          const w = g.pgn.match(/^\s*\[White\s+"([^"]*)"\]/m);
-                          const b = g.pgn.match(/^\s*\[Black\s+"([^"]*)"\]/m);
-                          return `${w?.[1] ?? "?"} vs ${b?.[1] ?? "?"}`;
-                        })()}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground truncate block">
-                        {g.title}
-                      </span>
-                    </div>
-                    {isNewItem(g.created_at) && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-blue-500 text-white flex-shrink-0">
-                        New
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                {boardWidth > 0
+                  ? <Chessboard boardWidth={boardWidth} position={currentFen || "start"} arePiecesDraggable={false} customSquareStyles={squareStyles} />
+                  : <div className="w-full h-full bg-muted animate-pulse" />
+                }
+              </div>
+            </>
+          )}
         </div>
 
-        {isLoading ? (
-          <div className="bg-muted animate-pulse rounded-md w-full aspect-square max-w-sm mx-auto" />
-        ) : games.length === 0 ? (
-          <div className="bg-card border border-border p-6 rounded-lg text-center">
-            <p className="text-muted-foreground text-sm">
-              No games available for this tournament.
-            </p>
+      </div>
+
+      {/* ── Right column: Selectors + Game info + Moves ── */}
+      <div className="flex flex-col h-full border-l border-border min-w-0 overflow-hidden">
+        {/* Fixed section: title, selectors, game info, engine */}
+        <div className="flex-shrink-0 p-3 space-y-3">
+          <div className="border-b border-border pb-2">
+            <h1 className="text-base font-bold tracking-tight text-foreground">Limpopo Chess Academy</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Games Database · Updated regularly</p>
           </div>
-        ) : (
-          <>
-            {/* ── MOBILE: stacked, game info first then engine then board ── */}
-            {isMobile && (
-              <div className="space-y-2">
-                <GameInfoStrip headers={gameHeaders} />
-                {boardAndControls}
-                <AnalysisPanel
-                  fen={currentFen}
-                  onToggle={handleEngineToggle}
-                  onEvalUpdate={handleEvalUpdate}
-                />
-                <MovesList
-                  moves={gameHistory.moves}
-                  currentMoveIndex={currentMoveIndex}
-                  onMoveSelect={navigateTo}
-                />
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">Tournament</p>
+              {tournamentSelector}
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">Game</p>
+              {gameSelector}
+            </div>
+          </div>
+          {!isLoading && games.length > 0 && (
+            <>
+              <GameInfoStrip headers={gameHeaders} />
+              <AnalysisPanel fen={currentFen} onToggle={handleEngineToggle} onEvalUpdate={handleEvalUpdate} />
+            </>
+          )}
+          {!isLoading && games.length === 0 && (
+            <p className="text-sm text-muted-foreground">No games available for this tournament.</p>
+          )}
+        </div>
 
-            {/* ── TABLET: game info + engine above board, moves below ── */}
-            {!isMobile && !isDesktop && (
-              <div className="space-y-2">
-                <GameInfoStrip headers={gameHeaders} />
-                <AnalysisPanel
-                  fen={currentFen}
-                  onToggle={handleEngineToggle}
-                  onEvalUpdate={handleEvalUpdate}
-                />
-                {boardAndControls}
-                <MovesList
-                  moves={gameHistory.moves}
-                  currentMoveIndex={currentMoveIndex}
-                  onMoveSelect={navigateTo}
-                />
-              </div>
-            )}
+        {/* Moves — fills remaining sidebar height */}
+        {!isLoading && games.length > 0 && (
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col px-3">
+            <MovesList
+              moves={gameHistory.moves}
+              currentMoveIndex={currentMoveIndex}
+              onMoveSelect={navigateTo}
+              fillHeight
+            />
+          </div>
+        )}
 
-            {/* ── DESKTOP: two col ── */}
-            {isDesktop && (
-              <div
-                className="grid gap-4 items-start"
-                style={{
-                  gridTemplateColumns: `minmax(0, ${boardContainerWidth}px) minmax(240px, 1fr)`,
-                }}
-              >
-                {/* Left */}
-                <div
-                  className="space-y-2"
-                  style={{
-                    maxWidth: `${boardContainerWidth}px`,
-                    transition: isResizing ? "none" : "max-width 0.2s ease-out",
-                  }}
-                >
-                  {boardAndControls}
-                </div>
-
-                {/* Right */}
-                <div className="space-y-2 flex flex-col">
-                  <GameInfoStrip headers={gameHeaders} />
-                  <AnalysisPanel
-                    fen={currentFen}
-                    onToggle={handleEngineToggle}
-                    onEvalUpdate={handleEvalUpdate}
-                  />
-                  <MovesList
-                    moves={gameHistory.moves}
-                    currentMoveIndex={currentMoveIndex}
-                    onMoveSelect={navigateTo}
-                  />
-                </div>
-              </div>
-            )}
-          </>
+        {/* Controls — pinned to bottom of sidebar */}
+        {!isLoading && games.length > 0 && (
+          <div className="flex-shrink-0 px-3 pb-3 pt-2">
+            <Controls
+              onStart={() => navigateTo(-1)} onPrev={() => navigateTo(currentMoveIndex - 1)}
+              onNext={() => navigateTo(currentMoveIndex + 1)} onEnd={() => navigateTo(gameHistory.moves.length - 1)}
+              onReplay={toggleReplay} canGoBack={currentMoveIndex > -1}
+              canGoForward={currentMoveIndex < gameHistory.moves.length - 1}
+              isReplaying={isReplaying} isPaused={isPaused}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -810,20 +735,31 @@ const MovesList = React.memo(function MovesList({
   moves,
   currentMoveIndex,
   onMoveSelect,
+  compact = false,
+  fillHeight = false,
 }: {
   moves: UiMove[];
   currentMoveIndex: number;
   onMoveSelect: (index: number) => void;
+  compact?: boolean;
+  fillHeight?: boolean;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-      });
+    const container = listRef.current;
+    const active = activeRef.current;
+    if (!container || !active) return;
+    // Scroll only within the moves container — never touches page scroll
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const relTop = activeRect.top - containerRect.top + container.scrollTop;
+    const relBottom = relTop + activeRect.height;
+    if (relTop < container.scrollTop) {
+      container.scrollTop = relTop - 4;
+    } else if (relBottom > container.scrollTop + container.clientHeight) {
+      container.scrollTop = relBottom - container.clientHeight + 4;
     }
   }, [currentMoveIndex]);
 
@@ -833,23 +769,64 @@ const MovesList = React.memo(function MovesList({
     movePairs.push([moves[i], moves[i + 1] ?? null]);
   }
 
+  if (compact) {
+    return (
+      <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden h-full flex flex-col">
+        <div className="px-2 py-1 border-b border-border flex items-center justify-between flex-shrink-0">
+          <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">Moves</span>
+          {moves.length > 0 && <span className="text-[9px] text-muted-foreground font-mono">{currentMoveIndex >= 0 ? currentMoveIndex + 1 : 0}/{moves.length}</span>}
+        </div>
+        <div ref={listRef} className="overflow-y-auto p-1.5 flex-1">
+          {moves.length === 0 ? (
+            <p className="text-center py-2 text-xs text-muted-foreground">No moves recorded.</p>
+          ) : (
+            <div className="flex flex-wrap gap-x-1 gap-y-0.5">
+              {movePairs.map(([white, black], pairIndex) => {
+                const whiteIndex = pairIndex * 2;
+                const blackIndex = pairIndex * 2 + 1;
+                return (
+                  <span key={pairIndex} className="flex items-baseline gap-0.5 flex-shrink-0">
+                    <span className="text-[10px] text-muted-foreground font-mono select-none">{white.moveNumber}.</span>
+                    <button ref={whiteIndex === currentMoveIndex ? activeRef : undefined} onClick={() => onMoveSelect(whiteIndex)}
+                      className={cn("text-xs px-1 py-0.5 rounded-[2px] transition-colors duration-100 font-medium leading-none", whiteIndex === currentMoveIndex ? "bg-primary text-primary-foreground" : "hover:bg-accent/60 text-foreground")}>
+                      {white.san}
+                    </button>
+                    {black && (
+                      <button ref={blackIndex === currentMoveIndex ? activeRef : undefined} onClick={() => onMoveSelect(blackIndex)}
+                        className={cn("text-xs px-1 py-0.5 rounded-[2px] transition-colors duration-100 font-medium leading-none", blackIndex === currentMoveIndex ? "bg-primary text-primary-foreground" : "hover:bg-accent/60 text-foreground")}>
+                        {black.san}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+    <div className={cn(
+      "bg-card border border-border rounded-sm shadow-sm overflow-hidden",
+      fillHeight && "flex flex-col flex-1 min-h-0"
+    )}>
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between flex-shrink-0 bg-muted/30">
+        <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
           Moves
         </h3>
         {moves.length > 0 && (
-          <span className="text-[10px] text-muted-foreground font-mono">
-            {currentMoveIndex >= 0 ? currentMoveIndex + 1 : 0}/{moves.length}
+          <span className="text-[10px] font-mono text-foreground/60 tabular-nums">
+            {currentMoveIndex >= 0 ? currentMoveIndex + 1 : 0}<span className="text-muted-foreground">/{moves.length}</span>
           </span>
         )}
       </div>
 
       <div
         ref={listRef}
-        className="overflow-y-auto p-2"
-        style={{ maxHeight: "220px" }}
+        className={cn("overflow-y-auto p-2", fillHeight && "flex-1 min-h-0")}
+        style={fillHeight ? undefined : { maxHeight: "220px" }}
       >
         {moves.length === 0 ? (
           <p className="text-center py-4 text-sm text-muted-foreground">

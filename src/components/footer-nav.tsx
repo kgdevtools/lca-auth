@@ -1,6 +1,20 @@
+"use client"
+
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 export default function FooterNav() {
+  const pathname = usePathname()
+
+  // Hidden on all protected routes
+  if (
+    pathname.startsWith("/user") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/academy")
+  ) {
+    return null
+  }
+
   return (
     <footer className="bg-muted/30 dark:bg-muted/20 border-t border-border mt-auto">
       <div className="max-w-6xl mx-auto px-4 py-3">
@@ -20,9 +34,10 @@ export default function FooterNav() {
             </Link>
           </nav>
         </div>
-
         <div className="mt-2 pt-2 border-t border-border text-center">
-          <p className="text-xs text-muted-foreground">© 2025 Limpopo Chess Academy. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">
+            © 2025 Limpopo Chess Academy. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

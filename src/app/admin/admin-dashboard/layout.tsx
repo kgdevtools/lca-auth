@@ -11,7 +11,7 @@ export default function AdminDashboardLayout({
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="flex pt-16 min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex pt-20 min-h-screen bg-background">
       <AdminSidebar
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(!collapsed)}
@@ -19,7 +19,7 @@ export default function AdminDashboardLayout({
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-auto p-6">
+        <div className="h-full overflow-auto">
           {children}
         </div>
       </div>

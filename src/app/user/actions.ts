@@ -10,21 +10,17 @@ import {
   ActivePlayerData,
   MatchResult,
 } from "./tournament-actions";
-import {
-  requestLichessReconnect,
-  getLichessConnectionByUserId,
-} from "@/repositories/lichessConnectionRepo";
-import { getLichessAccount } from "@/services/lichess.service";
-import type { LichessConnectionPublic, LichessUser } from "@/types/lichess";
 
 export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
   tournament_fullname: string | null;
+  tournament_fullname_pending: string | null;
   chessa_id: string | null;
   role: string;
   created_at?: string;
+  onboarding_completed: boolean;
 }
 
 export interface ProfilePageData {
@@ -35,8 +31,6 @@ export interface ProfilePageData {
   playerStats: Awaited<ReturnType<typeof getPlayerStatistics>>;
   matchResult: MatchResult;
   signOutAction: () => Promise<void>;
-  lichessConnection: LichessConnectionPublic | null;
-  lichessAccount: LichessUser | null;
 }
 
 export async function signOut() {
@@ -53,7 +47,7 @@ export async function fetchProfilePageData(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, avatar_url, tournament_fullname, chessa_id, role, created_at",
+      "id, full_name, avatar_url, tournament_fullname, tournament_fullname_pending, chessa_id, role, created_at, onboarding_completed",
     )
     .eq("id", user.id)
     .single();
@@ -69,37 +63,6 @@ export async function fetchProfilePageData(
     matchResult = await findPlayerMatches(profile.tournament_fullname);
   }
 
-  // Fetch Lichess connection (full record needed to get the access_token for API calls)
-  let lichessConnection: LichessConnectionPublic | null = null;
-  let lichessAccount: LichessUser | null = null;
-
-  try {
-    const fullConnection = await getLichessConnectionByUserId(user.id);
-
-    if (fullConnection) {
-      // Strip the access_token before passing to the client
-      const { access_token, ...publicFields } = fullConnection;
-      lichessConnection = publicFields as LichessConnectionPublic;
-
-      // Only fetch live account data if the connection is active
-      if (fullConnection.is_active && fullConnection.status === "active") {
-        lichessAccount = await getLichessAccount(access_token).catch((err) => {
-          console.error(
-            "[fetchProfilePageData] Failed to fetch Lichess account:",
-            err,
-          );
-          return null;
-        });
-      }
-    }
-  } catch (err) {
-    // Connection fetch failed — continue without it rather than breaking the page
-    console.error(
-      "[fetchProfilePageData] Lichess connection lookup failed:",
-      err,
-    );
-  }
-
   return {
     user,
     profile: profile as Profile | null,
@@ -108,8 +71,6 @@ export async function fetchProfilePageData(
     playerStats,
     matchResult,
     signOutAction: signOut,
-    lichessConnection,
-    lichessAccount,
   };
 }
 
@@ -125,12 +86,44 @@ export async function needsOnboarding(): Promise<boolean> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, tournament_fullname")
+    .select("onboarding_completed")
     .eq("id", user.id)
     .single();
 
-  // Need onboarding if missing full_name or tournament_fullname
-  return !profile?.full_name || !profile?.tournament_fullname;
+  return !profile?.onboarding_completed;
+}
+
+// Check if a name is available — exact fullname match OR alias match, excluding own profile
+export async function checkNameAvailability(
+  name: string,
+  excludeProfileId?: string,
+): Promise<{ available: boolean }> {
+  const trimmed = name.trim()
+  if (!trimmed) return { available: true }
+
+  const supabase = await createClient()
+
+  // Case-insensitive exact match on tournament_fullname
+  let fnQuery = supabase
+    .from('profiles')
+    .select('id')
+    .ilike('tournament_fullname', trimmed)
+    .limit(1)
+  if (excludeProfileId) fnQuery = fnQuery.neq('id', excludeProfileId)
+  const { data: fnMatch } = await fnQuery
+  if (fnMatch?.length) return { available: false }
+
+  // Array-contains check on tournament_aliases
+  let aliasQuery = supabase
+    .from('profiles')
+    .select('id')
+    .contains('tournament_aliases', [trimmed])
+    .limit(1)
+  if (excludeProfileId) aliasQuery = aliasQuery.neq('id', excludeProfileId)
+  const { data: aliasMatch } = await aliasQuery
+  if (aliasMatch?.length) return { available: false }
+
+  return { available: true }
 }
 
 // Check if tournament full name is already taken by another user
@@ -139,32 +132,44 @@ async function checkTournamentFullNameExists(
   excludeUserId?: string,
 ): Promise<boolean> {
   try {
-    if (!tournamentFullName || !tournamentFullName.trim()) {
-      return false;
-    }
+    const trimmed = tournamentFullName?.trim()
+    if (!trimmed) return false
 
-    const supabase = await createClient();
+    const supabase = await createClient()
+
+    // Extract significant tokens (strip punctuation, keep tokens >= 3 chars)
+    const tokens = trimmed
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .map(t => t.toLowerCase())
+      .filter(t => t.length >= 3)
+
     let query = supabase
       .from("profiles")
       .select("id")
-      .eq("tournament_fullname", tournamentFullName.trim())
-      .limit(1);
+      .limit(1)
 
     if (excludeUserId) {
-      query = query.neq("id", excludeUserId);
+      query = query.neq("id", excludeUserId)
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      // If there's a database error, don't block the user - return false
-      return false;
+    if (tokens.length >= 1) {
+      // All significant tokens must be present — catches reordering + case variants
+      // e.g. "mahomole mahlodi j" matches "Mahlodi Mahomole" or "MAHOMOLE MAHLODI"
+      for (const token of tokens) {
+        query = query.ilike("tournament_fullname", `%${token}%`)
+      }
+    } else {
+      // No significant tokens (all chars < 3), fall back to full case-insensitive match
+      query = query.ilike("tournament_fullname", trimmed)
     }
 
-    return data !== null && data.length > 0;
-  } catch (error) {
-    // On any error, don't block the user
-    return false;
+    const { data, error } = await query
+
+    if (error) return false
+    return data !== null && data.length > 0
+  } catch {
+    return false
   }
 }
 
@@ -177,10 +182,10 @@ export async function completeOnboarding(
     (formData.get("tournament_fullname") as string)?.trim() || null;
   const chessaId = (formData.get("chessa_id") as string)?.trim() || null;
 
-  if (!displayName || !tournamentFullName) {
+  if (!displayName) {
     return {
       success: false,
-      error: "Display Name and Tournament Full Name are required",
+      error: "Display Name is required",
     };
   }
 
@@ -192,7 +197,7 @@ export async function completeOnboarding(
     };
   }
 
-  if (tournamentFullName.length > 200) {
+  if (tournamentFullName && tournamentFullName.length > 200) {
     return {
       success: false,
       error: "Tournament full name must be 200 characters or less",
@@ -215,20 +220,22 @@ export async function completeOnboarding(
   }
 
   // Check if tournament full name is already taken
-  try {
-    const isTaken = await checkTournamentFullNameExists(
-      tournamentFullName,
-      user.id,
-    );
-    if (isTaken) {
-      return {
-        success: false,
-        error:
-          "This tournament name is already registered to another account. Please use a different name or contact support if this is your name.",
-      };
+  if (tournamentFullName) {
+    try {
+      const isTaken = await checkTournamentFullNameExists(
+        tournamentFullName,
+        user.id,
+      );
+      if (isTaken) {
+        return {
+          success: false,
+          error:
+            "This tournament name is already registered to another account. Please use a different name or contact support if this is your name.",
+        };
+      }
+    } catch {
+      // If check fails, continue anyway - better to allow than block
     }
-  } catch (error) {
-    // If check fails, continue anyway - better to allow than block
   }
 
   // Update user metadata with display name
@@ -253,6 +260,7 @@ export async function completeOnboarding(
       full_name: displayName,
       tournament_fullname: tournamentFullName,
       chessa_id: chessaId || null,
+      onboarding_completed: true,
     })
     .eq("id", user.id);
 
@@ -264,30 +272,6 @@ export async function completeOnboarding(
   }
 
   return { success: true };
-}
-
-// Server action to disconnect a Lichess account.
-// Sets status to 'pending_reconnect' — an admin must delete the row
-// to allow the student to connect again.
-export async function disconnectLichess(): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
-
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
-
-  try {
-    await requestLichessReconnect(user.id);
-    return { success: true };
-  } catch (error) {
-    console.error("[actions] disconnectLichess error:", error);
-    return { success: false, error: "Failed to disconnect. Please try again." };
-  }
 }
 
 // Server action to update editable profile fields from the user page
@@ -357,6 +341,96 @@ export async function updateProfile(
 
   // Return success - let client handle the UI update
   return { success: true };
+}
+
+// Update tournament fullname — first-time writes directly, changes go to pending approval
+export async function updateTournamentFullname(
+  newName: string,
+  chessaId?: string | null,
+): Promise<{ success: boolean; error?: string; pending: boolean }> {
+  const trimmed = newName.trim()
+
+  if (!trimmed) {
+    return { success: false, error: 'Tournament name cannot be empty.', pending: false }
+  }
+
+  if (trimmed.length > 200) {
+    return { success: false, error: 'Tournament name must be 200 characters or less.', pending: false }
+  }
+
+  const supabase = await createClient()
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData.user
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Availability check — exclude own profile
+  const { available } = await checkNameAvailability(trimmed, user.id)
+  if (!available) {
+    return { success: false, error: 'This name is already linked to another account.', pending: false }
+  }
+
+  // Fetch current profile to decide direct-write vs pending
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('tournament_fullname')
+    .eq('id', user.id)
+    .single()
+
+  const alreadySet = Boolean(currentProfile?.tournament_fullname?.trim())
+
+  const updates: Record<string, unknown> = alreadySet
+    ? { tournament_fullname_pending: trimmed }
+    : { tournament_fullname: trimmed, tournament_fullname_pending: null }
+
+  if (chessaId !== undefined) updates.chessa_id = chessaId || null
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', user.id)
+
+  if (error) {
+    return { success: false, error: 'Failed to update profile. Please try again.', pending: false }
+  }
+
+  return { success: true, pending: alreadySet }
+}
+
+export async function addConfirmedAlias(
+  aliasName: string,
+): Promise<{ success: boolean; error?: string }> {
+  const trimmed = aliasName.trim()
+  if (!trimmed) return { success: false, error: 'Alias cannot be empty.' }
+
+  const supabase = await createClient()
+  const { data: authData } = await supabase.auth.getUser()
+  const user = authData.user
+  if (!user) redirect('/login')
+
+  const { available } = await checkNameAvailability(trimmed, user.id)
+  if (!available) {
+    return { success: false, error: 'This name is already linked to another account.' }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('tournament_aliases')
+    .eq('id', user.id)
+    .single()
+
+  const current: string[] = profile?.tournament_aliases ?? []
+  if (current.includes(trimmed)) return { success: true }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ tournament_aliases: [...current, trimmed] })
+    .eq('id', user.id)
+
+  if (error) return { success: false, error: 'Failed to save alias.' }
+  return { success: true }
 }
 
 export type UserGame = {
@@ -651,6 +725,210 @@ export type AcademyProgress = {
   inProgress: number
   totalTimeMinutes: number
   averageQuizScore: number
+}
+
+// ── Dashboard: lesson preview for overview page ────────────────────────────────
+
+export type DashboardLesson = {
+  id: string
+  title: string
+  difficulty: string | null
+  content_type: string
+  status: 'completed' | 'in_progress' | 'not_started'
+  completed_at: string | null
+  last_accessed_at: string | null
+  assigned_at: string
+}
+
+export async function getDashboardLessons(studentId: string): Promise<{
+  completed: DashboardLesson[]
+  upcoming: DashboardLesson[]
+}> {
+  const supabase = await createClient()
+
+  const { data: assigned, error: aErr } = await supabase
+    .from('lesson_students')
+    .select('assigned_at, lesson:lessons(id, title, difficulty, content_type)')
+    .eq('student_id', studentId)
+    .order('assigned_at', { ascending: false })
+
+  if (aErr || !assigned) return { completed: [], upcoming: [] }
+
+  const lessonIds = (assigned as any[]).map(r => r.lesson?.id).filter(Boolean)
+
+  const { data: progressRows } = lessonIds.length > 0
+    ? await supabase
+        .from('lesson_progress')
+        .select('lesson_id, status, completed_at, last_accessed_at')
+        .eq('student_id', studentId)
+        .in('lesson_id', lessonIds)
+    : { data: [] }
+
+  const progressMap = new Map(
+    (progressRows ?? []).map(p => [p.lesson_id, p])
+  )
+
+  const rows: DashboardLesson[] = (assigned as any[])
+    .filter(r => r.lesson?.id)
+    .map(r => {
+      const p = progressMap.get(r.lesson.id)
+      return {
+        id:               r.lesson.id,
+        title:            r.lesson.title ?? 'Untitled',
+        difficulty:       r.lesson.difficulty ?? null,
+        content_type:     r.lesson.content_type ?? '',
+        status:           (p?.status ?? 'not_started') as DashboardLesson['status'],
+        completed_at:     p?.completed_at ?? null,
+        last_accessed_at: p?.last_accessed_at ?? null,
+        assigned_at:      r.assigned_at,
+      }
+    })
+
+  const completed = rows
+    .filter(r => r.status === 'completed')
+    .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
+    .slice(0, 3)
+
+  const upcoming = rows
+    .filter(r => r.status === 'not_started' || r.status === 'in_progress')
+    .sort((a, b) => {
+      // in_progress first, then by assigned_at descending
+      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1
+      if (b.status === 'in_progress' && a.status !== 'in_progress') return 1
+      return (b.assigned_at ?? '').localeCompare(a.assigned_at ?? '')
+    })
+    .slice(0, 3)
+
+  return { completed, upcoming }
+}
+
+// ── Dashboard: gamification summary ──────────────────────────────────────────
+
+export type GamificationSummary = {
+  total_points: number
+  level: number
+  current_streak_days: number
+}
+
+export async function getGamificationSummary(studentId: string): Promise<GamificationSummary | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('student_progress_summary')
+    .select('total_points, level, current_streak_days')
+    .eq('student_id', studentId)
+    .single()
+
+  if (error || !data) return null
+  return {
+    total_points:        data.total_points        ?? 0,
+    level:               data.level               ?? 1,
+    current_streak_days: data.current_streak_days ?? 0,
+  }
+}
+
+// ── Dashboard: coach preview data ─────────────────────────────────────────────
+
+export type CoachDashboardStudent = {
+  id: string
+  full_name: string | null
+  last_active_at: string | null
+  lessons_completed: number
+  points: number
+}
+
+export type CoachDashboardLesson = {
+  id: string
+  title: string
+  difficulty: string | null
+  content_type: string
+  created_at: string
+}
+
+export async function getCoachDashboardData(coachId: string): Promise<{
+  students: CoachDashboardStudent[]
+  createdLessons: CoachDashboardLesson[]
+}> {
+  const supabase = await createClient()
+
+  const [studentsRes, lessonsRes] = await Promise.all([
+    supabase
+      .from('coach_students')
+      .select('student_id, student:profiles(id, full_name)')
+      .eq('coach_id', coachId)
+      .limit(5),
+    supabase
+      .from('lessons')
+      .select('id, title, difficulty, content_type, created_at')
+      .eq('created_by', coachId)
+      .order('created_at', { ascending: false })
+      .limit(5),
+  ])
+
+  const studentIds = ((studentsRes.data ?? []) as any[])
+    .map(r => r.student?.id)
+    .filter(Boolean)
+
+  let progressMap = new Map<string, { last_active_at: string | null; lessons_completed: number; points: number }>()
+
+  if (studentIds.length > 0) {
+    const [progressRes, summaryRes] = await Promise.all([
+      supabase
+        .from('lesson_progress')
+        .select('student_id, status, last_accessed_at')
+        .in('student_id', studentIds),
+      supabase
+        .from('student_progress_summary')
+        .select('student_id, total_points')
+        .in('student_id', studentIds),
+    ])
+
+    const summaryByStudent = new Map(
+      ((summaryRes.data ?? []) as any[]).map(s => [s.student_id, s.total_points ?? 0])
+    )
+    const progressByStudent = new Map<string, any[]>()
+    ;((progressRes.data ?? []) as any[]).forEach(p => {
+      const list = progressByStudent.get(p.student_id) ?? []
+      list.push(p)
+      progressByStudent.set(p.student_id, list)
+    })
+
+    studentIds.forEach(id => {
+      const rows = progressByStudent.get(id) ?? []
+      const lastActive = rows
+        .map(r => r.last_accessed_at)
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? null
+      progressMap.set(id, {
+        last_active_at:    lastActive,
+        lessons_completed: rows.filter(r => r.status === 'completed').length,
+        points:            summaryByStudent.get(id) ?? 0,
+      })
+    })
+  }
+
+  const students: CoachDashboardStudent[] = ((studentsRes.data ?? []) as any[])
+    .filter(r => r.student?.id)
+    .map(r => {
+      const p = progressMap.get(r.student.id)
+      return {
+        id:                r.student.id,
+        full_name:         r.student.full_name ?? null,
+        last_active_at:    p?.last_active_at ?? null,
+        lessons_completed: p?.lessons_completed ?? 0,
+        points:            p?.points ?? 0,
+      }
+    })
+
+  const createdLessons: CoachDashboardLesson[] = ((lessonsRes.data ?? []) as any[]).map(l => ({
+    id:           l.id,
+    title:        l.title ?? 'Untitled',
+    difficulty:   l.difficulty ?? null,
+    content_type: l.content_type ?? '',
+    created_at:   l.created_at,
+  }))
+
+  return { students, createdLessons }
 }
 
 export async function getAcademyProgress(): Promise<AcademyProgress> {

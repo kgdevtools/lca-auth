@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from "react"
-import { Check, Loader2, X } from "lucide-react"
+import { Check, Loader2, X, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchPlayers, PlayerSearchResult } from "@/app/user/tournament-actions"
+import { checkNameAvailability } from "@/app/user/actions"
 
 interface PlayerSearchComboboxProps {
   value: string
@@ -11,6 +12,7 @@ interface PlayerSearchComboboxProps {
   onPlayerSelect?: (player: PlayerSearchResult) => void
   placeholder?: string
   className?: string
+  currentProfileId?: string
 }
 
 export function PlayerSearchCombobox({
@@ -18,17 +20,20 @@ export function PlayerSearchCombobox({
   onValueChange,
   onPlayerSelect,
   placeholder = "Search for a player...",
-  className
+  className,
+  currentProfileId,
 }: PlayerSearchComboboxProps) {
   const [isFocused, setIsFocused] = React.useState(false)
   const [players, setPlayers] = React.useState<PlayerSearchResult[]>([])
   const [loading, setLoading] = React.useState(false)
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1)
+  const [takenError, setTakenError] = React.useState<string | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
   // Debounced search based on input value
   React.useEffect(() => {
+    setTakenError(null)
     const delayDebounceFn = setTimeout(async () => {
       if (value.length >= 2) {
         setLoading(true)
@@ -61,11 +66,24 @@ export function PlayerSearchCombobox({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleSelect = (player: PlayerSearchResult) => {
-    onValueChange(player.name)
-    if (onPlayerSelect) {
-      onPlayerSelect(player)
+  const handleSelect = async (player: PlayerSearchResult) => {
+    if (currentProfileId) {
+      setLoading(true)
+      try {
+        const { available } = await checkNameAvailability(player.name, currentProfileId)
+        if (!available) {
+          setTakenError(`"${player.name}" is already linked to another account.`)
+          return
+        }
+      } catch {
+        // proceed if check fails
+      } finally {
+        setLoading(false)
+      }
     }
+    setTakenError(null)
+    onValueChange(player.name)
+    if (onPlayerSelect) onPlayerSelect(player)
     setIsFocused(false)
     setHighlightedIndex(-1)
   }
@@ -119,6 +137,13 @@ export function PlayerSearchCombobox({
 
       {showDropdown && (
         <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+          {takenError && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-destructive/10 border-b border-destructive/20">
+              <AlertCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
+              <p className="text-xs text-destructive">{takenError}</p>
+            </div>
+          )}
+
           {loading && (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

@@ -1,9 +1,8 @@
-// src/app/admin/admin-dashboard/tournaments/TournamentsTable.tsx
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, Plus, Edit2, Trash2, Eye, Users, FileSpreadsheet, FileText, FileJson } from "lucide-react"
-import { getTournaments, deleteTournament, getAllTournamentsForExport } from "../server-actions"
+import { useState, useEffect, useCallback } from "react"
+import { Search, Plus, Edit2, Trash2, Eye, Users, FileSpreadsheet, FileText, FileJson, SlidersHorizontal, X } from "lucide-react"
+import { getTournaments, deleteTournament, bulkDeleteTournaments, getAllTournamentsForExport } from "../server-actions"
 import TournamentFormModal from "./TournamentFormModal"
 import { useExport } from "@/hooks/useExport"
 import type { Tournament as TournamentType } from "@/types/admin"
@@ -30,349 +29,466 @@ interface Tournament {
   created_at: string
 }
 
+type Filters = {
+  organizer: string
+  location: string
+  chief_arbiter: string
+  tournament_director: string
+  date_from: string
+  date_to: string
+}
+
+const EMPTY_FILTERS: Filters = {
+  organizer: '', location: '', chief_arbiter: '', tournament_director: '', date_from: '', date_to: '',
+}
+
+const ITEMS_PER_PAGE = 10
+
+const filterInputCls = "h-8 w-full px-2.5 rounded-sm border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-colors"
+
 export default function TournamentsTable() {
+  // ── Data state ───────────────────────────────────────────────────────────────
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [totalPages, setTotalPages] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // Modal state
+  // ── Search + filters ─────────────────────────────────────────────────────────
+  const [search, setSearch] = useState("")
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [debouncedFilters, setDebouncedFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // ── Selection + delete ───────────────────────────────────────────────────────
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  // ── Modal ────────────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null)
 
-  // Export hook
   const { isExporting, handleExport } = useExport<TournamentType>()
 
-  const itemsPerPage = 10
-
+  // ── Debounce filter inputs ───────────────────────────────────────────────────
   useEffect(() => {
-    fetchTournaments()
-  }, [currentPage, search])
+    const t = setTimeout(() => {
+      setDebouncedFilters(filters)
+      setCurrentPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [filters])
 
-  const fetchTournaments = async () => {
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+  const fetchTournaments = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await getTournaments(currentPage, itemsPerPage, search || undefined)
-      if (result.error) {
-        console.error("Error fetching tournaments:", result.error)
-      } else {
+      const result = await getTournaments(currentPage, ITEMS_PER_PAGE, search || undefined, debouncedFilters)
+      if (!result.error) {
         setTournaments(result.tournaments)
         setTotalCount(result.count)
         setTotalPages(result.totalPages ?? 1)
       }
-    } catch (error) {
-      console.error("Error fetching tournaments:", error)
     } finally {
       setLoading(false)
     }
+  }, [currentPage, search, debouncedFilters])
+
+  useEffect(() => { fetchTournaments() }, [fetchTournaments])
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const activeFilterCount = Object.values(debouncedFilters).filter(v => v.trim()).length
+  const allOnPageSelected  = tournaments.length > 0 && tournaments.every(t => selected.has(t.id))
+  const someOnPageSelected = tournaments.some(t => selected.has(t.id))
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  function handleSearch(value: string) { setSearch(value); setCurrentPage(1) }
+
+  function handleFilterChange(key: keyof Filters, value: string) {
+    setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  const handleSearch = (value: string) => {
-    setSearch(value)
-    setCurrentPage(1)
+  function clearFilters() { setFilters(EMPTY_FILTERS) }
+
+  function handleSelectAll(checked: boolean) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      tournaments.forEach(t => checked ? next.add(t.id) : next.delete(t.id))
+      return next
+    })
   }
 
-  const handleDelete = async (id: string, name: string) => {
-    const confirmed = window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)
-    if (!confirmed) return
+  function handleSelectRow(id: string, checked: boolean) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      checked ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
 
+  async function handleDelete(id: string) {
     setDeleting(id)
+    setConfirmDeleteId(null)
     try {
       const result = await deleteTournament(id)
       if (result.success) {
+        setSelected(prev => { const n = new Set(prev); n.delete(id); return n })
         await fetchTournaments()
-      } else {
-        alert(`Error deleting tournament: ${result.error}`)
       }
-    } catch (error) {
-      console.error("Error deleting tournament:", error)
-      alert("Error deleting tournament")
     } finally {
       setDeleting(null)
     }
   }
 
-  const handleCreate = () => {
-    setEditingTournament(null)
-    setIsModalOpen(true)
-  }
-
-  const handleEdit = (tournament: Tournament) => {
-    setEditingTournament(tournament)
-    setIsModalOpen(true)
-  }
-
-  const handleModalSuccess = () => {
-    fetchTournaments()
-  }
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-"
+  async function handleBulkDelete() {
+    setBulkDeleting(true)
     try {
-      return new Date(dateStr).toLocaleDateString()
-    } catch {
-      return dateStr
+      const result = await bulkDeleteTournaments(Array.from(selected))
+      if (result.success) {
+        setSelected(new Set())
+        setConfirmBulkDelete(false)
+        await fetchTournaments()
+      }
+    } finally {
+      setBulkDeleting(false)
     }
   }
 
-  // Export handlers
-  const handleExportCSV = async () => {
+  function handleCreate() { setEditingTournament(null); setIsModalOpen(true) }
+  function handleEdit(t: Tournament) { setEditingTournament(t); setIsModalOpen(true) }
+  function handleModalSuccess() { fetchTournaments() }
+
+  function formatDate(dateStr: string | null) {
+    if (!dateStr) return "—"
+    try { return new Date(dateStr).toLocaleDateString() } catch { return dateStr }
+  }
+
+  // ── Export ───────────────────────────────────────────────────────────────────
+  const EXPORT_FIELD_MAP = {
+    tournament_name: 'Tournament Name', organizer: 'Organizer', federation: 'Federation',
+    tournament_director: 'Tournament Director', chief_arbiter: 'Chief Arbiter',
+    deputy_chief_arbiter: 'Deputy Chief Arbiter', arbiter: 'Arbiter',
+    time_control: 'Time Control', rate_of_play: 'Rate of Play', location: 'Location',
+    rounds: 'Rounds', tournament_type: 'Tournament Type', rating_calculation: 'Rating Calculation',
+    date: 'Date', average_elo: 'Average Elo', average_age: 'Average Age',
+  }
+  const EXPORT_EXCLUDE = ['id', 'created_at', 'source']
+
+  async function withExportData(fn: (data: any[]) => Promise<void>) {
     const result = await getAllTournamentsForExport(search || undefined)
-    if (result.data) {
-      await handleExport(result.data as any[], 'tournaments', {
-        format: 'csv',
-        scope: 'filtered',
-        excludeFields: ['id', 'created_at', 'source'],
-        fieldMapping: {
-          tournament_name: 'Tournament Name',
-          organizer: 'Organizer',
-          federation: 'Federation',
-          tournament_director: 'Tournament Director',
-          chief_arbiter: 'Chief Arbiter',
-          deputy_chief_arbiter: 'Deputy Chief Arbiter',
-          arbiter: 'Arbiter',
-          time_control: 'Time Control',
-          rate_of_play: 'Rate of Play',
-          location: 'Location',
-          rounds: 'Rounds',
-          tournament_type: 'Tournament Type',
-          rating_calculation: 'Rating Calculation',
-          date: 'Date',
-          average_elo: 'Average Elo',
-          average_age: 'Average Age',
-        },
-      })
-    }
+    if (result.data) await fn(result.data as any[])
   }
 
-  const handleExportExcel = async () => {
-    const result = await getAllTournamentsForExport(search || undefined)
-    if (result.data) {
-      await handleExport(result.data as any[], 'tournaments', {
-        format: 'excel',
-        scope: 'filtered',
-        excludeFields: ['id', 'created_at', 'source'],
-        fieldMapping: {
-          tournament_name: 'Tournament Name',
-          organizer: 'Organizer',
-          federation: 'Federation',
-          tournament_director: 'Tournament Director',
-          chief_arbiter: 'Chief Arbiter',
-          deputy_chief_arbiter: 'Deputy Chief Arbiter',
-          arbiter: 'Arbiter',
-          time_control: 'Time Control',
-          rate_of_play: 'Rate of Play',
-          location: 'Location',
-          rounds: 'Rounds',
-          tournament_type: 'Tournament Type',
-          rating_calculation: 'Rating Calculation',
-          date: 'Date',
-          average_elo: 'Average Elo',
-          average_age: 'Average Age',
-        },
-      })
-    }
-  }
+  const handleExportCSV   = () => withExportData(d => handleExport(d, 'tournaments', { format: 'csv',   scope: 'filtered', excludeFields: EXPORT_EXCLUDE, fieldMapping: EXPORT_FIELD_MAP }))
+  const handleExportExcel = () => withExportData(d => handleExport(d, 'tournaments', { format: 'excel', scope: 'filtered', excludeFields: EXPORT_EXCLUDE, fieldMapping: EXPORT_FIELD_MAP }))
+  const handleExportJSON  = () => withExportData(d => handleExport(d, 'tournaments', { format: 'json',  scope: 'filtered', includeMetadata: true, pretty: true, excludeFields: ['id', 'created_at'] }))
 
-  const handleExportJSON = async () => {
-    const result = await getAllTournamentsForExport(search || undefined)
-    if (result.data) {
-      await handleExport(result.data as any[], 'tournaments', {
-        format: 'json',
-        scope: 'filtered',
-        includeMetadata: true,
-        pretty: true,
-        excludeFields: ['id', 'created_at'],
-      })
-    }
-  }
-
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+
         {/* Header */}
-        <div className="p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{totalCount} tournaments total</p>
+        <div className="px-4 py-3 border-b border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 max-w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search tournaments…"
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+                className="h-8 pl-8 pr-3 w-full rounded-sm border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-colors"
+              />
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-3">
-              {/* Left side - Search */}
-              <div className="relative flex-shrink-0">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search tournaments..."
-                  value={search}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent w-full lg:w-64 text-sm tracking-tight transition-colors"
-                />
-              </div>
+            {/* Filter toggle */}
+            <button
+              onClick={() => setFiltersOpen(p => !p)}
+              className={`inline-flex items-center h-8 px-2.5 rounded-sm border text-xs font-medium transition-colors gap-1.5 ${
+                filtersOpen || activeFilterCount > 0
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="h-4 min-w-4 rounded-full bg-background text-foreground text-[10px] font-bold px-1 flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
 
-              {/* Right side - Export & Add buttons */}
-              <div className="flex gap-2 lg:ml-auto">
+            {/* Export + Add */}
+            <div className="flex gap-1.5 sm:ml-auto">
+              {([
+                { fn: handleExportCSV,   icon: <FileText className="w-3.5 h-3.5" />,        label: 'CSV'   },
+                { fn: handleExportExcel, icon: <FileSpreadsheet className="w-3.5 h-3.5" />, label: 'Excel' },
+                { fn: handleExportJSON,  icon: <FileJson className="w-3.5 h-3.5" />,        label: 'JSON'  },
+              ] as const).map(({ fn, icon, label }) => (
                 <button
-                  onClick={handleExportCSV}
+                  key={label}
+                  onClick={fn as () => void}
                   disabled={isExporting || loading}
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
+                  className="inline-flex items-center h-8 px-2.5 rounded-sm border border-border bg-card text-xs text-foreground hover:bg-accent transition-colors disabled:opacity-50 gap-1.5"
                 >
-                  {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <FileText className="w-4 h-4 mr-1.5" />
-                      <span className="hidden sm:inline">CSV</span>
-                    </>
-                  )}
+                  {isExporting ? <span className="w-3.5 h-3.5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" /> : icon}
+                  <span className="hidden sm:inline">{label}</span>
                 </button>
-                <button
-                  onClick={handleExportExcel}
-                  disabled={isExporting || loading}
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
-                >
-                  {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-                      <span className="hidden sm:inline">Excel</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleExportJSON}
-                  disabled={isExporting || loading}
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-tight"
-                >
-                  {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <FileJson className="w-4 h-4 mr-1.5" />
-                      <span className="hidden sm:inline">JSON</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleCreate}
-                  className="inline-flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-md transition-colors font-medium text-sm tracking-tight"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Add Tournament
-                </button>
-              </div>
+              ))}
+              <button
+                onClick={handleCreate}
+                className="inline-flex items-center h-8 px-3 rounded-sm bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Tournament
+              </button>
             </div>
           </div>
+
+          {/* Count */}
+          <p className="text-xs text-muted-foreground mt-2">{totalCount} tournament{totalCount !== 1 ? 's' : ''}</p>
         </div>
 
+        {/* Filter bar */}
+        {filtersOpen && (
+          <div className="px-4 py-3 border-b border-border bg-muted/20">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <input
+                type="text" placeholder="Organizer"
+                value={filters.organizer}
+                onChange={e => handleFilterChange('organizer', e.target.value)}
+                className={filterInputCls}
+              />
+              <input
+                type="text" placeholder="Location"
+                value={filters.location}
+                onChange={e => handleFilterChange('location', e.target.value)}
+                className={filterInputCls}
+              />
+              <input
+                type="text" placeholder="Chief Arbiter"
+                value={filters.chief_arbiter}
+                onChange={e => handleFilterChange('chief_arbiter', e.target.value)}
+                className={filterInputCls}
+              />
+              <input
+                type="text" placeholder="Director"
+                value={filters.tournament_director}
+                onChange={e => handleFilterChange('tournament_director', e.target.value)}
+                className={filterInputCls}
+              />
+              <input
+                type="date"
+                value={filters.date_from}
+                onChange={e => handleFilterChange('date_from', e.target.value)}
+                className={filterInputCls}
+                title="Date from"
+              />
+              <input
+                type="date"
+                value={filters.date_to}
+                onChange={e => handleFilterChange('date_to', e.target.value)}
+                className={filterInputCls}
+                title="Date to"
+              />
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-3 h-3" /> Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Bulk action bar */}
+        {selected.size > 0 && (
+          <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              {selected.size} selected
+            </span>
+            {confirmBulkDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-destructive font-medium">Delete {selected.size} tournament{selected.size !== 1 ? 's' : ''}?</span>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="h-7 px-2.5 rounded-sm bg-destructive text-destructive-foreground text-xs font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                >
+                  {bulkDeleting ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" /> : 'Confirm'}
+                </button>
+                <button
+                  onClick={() => setConfirmBulkDelete(false)}
+                  className="h-7 px-2.5 rounded-sm border border-border text-xs text-foreground hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmBulkDelete(true)}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-sm border border-destructive text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" />
+                Delete {selected.size}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Tournament
+                <th className="px-2.5 py-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    ref={el => { if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected }}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                    className="rounded-sm border-border accent-foreground cursor-pointer"
+                  />
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Organizer
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Stats
-                </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Tournament</th>
+                <th className="hidden sm:table-cell px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Organizer</th>
+                <th className="hidden sm:table-cell px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Location</th>
+                <th className="px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Date</th>
+                <th className="hidden md:table-cell px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Stats</th>
+                <th className="px-2.5 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-border">
               {loading ? (
-                [...Array(itemsPerPage)].map((_, i) => (
+                [...Array(ITEMS_PER_PAGE)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-3 py-4">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
-                      </td>
-                    ))}
+                    <td className="px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="hidden sm:table-cell px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="hidden sm:table-cell px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="hidden md:table-cell px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
+                    <td className="px-2.5 py-2"><div className="h-3 bg-muted rounded w-3/4 animate-pulse" /></td>
                   </tr>
                 ))
               ) : tournaments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">
-                    {search ? "No tournaments found matching your search." : "No tournaments found."}
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    {search || activeFilterCount > 0 ? "No tournaments match the current filters." : "No tournaments found."}
                   </td>
                 </tr>
               ) : (
-                tournaments.map((tournament) => (
-                  <tr key={tournament.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="px-3 py-4">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {tournament.tournament_name || "Untitled Tournament"}
-                      </div>
+                tournaments.map(tournament => (
+                  <tr
+                    key={tournament.id}
+                    className={`hover:bg-accent/30 transition-colors ${selected.has(tournament.id) ? 'bg-muted/20' : ''}`}
+                  >
+                    {/* Checkbox */}
+                    <td className="px-2.5 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(tournament.id)}
+                        onChange={e => handleSelectRow(tournament.id, e.target.checked)}
+                        className="rounded-sm border-border accent-foreground cursor-pointer"
+                      />
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {tournament.organizer || "-"}
+
+                    {/* Name */}
+                    <td className="px-2.5 py-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {tournament.tournament_name || "Untitled"}
+                      </span>
+                      {tournament.tournament_type && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground">{tournament.tournament_type}</span>
+                      )}
                     </td>
-                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">{tournament.location || "-"}</td>
-                    <td className="px-3 py-4 text-sm text-gray-700 dark:text-gray-300">
+
+                    {/* Organizer — sm+ */}
+                    <td className="hidden sm:table-cell px-2.5 py-2 text-xs text-muted-foreground">
+                      {tournament.organizer || "—"}
+                    </td>
+
+                    {/* Location — sm+ */}
+                    <td className="hidden sm:table-cell px-2.5 py-2 text-xs text-muted-foreground">
+                      {tournament.location || "—"}
+                    </td>
+
+                    {/* Date */}
+                    <td className="px-2.5 py-2 text-xs text-muted-foreground tabular-nums">
                       {formatDate(tournament.date)}
                     </td>
-                    <td className="px-3 py-4">
-                      <div className="text-sm text-gray-700 dark:text-gray-300">
+
+                    {/* Stats — md+ */}
+                    <td className="hidden md:table-cell px-2.5 py-2">
+                      <div className="text-xs text-muted-foreground space-y-0.5">
                         {tournament.rounds && (
-                          <div className="flex items-center mb-1">
-                            <Users className="w-3 h-3 mr-1 text-gray-400 dark:text-gray-500" />
-                            <span className="font-medium">{tournament.rounds} rounds</span>
+                          <div className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            <span>{tournament.rounds}R</span>
                           </div>
                         )}
                         {tournament.average_elo && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Avg Rating: {tournament.average_elo}
-                          </div>
+                          <div>Avg {tournament.average_elo}</div>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-4">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          title="View Details"
-                          onClick={() => window.open(`/tournaments/${tournament.id}`, "_blank")}
-                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30 rounded-md transition-all duration-200"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          title="Edit Tournament"
-                          onClick={() => handleEdit(tournament)}
-                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30 rounded-md transition-all duration-200"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          title="Delete Tournament"
-                          onClick={() => {
-                            const name = tournament.tournament_name || "tournament"
-                            handleDelete(tournament.id, name)
-                          }}
-                          disabled={deleting === tournament.id}
-                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 rounded-md transition-all duration-200 disabled:opacity-50"
-                        >
-                          {deleting === tournament.id ? (
-                            <div className="w-4 h-4 border-2 border-red-600 dark:border-red-400 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
+
+                    {/* Actions */}
+                    <td className="px-2.5 py-2">
+                      {confirmDeleteId === tournament.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-destructive font-medium">Delete?</span>
+                          <button
+                            onClick={() => handleDelete(tournament.id)}
+                            disabled={!!deleting}
+                            className="h-6 px-2 rounded-sm bg-destructive text-destructive-foreground text-[10px] font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="h-6 px-2 rounded-sm border border-border text-[10px] text-foreground hover:bg-accent transition-colors"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            title="View"
+                            onClick={() => window.open(`/tournaments/${tournament.id}`, "_blank")}
+                            className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Edit"
+                            onClick={() => handleEdit(tournament)}
+                            className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            title="Delete"
+                            onClick={() => setConfirmDeleteId(tournament.id)}
+                            disabled={deleting === tournament.id}
+                            className="p-1.5 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                          >
+                            {deleting === tournament.id
+                              ? <span className="w-3.5 h-3.5 border-2 border-destructive border-t-transparent rounded-full animate-spin inline-block" />
+                              : <Trash2 className="w-3.5 h-3.5" />
+                            }
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -383,61 +499,49 @@ export default function TournamentsTable() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm text-gray-700 dark:text-gray-300">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of{" "}
-                {totalCount} results
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                <div className="flex space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum
-                    if (totalPages <= 5) {
-                      pageNum = i + 1
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i
-                    } else {
-                      pageNum = currentPage - 2 + i
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-2 text-sm border rounded-md transition-colors ${
-                          currentPage === pageNum
-                            ? "bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500"
-                            : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                </div>
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
+          <div className="px-4 py-3 border-t border-border bg-muted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="h-7 px-2.5 rounded-sm border border-border bg-card text-xs text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = totalPages <= 5 ? i + 1
+                  : currentPage <= 3 ? i + 1
+                  : currentPage >= totalPages - 2 ? totalPages - 4 + i
+                  : currentPage - 2 + i
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`h-7 w-7 rounded-sm border text-xs transition-colors ${
+                      currentPage === p
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'border-border bg-card text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="h-7 px-2.5 rounded-sm border border-border bg-card text-xs text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Tournament Form Modal */}
       <TournamentFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

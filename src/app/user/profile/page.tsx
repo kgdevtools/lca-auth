@@ -9,14 +9,9 @@ export const metadata: Metadata = {
   description: "Edit your profile settings",
 };
 
-export default async function ProfileEditPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ lichess?: string }>;
-}) {
+export default async function ProfileEditPage() {
   const supabase = await createClient();
 
-  // Get the current user
   const {
     data: { user },
     error: userError,
@@ -26,12 +21,7 @@ export default async function ProfileEditPage({
     redirect("/login");
   }
 
-  // Fetch all profile data (includes lichessConnection)
   const profileData = await fetchProfilePageData(user);
 
-  // Read the lichess OAuth result param (e.g. ?lichess=connected)
-  const params = await searchParams;
-  const lichessStatus = params.lichess ?? null;
-
-  return <ProfileEditView {...profileData} lichessStatus={lichessStatus} />;
+  return <ProfileEditView {...profileData} />;
 }

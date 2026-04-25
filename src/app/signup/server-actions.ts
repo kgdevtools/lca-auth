@@ -5,69 +5,38 @@ import { redirect } from "next/navigation"
 import { headers } from 'next/headers'
 import { cookies } from 'next/headers'
 
-export async function signUpWithGoogle(formData: FormData) {
+async function getRedirectUrl() {
+  const headersList = await headers()
+  const host = headersList.get('host') || ''
+
+  const isLocal = host.includes('localhost') ||
+                  host.includes('127.0.0.1') ||
+                  host.match(/^192\.168\.\d+\.\d+:?\d*$/) ||
+                  host.match(/^10\.\d+\.\d+\.\d+:?\d*$/) ||
+                  host.match(/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+:?\d*$/)
+
+  if (isLocal) return `http://${host}/auth/callback`
+
+  const origin = headersList.get('origin')
+  return `${origin || process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+}
+
+export async function signUpWithGoogle(_formData?: FormData) {
   try {
-    const tournamentFullName = formData.get('tournament_fullname') as string
-    const chessaId = formData.get('chessa_id') as string
-
-    // Validate required fields
-    if (!tournamentFullName || !tournamentFullName.trim()) {
-      redirect('/signup?message=Tournament Full Name is required')
-    }
-
     const supabase = await createClientForServerAction()
-    const origin = (await headers()).get('origin')
-
-    if (!origin) {
-      redirect('/signup?message=Unable to determine origin. Please try again.')
-    }
-  
-  // Store signup data in cookies temporarily to be used in callback
-  const cookieStore = await cookies()
-  cookieStore.set('signup_tournament_fullname', tournamentFullName, { 
-    maxAge: 600, // 10 minutes
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/'
-  })
-  
-  if (chessaId && chessaId.trim()) {
-    cookieStore.set('signup_chessa_id', chessaId, { 
-      maxAge: 600,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
-    })
-  }
-
-  // Mark this as a signup flow
-  cookieStore.set('is_signup', 'true', { 
-    maxAge: 600,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/'
-  })
+    const redirectTo = await getRedirectUrl()
+    if (!redirectTo) return { error: 'Unable to determine redirect URL. Please try again.' }
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin}/auth/callback`,
+        redirectTo,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })
 
-    if (error) {
-      // Do not redirect from server-action; return error to client
-      return { error: error.message }
-    }
-
-    if (!data?.url) {
-      return { error: 'Failed to initiate Google sign in. Please try again.' }
-    }
-
-    // Return URL to client for client-side navigation. PKCE cookie was written above.
+    if (error) return { error: error.message }
+    if (!data?.url) return { error: 'Failed to initiate Google sign up. Please try again.' }
     return { url: data.url }
   } catch (error) {
     // eslint-disable-next-line no-console

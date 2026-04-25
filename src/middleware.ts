@@ -33,10 +33,17 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Skip auth check on public auth pages — avoids stale-token refresh errors
+  if (pathname === '/login' || pathname.startsWith('/signup')) {
+    response.headers.set('x-pathname', pathname)
+    return response
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Unauthenticated — redirect protected routes to login
   if (
     (pathname.startsWith("/admin") ||
       pathname.startsWith("/user") ||
@@ -49,6 +56,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Authenticated but role is null — block /academy, redirect to Join page
+  if (user && pathname.startsWith("/academy")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.role) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/forms";
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
+  response.headers.set('x-pathname', pathname)
   return response;
 }
 

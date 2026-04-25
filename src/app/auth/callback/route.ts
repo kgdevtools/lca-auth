@@ -5,7 +5,6 @@ import { type CookieOptions } from '@supabase/ssr'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') || '/user'
   
   if (!code) {
     return NextResponse.redirect(new URL('/login?message=No authorization code provided', request.url))
@@ -46,54 +45,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?message=Authentication failed', request.url))
     }
 
-    // Check if this is email confirmation (new user without profile)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
-    const isAdmin = profile?.role === 'admin'
-    
-    // Check user role to determine redirect destination
-    let redirectPath = isAdmin ? '/admin/admin-dashboard' : '/user'
 
-    // Check if this is a signup flow
-    const cookieStore = request.cookies
-    const isSignup = cookieStore.get('is_signup')?.value === 'true'
-    
-    if (isSignup) {
-      const tournamentFullName = cookieStore.get('signup_tournament_fullname')?.value
-      const chessaId = cookieStore.get('signup_chessa_id')?.value
-
-      // Update profile with signup-specific fields if provided
-      if (tournamentFullName || chessaId) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            tournament_fullname: tournamentFullName || null,
-            chessa_id: chessaId || null,
-          })
-          .eq('id', user.id)
-
-        if (updateError) {
-          // Log error but don't block the flow - user can update profile later
-        }
-      }
-
-      // Build redirect response and apply any Supabase cookies + clear the signup flags
-      const response = NextResponse.redirect(new URL(redirectPath, request.url))
-      // Debug: log which cookies Supabase wants to set (helps diagnose refresh token issues)
+    // New user — create a bare profile row; onboarding modal on /user collects display name etc.
+    if (!profile) {
+      const { error: insertError } = await supabase.from('profiles').insert({
+        id: user.id,
+        avatar_url: user.user_metadata?.avatar_url ?? null,
+        // full_name intentionally omitted so the onboarding modal triggers on /user
+        // role intentionally omitted — admin assigns coach or student after signup
+      })
       // eslint-disable-next-line no-console
-      console.log('Supabase cookies to write (signup):', cookiesToWrite.map(c => c.name))
-      // Apply auth cookies returned by Supabase
-      cookiesToWrite.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-      // Clear signup helper cookies
-      response.cookies.set('is_signup', '', { maxAge: 0 })
-      response.cookies.set('signup_tournament_fullname', '', { maxAge: 0 })
-      response.cookies.set('signup_chessa_id', '', { maxAge: 0 })
-      return response
+      if (insertError) console.error('Profile insert failed:', insertError)
     }
+
+    const isAdmin = profile?.role === 'admin'
+    let redirectPath = isAdmin ? '/admin/admin-dashboard' : '/user'
 
     // Check if this is a password reset flow
     const isPasswordReset = requestUrl.searchParams.get('type') === 'recovery'

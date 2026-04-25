@@ -2,29 +2,28 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import TournamentsView from './TournamentsView.client'
-import { fetchProfilePageData } from '../actions'
-import { Suspense } from 'react'
 import TournamentsViewSkeleton from './TournamentsViewSkeleton'
+import { fetchProfilePageData, getUserGames } from '../actions'
+import { Suspense } from 'react'
 
 export const metadata: Metadata = {
   title: 'My Tournaments',
-  description: 'View your tournament history and performance',
+  description: 'Tournament history, stats and games',
 }
 
 async function TournamentsData() {
   const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) redirect('/login')
 
-  // Get the current user
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    redirect('/login')
-  }
-
-  // Fetch all profile data
   const profileData = await fetchProfilePageData(user)
+  const playerName  = profileData.profile?.tournament_fullname || ''
 
-  return <TournamentsView {...profileData} />
+  const games = playerName
+    ? await getUserGames(playerName, 30).catch(() => [])
+    : []
+
+  return <TournamentsView {...profileData} games={games} />
 }
 
 export default function TournamentsPage() {

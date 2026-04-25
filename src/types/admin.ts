@@ -66,7 +66,9 @@ export interface Profile {
   role: 'student' | 'coach' | 'admin'
   created_at: string
   tournament_fullname: string | null
+  tournament_fullname_pending: string | null
   chessa_id: string | null
+  tournament_aliases: string[] | null
 }
 
 // Player Registrations

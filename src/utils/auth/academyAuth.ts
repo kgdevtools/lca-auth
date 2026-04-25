@@ -9,7 +9,7 @@ export interface Profile {
   id: string
   full_name: string | null
   avatar_url: string | null
-  role: 'student' | 'coach' | 'admin'
+  role: 'student' | 'coach' | 'admin' | null
   created_at: string
   tournament_fullname: string | null
   chessa_id: string | null
@@ -50,7 +50,7 @@ export async function getCurrentUserWithProfile() {
 export async function checkRole(allowedRoles: string[]) {
   const { profile } = await getCurrentUserWithProfile()
 
-  if (!allowedRoles.includes(profile.role)) {
+  if (!profile.role || !allowedRoles.includes(profile.role)) {
     throw new Error(`Unauthorized: Requires role ${allowedRoles.join(' or ')}`)
   }
 

@@ -1,144 +1,92 @@
-# Session Summary - LCA Auth Dashboard Improvements
+# Session Summary — 2026-04-12
 
-## Date: March 2026
+## Overview
+
+Completed the Interactive Study lesson type end-to-end: builder (coach side) and viewer (student side).
 
 ---
 
-## Completed Work
+## Work Done
 
-### 1. Navigation Cleanup
+### 1. Interactive Study Editor — Layout & Solve Point UX
 
-#### User Sidebar (`src/components/user/UserSidebar.tsx`)
-- Removed "Tournaments" and "Tournament Games" items
-- Added "Stats" linking to `/tournaments`
+**File:** `src/components/lessons/InteractiveStudyEditorBoard.tsx`
 
-#### Academy Sidebar (`src/components/academy/AcademySidebar.tsx`)
-- Added `disabled` and `comingSoon` properties to sidebar items
-- Tests, Puzzles, My Students are now shaded with "Soon" badge
-- Disabled items sorted to bottom with visual divider
+- Moved move list out of the left (board) column into the right panel — was being cropped below the board
+- Reused the existing PGN textarea in the chapter panel rather than creating new UI elements
+- Implemented full solve point system:
+  - ◎ icon on each move in the move list — click to mark/unmark as a solve point
+  - Radix Popover opens on mark with two inputs:
+    - **Description** (required) — explains the solve point to the student
+    - **Alternative Moves** — badge-style multi-input (Enter/comma to add), same UX as student assignment
+  - Marked moves highlighted blue (`bg-blue-500 text-white font-semibold`)
+  - Hover info panel below move list shows description + alternatives for any marked move
+  - `SolvePointPopoverContent` uses fully local state for description/alternatives to avoid typing lag; syncs to parent only on "Add"
 
-#### Mobile Nav (`src/components/mobile-nav.tsx`)
-- Created new `HeaderMobileNav.tsx` component
-- Main header hamburger hides on `/academy`, `/user`, `/admin` routes
-- Reorganized mobile menu with grouped sections (Chess, Community, Admin)
-- Added icons for each nav item
+### 2. Critical Bug Fix — React State Anti-Pattern
 
-#### Desktop Navbar (`src/app/layout.tsx`)
-- Reorganized links: User section → Main Nav → Resources → Admin section
-- Grouped Admin links at the end with divider
-- Changed "User Dashboard" to "Dashboard" linking to `/user/overview`
+**File:** `src/app/academy/lesson/add/page.tsx`
 
-### 2. User Redirect
-- `/user/page.tsx` now redirects to `/user/overview`
-- Navbar updated to point directly to `/user/overview`
+**Root cause:** `handleAddChapter` called `setSelectedChapterIndex` inside the `setChapters` updater function. React requires updater functions to be pure (no side effects). This caused an intermediate render where `chapters` updated but `selectedChapterIndex` remained `null`, making `currentChapterId` null and silently blocking all solve point save operations.
 
-### 3. Profile Overview Page (`src/app/user/overview/`)
+**Fix:** Moved `setSelectedChapterIndex(chapters.length)` outside the updater. React 18 automatic batching ensures all four `set*` calls in the same event handler commit in a single render.
 
-#### Left Column Cards:
-1. **Profile Hero Card** - Dark gradient with grid pattern, avatar, name, role, email, member since
-2. **Player Record Card** - Shows title, rating, federation, sex from `active_players_august_2025_profiles`
-3. **"Is this you?" Card** - Amber card showing close player name matches with match percentage
-4. **Tournament Name Card** - Search/update player profile
-5. **Academy Progress Card** - Shows: Completed lessons, In Progress, Time Spent, Avg Quiz Score
+```ts
+// Before (broken)
+setChapters(prev => {
+  const next = [...prev, { ... }]
+  setSelectedChapterIndex(next.length - 1) // side effect inside updater
+  return next
+})
 
-#### Right Column:
-1. **Stats Grid** - Games Played, Tournaments, Rating (highlighted), Highest, Avg Performance, Federation
-2. **Recent Tournaments** - Condensed table list with ratings
-3. **My Games** - Shows recent games with player highlighting (blue for user's name), color-coded results
-
-### 4. Performance Optimization
-
-#### SQL Filtering (`src/app/user/actions.ts`)
-- Added `buildNameFilter()` for SQL ILIKE pre-filtering
-- Reduces rows fetched by filtering at database level first
-- Then precise fuzzy matching in JS for accuracy
-
-#### Debug Logging
-- Disabled verbose logging by default in `pgnService.ts`
-- Only enables with `DEBUG_TOURNAMENT_MATCHING=1` env var
-
-### 5. Loading Skeletons
-
-Created modern, matching skeletons for:
-- `/user/overview` - Profile overview skeleton
-- `/academy` - Dashboard skeleton  
-- `/academy/lessons` - Lessons skeleton
-- `/academy/reports` - Reports skeleton
-
-### 6. Actions Added (`src/app/user/actions.ts`)
-
-```typescript
-// Get user's tournament games
-getUserGames(playerName, limit) → UserGame[]
-
-// Count total games played
-getTotalGamesCount(playerName) → number
-
-// Get player profile from active_players table
-getPlayerProfile(playerName) → PlayerProfile | null
-
-// Find close player name matches
-findClosePlayerMatches(playerName) → PlayerMatch[]
-
-// Get academy learning progress
-getAcademyProgress() → AcademyProgress
+// After (correct)
+const newIndex = chapters.length
+setChapters(prev => [...prev, { ... }])
+setSelectedChapterIndex(newIndex)
 ```
 
-### 7. Design Changes
+Also fixed: nested `<button>` inside `<button>` error in `StudentMultiSelect` — changed × removal `<button>` to `<span role="button">`.
 
-- **Rounded corners**: All cards changed from `rounded-xl` to `rounded-sm`
-- **Rating card**: Reduced brightness (slate-700/slate-800), kept shadow
-- **Typography**: `tracking-tight` and `leading-tight` throughout
-- **Stats cards**: Hover scale animation, shadow depth
+### 3. Interactive Study Viewer — Points, Feedback, Animations
 
----
+**File:** `src/app/academy/lesson/[lessonId]/_components/viewer-blocks/InteractiveStudyViewerBlock.tsx`
 
-## Remaining Tasks
+Complete rewrite adding:
 
-### High Priority
-1. **Implement "Is this you?" consolidation** - When user clicks a close match, consolidate that player's data
-2. **Player name highlighting fix** - Currently matches first token only, should be more robust
+**Points system**
+- `POINTS_CORRECT = 10`, `POINTS_ALTERNATIVE = 5`
+- Animated score counter (`ScoreDisplay`) — dark background, large tabular numeral, smooth increment animation
+- Floating delta (`+10` / `+5`) with `@keyframes deltaFloat` CSS animation
 
-### Medium Priority
-1. Add chess board preview for last game position (needs PGN data)
-2. Test the SQL ILIKE filtering on Supabase
-3. Performance testing with larger datasets
+**Three-state feedback box (`FeedbackBox`)**
+- **Correct** — green background, bounce animation, CheckCircle2 icon, "+10 points"
+- **Alternative** — amber background, pulse animation, Sparkles icon, "+5 points"  
+- **Incorrect** — slate/gray background, buzz (shake) animation, XCircle icon
 
-### Nice to Have
-1. Add loading states for individual sections
-2. Implement auto-save for profile edits
-3. Add toast notifications for successful updates
+**Alternative move detection fix**
+- `SolveResult` type now has three states: `'correct' | 'alternative' | 'incorrect'`
+- `handleSolveMove` distinguishes main vs alternative vs wrong via `isAlternativeMatch(altSan, from, to, fen)`
+- Alternatives were previously falling through as incorrect; now correctly awarded amber feedback + 5 pts
 
----
-
-## Key Files Modified
-
-- `src/app/user/ProfileView.client.tsx`
-- `src/app/user/overview/page.tsx`
-- `src/app/user/actions.ts`
-- `src/app/user/page.tsx` (now redirects)
-- `src/components/user/UserSidebar.tsx`
-- `src/components/academy/AcademySidebar.tsx`
-- `src/components/mobile-nav.tsx`
-- `src/components/HeaderMobileNav.tsx` (new)
-- `src/app/layout.tsx`
-- `src/services/pgnService.ts`
+**Visual refinements**
+- Wrong move square highlight: slate (`rgba(148,163,184,0.5)`) instead of red
+- All borders `rounded-sm` (less rounded throughout)
+- Depth + shadow on feedback box and score display
+- CSS animations scoped to component via `<style>` tag (`@keyframes buzz`, `@keyframes deltaFloat`)
+- Move list: `✓` suffix for correctly solved, `◇` for alternative solved
 
 ---
 
-## Environment Variables
+## Files Changed
 
-```bash
-# Enable debug logging for tournament matching
-DEBUG_TOURNAMENT_MATCHING=1
-```
+| File | Change |
+|---|---|
+| `src/components/lessons/InteractiveStudyEditorBoard.tsx` | Solve point system, layout restructure, hover info panel |
+| `src/app/academy/lesson/add/page.tsx` | Fixed `handleAddChapter` anti-pattern, nested button fix |
+| `src/app/academy/lesson/[lessonId]/_components/viewer-blocks/InteractiveStudyViewerBlock.tsx` | Full rewrite — points, 3-state feedback, animations, alt move fix |
 
 ---
 
-## Notes
+## Status
 
-- Tournament games are fetched using SQL ILIKE pre-filtering + JS fuzzy matching
-- Fuzzy matching uses Levenshtein distance and token intersection
-- Games count shows ALL games from tournaments, not just tournaments table
-- Player profile matching requires 80%+ score for primary match
-- Close matches show 50%+ score matches
+Interactive Study lesson type is functional end-to-end. Minor UX polish deferred to a future session.

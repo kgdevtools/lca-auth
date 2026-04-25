@@ -219,6 +219,24 @@ export async function getTournamentsForPlayers(): Promise<{
 /**
  * Update a player
  */
+export async function deletePlayer(
+  id: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+    const { error } = await supabase.from('players').delete().eq('id', id)
+    if (error) {
+      console.error('Error deleting player:', error)
+      return { success: false, error: error.message }
+    }
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
+  }
+}
+
 export async function updatePlayer(
   id: string,
   updates: Partial<Player>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, FileSpreadsheet, FileText, FileJson, RefreshCw, Edit2, Eye } from 'lucide-react'
+import { Search, FileSpreadsheet, FileText, FileJson, RefreshCw, Eye } from 'lucide-react'
 import {
   getActivePlayers,
   getAllActivePlayersForExport,
@@ -170,12 +170,12 @@ export default function ActivePlayersTableRefactored() {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-border">
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600 dark:text-gray-400 tracking-tight leading-tight">
+              <p className="text-sm text-muted-foreground tracking-tight leading-tight">
                 {totalCount} players total
               </p>
             </div>
@@ -184,13 +184,13 @@ export default function ActivePlayersTableRefactored() {
             <div className="flex flex-wrap items-center gap-2">
               {/* Search */}
               <div className="relative flex-shrink-0">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search players..."
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent w-52 text-sm tracking-tight leading-tight transition-colors"
+                  className="pl-8 pr-3 py-1.5 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent w-52 text-sm tracking-tight leading-tight transition-colors"
                 />
               </div>
 
@@ -249,10 +249,10 @@ export default function ActivePlayersTableRefactored() {
                   onClick={handleExportCSV}
                   disabled={isExporting || loading}
                   title="Export as CSV"
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-2.5 py-1.5 bg-card hover:bg-accent/50 text-foreground border border-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <FileText className="w-4 h-4" />
                   )}
@@ -261,10 +261,10 @@ export default function ActivePlayersTableRefactored() {
                   onClick={handleExportExcel}
                   disabled={isExporting || loading}
                   title="Export as Excel"
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-2.5 py-1.5 bg-card hover:bg-accent/50 text-foreground border border-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <FileSpreadsheet className="w-4 h-4" />
                   )}
@@ -273,10 +273,10 @@ export default function ActivePlayersTableRefactored() {
                   onClick={handleExportJSON}
                   disabled={isExporting || loading}
                   title="Export as JSON"
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-2.5 py-1.5 bg-card hover:bg-accent/50 text-foreground border border-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <FileJson className="w-4 h-4" />
                   )}
@@ -285,7 +285,7 @@ export default function ActivePlayersTableRefactored() {
                   onClick={fetchPlayers}
                   disabled={loading}
                   title="Refresh"
-                  className="inline-flex items-center px-2.5 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md transition-colors disabled:opacity-50"
+                  className="inline-flex items-center px-2.5 py-1.5 bg-card hover:bg-accent/50 text-foreground border border-border rounded-md transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 </button>
@@ -295,44 +295,45 @@ export default function ActivePlayersTableRefactored() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Name
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Federation
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Rating
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="hidden md:table-cell px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Performance
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="hidden md:table-cell px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Tournament
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-tighter">
+                <th className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-tighter">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-border">
               {loading ? (
                 [...Array(itemsPerPage > 10 ? 10 : itemsPerPage)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
-                      <td key={j} className="px-3 py-3">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
-                      </td>
-                    ))}
+                    <td className="px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
+                    <td className="hidden sm:table-cell px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
+                    <td className="hidden sm:table-cell px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
+                    <td className="hidden md:table-cell px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
+                    <td className="hidden md:table-cell px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
+                    <td className="px-3 py-3"><div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div></td>
                   </tr>
                 ))
               ) : players.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground text-sm">
                     {search || selectedFederation !== 'all' || selectedTournament !== 'all'
                       ? 'No players found matching your filters.'
                       : 'No players found.'}
@@ -342,35 +343,35 @@ export default function ActivePlayersTableRefactored() {
                 players.map((player, index) => (
                   <tr
                     key={`${player.UNIQUE_NO}-${index}`}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                    className="hover:bg-accent/30 transition-colors"
                   >
                     <td className="px-3 py-3">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
+                      <div className="text-sm font-semibold text-foreground tracking-tight leading-tight">
                         {player.name || `${player.FIRSTNAME} ${player.SURNAME}`}
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 tracking-tight leading-tight">
+                    <td className="hidden sm:table-cell px-3 py-3 text-sm text-muted-foreground tracking-tight leading-tight">
                       {player.FED || '-'}
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 tracking-tight leading-tight">
+                    <td className="hidden sm:table-cell px-3 py-3 text-sm text-muted-foreground tracking-tight leading-tight">
                       {player.RATING || player.player_rating || '-'}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="hidden md:table-cell px-3 py-3">
                       {player.performance_rating && (
                         <span
                           className={`inline-flex px-2 py-0.5 rounded text-xs font-medium tracking-tight ${
                             Number(player.performance_rating) > 2000
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              ? 'bg-primary/10 text-primary'
                               : Number(player.performance_rating) > 1500
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              ? 'bg-primary/5 text-primary/80'
+                              : 'bg-muted text-muted-foreground'
                           }`}
                         >
                           {player.performance_rating}
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300 tracking-tight leading-tight">
+                    <td className="hidden md:table-cell px-3 py-3 text-sm text-muted-foreground tracking-tight leading-tight">
                       {player.tournament_name || '-'}
                     </td>
                     <td className="px-3 py-3">
@@ -378,7 +379,7 @@ export default function ActivePlayersTableRefactored() {
                         <button
                           title="View Details"
                           onClick={() => handleViewDetails(player)}
-                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/30 rounded-md transition-all duration-200"
+                          className="p-1.5 text-primary hover:bg-primary/10 rounded-md transition-all duration-200"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -393,9 +394,9 @@ export default function ActivePlayersTableRefactored() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+          <div className="px-4 py-3 border-t border-border bg-muted/30">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm text-gray-700 dark:text-gray-300 tracking-tight leading-tight">
+              <div className="text-sm text-foreground tracking-tight leading-tight">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
                 {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
               </div>
@@ -403,7 +404,7 @@ export default function ActivePlayersTableRefactored() {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors tracking-tight"
+                  className="px-3 py-1.5 text-sm border border-border bg-card text-foreground rounded-md hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors tracking-tight"
                 >
                   Previous
                 </button>
@@ -425,8 +426,8 @@ export default function ActivePlayersTableRefactored() {
                         onClick={() => setCurrentPage(pageNum)}
                         className={`px-3 py-1.5 text-sm border rounded-md transition-colors tracking-tight ${
                           currentPage === pageNum
-                            ? 'bg-blue-600 dark:bg-blue-500 text-white border-blue-600 dark:border-blue-500'
-                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border bg-card text-foreground hover:bg-accent/50'
                         }`}
                       >
                         {pageNum}
@@ -437,7 +438,7 @@ export default function ActivePlayersTableRefactored() {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors tracking-tight"
+                  className="px-3 py-1.5 text-sm border border-border bg-card text-foreground rounded-md hover:bg-accent/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors tracking-tight"
                 >
                   Next
                 </button>
@@ -463,50 +464,50 @@ export default function ActivePlayersTableRefactored() {
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Full Name</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Full Name</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.name || `${selectedPlayer.FIRSTNAME} ${selectedPlayer.SURNAME}`}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Federation</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Federation</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.FED || '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Rating</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Rating</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.RATING || selectedPlayer.player_rating || '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Title</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Title</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.TITLE || '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Performance Rating</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Performance Rating</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.performance_rating || '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Confidence</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Confidence</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.confidence || '-'}
                   </p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Tournament</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Tournament</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.tournament_name || '-'}
                   </p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 tracking-tight">Classifications</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                  <p className="text-xs text-muted-foreground mb-1 tracking-tight">Classifications</p>
+                  <p className="text-sm font-medium text-foreground tracking-tight">
                     {selectedPlayer.classifications || '-'}
                   </p>
                 </div>

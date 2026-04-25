@@ -4,6 +4,7 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['localhost:8008', '192.168.110.252:8008'],
   async headers() {
     return [
       {

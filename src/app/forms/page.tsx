@@ -2,30 +2,23 @@
 
 import PlayerRegistrationForm from "./register-player/PlayerRegistrationForm"
 import * as React from "react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle2 } from "lucide-react"
 
 export default function FormsPage() {
   const [success, setSuccess] = React.useState(false)
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full max-w-none px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">
-            Player Registration
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Join the LCA Chess Academy</p>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        <div className="mb-5">
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Player Registration</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Join the Limpopo Chess Academy</p>
         </div>
 
         {success ? (
-          <div className="max-w-2xl mx-auto">
-            <Alert className="border-2 border-green-500/20 bg-green-50 dark:bg-green-950/50 rounded shadow-sm">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription className="text-green-700 dark:text-green-300 font-medium">
-                Registration successful! We'll be in touch soon.
-              </AlertDescription>
-            </Alert>
+          <div className="flex items-center gap-3 px-4 py-3 rounded-sm bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40 text-green-700 dark:text-green-300">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-medium">Registration submitted! We'll be in touch shortly.</span>
           </div>
         ) : (
           <PlayerRegistrationForm onSuccess={() => setSuccess(true)} />

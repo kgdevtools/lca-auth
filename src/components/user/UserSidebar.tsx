@@ -1,42 +1,19 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Home,
-  BarChart3,
-  UserCircle,
-  Menu,
-  ChevronLeft,
-  Loader2,
-  GraduationCap,
+  Home, Trophy, GraduationCap,
+  Menu, ChevronLeft, Loader2,
 } from "lucide-react";
+import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { createClient } from "@/utils/supabase/client";
-import Image from "next/image";
 
-const sidebarItems = [
-  {
-    title: "Overview",
-    href: "/user/overview",
-    icon: Home,
-  },
-  {
-    title: "Academy",
-    href: "/academy",
-    icon: GraduationCap,
-  },
-  {
-    title: "Stats",
-    href: "/tournaments",
-    icon: BarChart3,
-  },
-  {
-    title: "Profile",
-    href: "/user/profile",
-    icon: UserCircle,
-  },
+// Profile nav item removed — the profile footer at the bottom handles navigation
+const staticSidebarItems = [
+  { title: "Overview", href: "/user/overview",  icon: Home          },
+  { title: "Academy",  href: "/academy",         icon: GraduationCap },
 ];
 
 interface UserSidebarProps {
@@ -44,205 +21,183 @@ interface UserSidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export default function UserSidebar({
-  collapsed = false,
+// ── Shared sidebar content ──────────────────────────────────────────────────
+// isCollapsed is passed explicitly so the mobile drawer can always render
+// as expanded regardless of the desktop collapsed state.
+
+function SidebarContent({
+  isCollapsed,
+  profile,
+  user,
+  loadingRoute,
+  pathname,
+  onNavigate,
   onToggleCollapse,
-}: UserSidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [isPending, startTransition] = useTransition();
-  const [loadingRoute, setLoadingRoute] = useState<string | null>(null);
-  const pathname = usePathname();
-  const router = useRouter();
+}: {
+  isCollapsed: boolean;
+  profile: any;
+  user: any;
+  loadingRoute: string | null;
+  pathname: string;
+  onNavigate: (href: string) => void;
+  onToggleCollapse?: () => void;
+}) {
+  const navItems = [
+    staticSidebarItems[0], // Overview
+    ...(profile?.tournament_fullname
+      ? [{ title: "Tournaments", href: "/user/tournaments", icon: Trophy }]
+      : []),
+    ...(profile?.role ? [staticSidebarItems[1]] : []), // Academy — only if role is assigned
+  ];
 
-  useEffect(() => {
-    async function fetchUser() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-
-      if (user) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        setProfile(profileData);
-      }
-    }
-    fetchUser();
-  }, []);
-
-  // Reset loading state when route changes
-  useEffect(() => {
-    setLoadingRoute(null);
-  }, [pathname]);
-
-  const SidebarContent = () => (
+  return (
     <>
       {/* Header */}
-      <div className="px-3 py-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-3 py-5 border-b border-border">
         <div className="flex items-center justify-between gap-2">
-          {!collapsed && (
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {/* Logo */}
-              {/*<div className="relative w-8 h-8 flex-shrink-0">
-                <Image
-                  src="/Picture1.png"
-                  alt="LCA Logo"
-                  fill
-                  className="object-contain block dark:hidden"
-                  sizes="32px"
-                />
-                <Image
-                  src="/lca-cyan-dark-bg-updated.png"
-                  alt="LCA Logo"
-                  fill
-                  className="object-contain hidden dark:block"
-                  sizes="32px"
-                />
-              </div>*/}
-              {/* Text */}
-              <div className="flex-1 min-w-0">
-                <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tighter leading-tight">
-                  Limpopo Chess Academy Online
-                </h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400 tracking-tighter leading-tight">
-                  My Profile
-                </p>
-              </div>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <h1 className="text-sm font-bold text-foreground tracking-tighter leading-tight font-mono">
+                Limpopo Chess Academy
+              </h1>
+              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                My Dashboard
+              </p>
             </div>
           )}
-          {/*{collapsed && (
-            <div className="relative w-8 h-8 mx-auto">
-              <Image
-                src="/Picture1.png"
-                alt="LCA Logo"
-                fill
-                className="object-contain block dark:hidden"
-                sizes="32px"
-              />
-              <Image
-                src="/lca-cyan-dark-bg-updated.png"
-                alt="LCA Logo"
-                fill
-                className="object-contain hidden dark:block"
-                sizes="32px"
-              />
-            </div>
-          )}*/}
           <button
-            onClick={() => {
-              setMobileOpen(false);
-              onToggleCollapse?.();
-            }}
-            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0 hidden lg:block"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-sm hover:bg-muted transition-colors flex-shrink-0 hidden lg:block"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? (
-              <Menu className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            ) : (
-              <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            )}
+            {isCollapsed
+              ? <Menu className="w-4 h-4 text-muted-foreground" />
+              : <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+            }
           </button>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
+      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5 overflow-x-hidden">
+        {navItems.map((item) => {
+          const Icon      = item.icon;
+          const isActive  = pathname === item.href || (item.href !== "/user/overview" && pathname.startsWith(item.href));
           const isLoading = loadingRoute === item.href;
 
           return (
             <button
               key={item.href}
-              onClick={() => {
-                setMobileOpen(false);
-                if (pathname !== item.href) {
-                  setLoadingRoute(item.href);
-                  startTransition(() => {
-                    router.push(item.href);
-                  });
-                }
-              }}
+              onClick={() => onNavigate(item.href)}
               disabled={isLoading}
+              title={isCollapsed ? item.title : undefined}
               className={`
-                w-full flex items-center px-2.5 py-2 rounded-md text-sm font-medium
-                transition-all duration-150
-                ${
-                  isActive
-                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                w-full flex items-center px-2.5 py-2 rounded-sm text-sm font-medium
+                transition-all duration-150 truncate
+                ${isCollapsed ? "justify-center" : ""}
+                ${isLoading ? "opacity-60 cursor-wait" : ""}
+                ${isActive
+                  ? "bg-foreground/[0.07] text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }
-                ${collapsed ? "justify-center" : ""}
-                ${isLoading ? "opacity-70 cursor-wait" : ""}
               `}
-              title={collapsed ? item.title : undefined}
             >
-              {isLoading ? (
-                <Loader2
-                  className={`${collapsed ? "w-5 h-5" : "w-4 h-4 mr-2.5"} animate-spin flex-shrink-0`}
-                />
-              ) : (
-                <Icon
-                  className={`${collapsed ? "w-5 h-5" : "w-4 h-4 mr-2.5"} ${
-                    isActive ? "text-blue-600 dark:text-blue-400" : ""
-                  } flex-shrink-0`}
-                />
-              )}
-              {!collapsed && (
-                <span className="tracking-tight leading-tight">
-                  {item.title}
-                </span>
+              {isLoading
+                ? <Loader2 className={`${isCollapsed ? "w-4 h-4" : "w-4 h-4 mr-2.5"} animate-spin flex-shrink-0`} />
+                : <Icon   className={`${isCollapsed ? "w-4 h-4" : "w-4 h-4 mr-2.5"} flex-shrink-0`} />
+              }
+              {!isCollapsed && (
+                <span className="tracking-tight leading-tight truncate">{item.title}</span>
               )}
             </button>
           );
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
-        <div
-          className={`flex items-center gap-2.5 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${
-            collapsed ? "justify-center" : ""
-          }`}
+      {/* Profile footer */}
+      <div className="px-3 py-3 border-t border-border">
+        <Link
+          href="/user/profile"
+          className={`flex items-center gap-2.5 p-2 rounded-sm hover:bg-muted transition-colors ${isCollapsed ? "justify-center" : ""}`}
+          title={isCollapsed ? (profile?.full_name || "My Profile") : undefined}
         >
           <Avatar
             name={profile?.full_name || user?.email || "User"}
-            size={32}
+            size={28}
             className="flex-shrink-0"
           />
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate tracking-tight leading-tight">
-                {profile?.full_name || "User"}
+              <p className="text-xs font-semibold text-foreground truncate tracking-tighter leading-tight font-mono">
+                {profile?.full_name || user?.email || "User"}
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 truncate tracking-tight leading-tight">
-                {user?.email}
+              <p className="text-[11px] text-muted-foreground truncate leading-tight capitalize">
+                {profile?.role || "Member"}
               </p>
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </>
   );
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
+
+export default function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebarProps) {
+  const [mobileOpen, setMobileOpen]     = useState(false);
+  const [user, setUser]                 = useState<any>(null);
+  const [profile, setProfile]           = useState<any>(null);
+  const [, startTransition]             = useTransition();
+  const [loadingRoute, setLoadingRoute] = useState<string | null>(null);
+  const pathname = usePathname();
+  const router   = useRouter();
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+        setProfile(data);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  useEffect(() => { setLoadingRoute(null); }, [pathname]);
+
+  const handleNavigate = (href: string) => {
+    setMobileOpen(false);
+    if (pathname !== href) {
+      setLoadingRoute(href);
+      startTransition(() => router.push(href));
+    }
+  };
+
+  const sharedProps = {
+    profile,
+    user,
+    loadingRoute,
+    pathname,
+    onNavigate: handleNavigate,
+  };
+
+  const expandedW  = "w-56";
+  const collapsedW = "w-14";
 
   return (
     <>
-      {/* Mobile Menu Button */}
+      {/* Mobile trigger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-20 left-4 z-40 p-2 rounded-md bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
+        className="lg:hidden fixed top-20 left-4 z-40 p-2 rounded-sm bg-background shadow-lg border border-border"
       >
-        <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        <Menu className="w-5 h-5 text-muted-foreground" />
       </button>
 
-      {/* Mobile Overlay */}
+      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
@@ -250,36 +205,37 @@ export default function UserSidebar({
         />
       )}
 
-      {/* Mobile Sidebar */}
-      <div
-        className={`
-        fixed top-16 bottom-0 left-0 z-50
-        w-72 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700
+      {/* Mobile sidebar — always expanded, never collapses */}
+      <div className={`
+        fixed top-20 bottom-0 left-0 z-50 flex flex-col lg:hidden
+        ${expandedW} bg-background border-r border-border shadow-xl
         transform transition-transform duration-300 ease-in-out
-        lg:hidden flex flex-col
         ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
-      `}
-      >
-        <SidebarContent />
+      `}>
+        <SidebarContent
+          {...sharedProps}
+          isCollapsed={false}
+          onToggleCollapse={() => setMobileOpen(false)}
+        />
       </div>
 
-      {/* Desktop Sidebar */}
-      <div
-        className={`
+      {/* Desktop sidebar */}
+      <div className={`
         hidden lg:flex lg:flex-col
-        fixed top-16 bottom-0 left-0 z-30
-        ${collapsed ? "w-16" : "w-72"}
-        bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700
+        fixed top-20 bottom-0 left-0 z-30
+        ${collapsed ? collapsedW : expandedW}
+        bg-background border-r border-border
         transition-all duration-300 ease-in-out
-      `}
-      >
-        <SidebarContent />
+      `}>
+        <SidebarContent
+          {...sharedProps}
+          isCollapsed={collapsed}
+          onToggleCollapse={onToggleCollapse}
+        />
       </div>
 
-      {/* Desktop Sidebar Spacer */}
-      <div
-        className={`hidden lg:block ${collapsed ? "w-16" : "w-72"} flex-shrink-0 transition-all duration-300`}
-      />
+      {/* Desktop spacer */}
+      <div className={`hidden lg:block ${collapsed ? collapsedW : expandedW} flex-shrink-0 transition-all duration-300`} />
     </>
   );
 }

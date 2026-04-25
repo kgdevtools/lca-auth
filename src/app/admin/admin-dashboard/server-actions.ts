@@ -28,123 +28,6 @@ interface Tournament {
 }
 
 
-
-export async function getPlayersWithPerformanceStats() {
-  try {
-    const supabase = await createClient()
-
-    const { data, error } = await supabase
-      .from('local_active_players_duplicate')
-      .select('id, lim_id, surname, firstname, normalized_name, unique_no, federation, cf_rating, avg_performance_rating, performance_count, sex, bdate, performance_stats')
-      .order('avg_performance_rating', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching players:', error)
-      return { data: null, error: error.message }
-    }
-
-    // Sort manually: non-null values first (descending), then null values
-    const sortedData = (data || []).sort((a, b) => {
-      if (a.avg_performance_rating === null && b.avg_performance_rating === null) return 0;
-      if (a.avg_performance_rating === null) return 1; // nulls come last
-      if (b.avg_performance_rating === null) return -1; // non-nulls come first
-      return b.avg_performance_rating - a.avg_performance_rating; // descending
-    });
-
-    return { data: sortedData, error: null }
-  } catch (error) {
-    console.error('Unexpected error in getPlayersWithPerformanceStats:', error)
-    return { data: null, error: 'Unexpected error occurred' }
-  }
-}
-
-export async function getPlayerPerformanceDetails(playerId: string) {
-  try {
-    const supabase = await createClient()
-    
-    const { data, error } = await supabase
-      .from('local_active_players_duplicate')
-      .select('performance_stats, avg_performance_rating, performance_count, sex, bdate')
-      .eq('id', playerId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching player performance:', error)
-      return { data: null, error: error.message }
-    }
-
-    // Parse performance_stats if it's a string (JSONB might come as string)
-    let performanceStats = data.performance_stats
-    if (typeof performanceStats === 'string') {
-      try {
-        performanceStats = JSON.parse(performanceStats)
-      } catch (parseError) {
-        console.error('Error parsing performance_stats:', parseError)
-        performanceStats = []
-      }
-    }
-
-    // Ensure it's an array and handle potential null/undefined
-    const parsedStats = Array.isArray(performanceStats) ? performanceStats : []
-
-    return {
-      data: {
-        ...data,
-        performance_stats: parsedStats
-      },
-      error: null
-    }
-  } catch (error) {
-    console.error('Unexpected error in getPlayerPerformanceDetails:', error)
-    return { data: null, error: 'Unexpected error occurred' }
-  }
-}
-
-export async function getPerformanceStatsSummary() {
-  try {
-    const supabase = await createClient()
-
-    // Count players who have performance data (non-null avg_performance_rating)
-    const { count: playersWithStats, error: countError } = await supabase
-      .from('local_active_players_duplicate')
-      .select('*', { count: 'exact', head: true })
-      .not('avg_performance_rating', 'is', null)
-
-    if (countError) {
-      console.error('Error counting players with performance stats:', countError)
-      return { data: null, error: countError.message }
-    }
-
-    // Get average of all performance ratings
-    const { data: avgData, error: avgError } = await supabase
-      .from('local_active_players_duplicate')
-      .select('avg_performance_rating')
-      .not('avg_performance_rating', 'is', null)
-
-    if (avgError) {
-      console.error('Error calculating average:', avgError)
-      return { data: null, error: avgError.message }
-    }
-
-    let averageRating = null
-    if (avgData && avgData.length > 0) {
-      const totalAvg = avgData.reduce((sum, item) => sum + item.avg_performance_rating, 0) / avgData.length
-      averageRating = Math.round(totalAvg * 10) / 10 // Round to 1 decimal place
-    }
-
-    return {
-      data: {
-        playersWithStats: playersWithStats || 0,
-        averageRating
-      },
-      error: null
-    }
-  } catch (error) {
-    console.error('Unexpected error in getPerformanceStatsSummary:', error)
-    return { data: null, error: 'Unexpected error occurred' }
-  }
-}
-
 export async function createTournament(tournamentData: Partial<Tournament>) {
   try {
     // Verify admin role
@@ -197,36 +80,50 @@ export async function updateTournament(id: string, tournamentData: Partial<Tourn
 }
 
 // Add tournament-related functions that might be used by the TournamentsTable
-export async function getTournaments(page: number = 1, itemsPerPage: number = 10, search?: string) {
+interface TournamentFilters {
+  organizer?: string
+  location?: string
+  chief_arbiter?: string
+  tournament_director?: string
+  date_from?: string
+  date_to?: string
+}
+
+export async function getTournaments(
+  page: number = 1,
+  itemsPerPage: number = 10,
+  search?: string,
+  filters?: TournamentFilters,
+) {
   try {
     const supabase = await createClient()
-    
+
     let query = supabase
       .from('tournaments')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
-    if (search) {
-      query = query.ilike('tournament_name', `%${search}%`)
-    }
+    if (search)                        query = query.ilike('tournament_name',    `%${search}%`)
+    if (filters?.organizer?.trim())    query = query.ilike('organizer',           `%${filters.organizer}%`)
+    if (filters?.location?.trim())     query = query.ilike('location',            `%${filters.location}%`)
+    if (filters?.chief_arbiter?.trim()) query = query.ilike('chief_arbiter',      `%${filters.chief_arbiter}%`)
+    if (filters?.tournament_director?.trim()) query = query.ilike('tournament_director', `%${filters.tournament_director}%`)
+    if (filters?.date_from?.trim())    query = query.gte('date', filters.date_from)
+    if (filters?.date_to?.trim())      query = query.lte('date', filters.date_to)
 
     const from = (page - 1) * itemsPerPage
-    const to = from + itemsPerPage - 1
-
-    const { data: tournaments, error, count } = await query.range(from, to)
+    const { data: tournaments, error, count } = await query.range(from, from + itemsPerPage - 1)
 
     if (error) {
       console.error('Error fetching tournaments:', error)
       return { success: false, error: error.message, tournaments: [], count: 0, totalPages: 0 }
     }
 
-    const totalPages = count ? Math.ceil(count / itemsPerPage) : 0
-
     return {
       success: true,
       tournaments: tournaments || [],
       count: count || 0,
-      totalPages,
+      totalPages: count ? Math.ceil(count / itemsPerPage) : 0,
     }
   } catch (error) {
     console.error('Unexpected error in getTournaments:', error)
@@ -236,24 +133,25 @@ export async function getTournaments(page: number = 1, itemsPerPage: number = 10
 
 export async function deleteTournament(id: string) {
   try {
-    // Verify admin role
     await checkAdminRole()
-
     const supabase = await createClient()
-
-    const { error } = await supabase
-      .from('tournaments')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deleting tournament:', error)
-      return { success: false, error: error.message }
-    }
-
+    const { error } = await supabase.from('tournaments').delete().eq('id', id)
+    if (error) return { success: false, error: error.message }
     return { success: true }
   } catch (error) {
     console.error('Unexpected error in deleteTournament:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
+  }
+}
+
+export async function bulkDeleteTournaments(ids: string[]) {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+    const { error } = await supabase.from('tournaments').delete().in('id', ids)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
   }
 }
@@ -310,6 +208,21 @@ export async function deleteContactSubmission(id: string): Promise<{ success: bo
   } catch (error) {
     console.error('Unexpected error in deleteContactSubmission:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unexpected error occurred' }
+  }
+}
+
+export async function toggleContactRead(id: string, read: boolean): Promise<{ success: boolean; error?: string | null }> {
+  try {
+    await checkAdminRole()
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('contact_submissions')
+      .update({ read })
+      .eq('id', id)
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' }
   }
 }
 

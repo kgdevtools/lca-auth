@@ -2,55 +2,73 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { clsx } from "clsx"
-import { Shield, Loader2, Users, Trophy, FileText, TrendingUp, Binoculars, Newspaper } from "lucide-react"
-import { useState, ReactNode } from "react"
+import { cn } from "@/lib/utils"
+import {
+  Trophy, TrendingUp, Gamepad2, Newspaper, Database, Shield,
+  Upload, Calendar, FileText, UserPlus, ChevronDown, Loader2,
+  LayoutDashboard, Plus, Info, Phone,
+} from "lucide-react"
+import { useState, ReactNode, Fragment } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-interface NavLinkProps {
-  href: string;
-  children: React.ReactNode;
-  color?: 'primary' | 'secondary' | 'gray';
-  isLoading?: boolean;
-  icon?: ReactNode;
-  badge?: string;
+// ── Icon registry ────────────────────────────────────────────────────────────
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  trophy:             Trophy,
+  trending:           TrendingUp,
+  gamepad:            Gamepad2,
+  newspaper:          Newspaper,
+  database:           Database,
+  shield:             Shield,
+  upload:             Upload,
+  calendar:           Calendar,
+  "file-text":        FileText,
+  "user-plus":        UserPlus,
+  "layout-dashboard": LayoutDashboard,
+  plus:               Plus,
+  info:               Info,
+  phone:              Phone,
 }
 
-export function NavLink({ href, children, color, isLoading: externalLoading, icon: customIcon, badge }: NavLinkProps) {
+// ── NavLink ──────────────────────────────────────────────────────────────────
+
+interface NavLinkProps {
+  href: string
+  children: React.ReactNode
+  color?: "primary" | "secondary" | "gray"
+  isLoading?: boolean
+  icon?: ReactNode
+  badge?: string
+}
+
+export function NavLink({ href, children, color, isLoading: externalLoading, icon, badge }: NavLinkProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [internalLoading, setInternalLoading] = useState(false)
-  const isActive = pathname === href
+  const isActive = pathname === href || (href !== "/" && pathname.startsWith(href + "/"))
   const isLoading = externalLoading || internalLoading
 
-  const colorClasses = {
-    primary: isActive ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30",
-    secondary: isActive ? "bg-purple-600 text-white" : "text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30",
-    gray: isActive ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50",
-  };
-
-  const getDefaultIcon = (href: string) => {
-    if (href.includes('/players')) return <Users className="h-4 w-4" />
-    if (href.includes('/rankings')) return <TrendingUp className="h-4 w-4" />
-    if (href.includes('/tournaments')) return <Trophy className="h-4 w-4" />
-    if (href.includes('/forms')) return <FileText className="h-4 w-4" />
-    if (href.includes('/view')) return <Binoculars className="h-4 w-4" />
-    if (href.includes('/blog')) return <Newspaper className="h-4 w-4" />
-    return <Shield className="h-4 w-4" />
+  const colorClasses: Record<string, string> = {
+    primary: isActive
+      ? "bg-primary/10 text-primary"
+      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+    secondary: isActive
+      ? "bg-primary/10 text-primary"
+      : "text-primary/80 hover:bg-primary/10 hover:text-primary",
+    gray: isActive
+      ? "bg-accent text-accent-foreground"
+      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    if (isLoading || isActive) {
-      e.preventDefault();
-      return;
-    }
-    
-    // Show loading state for navigation
+    if (isLoading || isActive) { e.preventDefault(); return }
     setInternalLoading(true)
-    
-    // Navigate programmatically
     router.push(href)
-    
-    // Reset loading state after a delay (navigation should complete)
     setTimeout(() => setInternalLoading(false), 1500)
   }
 
@@ -58,22 +76,17 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
     <div className="relative inline-flex">
       <Link
         href={href}
-        className={clsx(
-          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-200 inline-flex items-center justify-center gap-1.5",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-          "leading-tight tracking-tightest",
-          isLoading && "opacity-75 cursor-not-allowed",
-          isActive && "pointer-events-none", // Disable clicks on active link
-          colorClasses[color || 'gray'],
+        className={cn(
+          "rounded-sm px-3.5 py-2 font-mono font-semibold tracking-wider text-xs uppercase leading-none transition-colors duration-150 inline-flex items-center gap-1.5",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          isLoading && "opacity-60 cursor-not-allowed",
+          isActive && "pointer-events-none",
+          colorClasses[color || "gray"],
         )}
         aria-disabled={isLoading}
         onClick={handleClick}
       >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          customIcon || getDefaultIcon(href)
-        )}
+        {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon}
         {children}
       </Link>
       {badge && (
@@ -85,4 +98,108 @@ export function NavLink({ href, children, color, isLoading: externalLoading, ico
   )
 }
 
+// ── NavGroup ─────────────────────────────────────────────────────────────────
 
+interface NavGroupItem {
+  href: string
+  label: string
+  icon?: string
+  sectionLabel?: string  // renders a sub-header (with divider for all sections after the first)
+}
+
+interface NavGroupProps {
+  label: string
+  groupIcon?: string
+  items: NavGroupItem[]
+}
+
+export function NavGroup({ label, groupIcon, items }: NavGroupProps) {
+  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const isAnyActive = items.some(
+    item => pathname === item.href || pathname.startsWith(item.href + "/"),
+  )
+
+  const GroupIconCmp = groupIcon ? ICON_MAP[groupIcon] : null
+  const hasSections = items.some(item => item.sectionLabel)
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "rounded-sm px-3.5 py-2 transition-colors duration-150 inline-flex items-center gap-1.5",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            isAnyActive
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+          )}
+        >
+          {GroupIconCmp && <GroupIconCmp className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />}
+          <span className="font-mono font-semibold tracking-wider text-xs uppercase leading-none">
+            {label}
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 opacity-50 transition-transform duration-200 flex-shrink-0",
+              isOpen && "rotate-180",
+            )}
+          />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align="start"
+        className="min-w-[200px] bg-background border border-border rounded-sm p-1.5 shadow-md"
+        sideOffset={8}
+      >
+        {/* Top group label — only rendered when no per-item section labels are used */}
+        {!hasSections && (
+          <div className="px-2 pt-1.5 pb-2">
+            <p className="text-[10px] font-mono font-bold tracking-widest uppercase text-muted-foreground/50">
+              {label}
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-0.5">
+          {items.map((item, idx) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const IconCmp = item.icon ? ICON_MAP[item.icon] : null
+            const prevHadSection = items.slice(0, idx).some(i => i.sectionLabel)
+            const showDivider = item.sectionLabel && prevHadSection
+            return (
+              <Fragment key={item.href}>
+                {item.sectionLabel && (
+                  <>
+                    {showDivider && <div className="my-1.5 border-t border-border/40" />}
+                    <div className="px-2 py-1">
+                      <p className="text-[10px] font-mono font-bold tracking-widest uppercase text-muted-foreground/50">
+                        {item.sectionLabel}
+                      </p>
+                    </div>
+                  </>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-sm px-2.5 py-2 font-mono font-semibold tracking-tight text-[13px] transition-colors w-full cursor-pointer",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground hover:bg-accent/50",
+                    )}
+                  >
+                    {IconCmp && <IconCmp className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />}
+                    {item.label}
+                  </Link>
+                </DropdownMenuItem>
+              </Fragment>
+            )
+          })}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
