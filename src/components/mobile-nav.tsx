@@ -7,12 +7,13 @@ import { cn } from "@/lib/utils";
 import {
   Menu, X, Trophy, TrendingUp, Gamepad2, Newspaper,
   Calendar, FileText, Shield, Upload, LayoutDashboard, UserPlus,
-  Info, Phone,
+  Info, Phone, LogOut,
 } from "lucide-react";
+import { signOut } from "@/app/user/actions";
 
 interface MobileNavProps {
-  isAuthenticated: boolean;
-  isAdmin?: boolean;
+  isAuthenticated: boolean
+  isAdmin?: boolean
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
@@ -162,6 +163,22 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
                 <MobileNavItem href="/signup" icon={UserPlus} onClick={close}>
                   Sign Up
                 </MobileNavItem>
+              </>
+            )}
+
+            {/* Sign out — authenticated only */}
+            {isAuthenticated && (
+              <>
+                <div className="my-2 border-t border-border/50" />
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="w-full flex items-center gap-3 rounded-sm px-2.5 py-2.5 font-mono font-semibold tracking-tight text-[13px] transition-colors text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="w-4 h-4 flex-shrink-0 opacity-70" />
+                    Sign Out
+                  </button>
+                </form>
               </>
             )}
 

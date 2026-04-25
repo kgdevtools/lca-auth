@@ -235,7 +235,7 @@ export default async function RootLayout({
                         <Avatar name={user.email ?? "User"} />
                       </Link>
                       <button
-                        className="hidden lg:block font-mono font-semibold tracking-wider text-xs uppercase rounded-sm border border-border px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors whitespace-nowrap"
+                        className="hidden md:block font-mono font-semibold tracking-wider text-xs uppercase rounded-sm border border-border px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors whitespace-nowrap"
                         type="submit"
                       >
                         Sign out
