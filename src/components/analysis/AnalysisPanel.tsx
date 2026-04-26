@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStockfish } from "@/hooks/useStockfish";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { Brain, ChevronDown, Loader2, AlertCircle } from "lucide-react";
+import { ChevronDown, Loader2, AlertCircle } from "lucide-react";
 import type { EngineEvaluation } from "@/services/stockfish";
 
 interface AnalysisPanelProps {
@@ -158,10 +158,8 @@ export function AnalysisPanel({
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
         {/* Left: icon + label */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <Brain className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-          <span className="text-xs font-semibold text-foreground">
-            Engine Analysis
-          </span>
+          <img src="/stockfish16.jpeg" alt="Stockfish" className="w-5 h-5 rounded-sm object-cover flex-shrink-0" />
+          <span className="text-xs font-semibold text-foreground">Stockfish 16</span>
         </div>
 
         {/* Center: eval score — shown when engine is on */}

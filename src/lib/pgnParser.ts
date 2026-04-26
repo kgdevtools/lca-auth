@@ -1,4 +1,3 @@
-import { PGN_ANNOTATION_REGEX } from './constants/lessonBlocks'
 import { Chess } from 'chess.js'
 
 export interface ParsedPgnMove {
@@ -37,7 +36,8 @@ const FEN_INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 const FILE_TO_COL = { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7 }
 const COL_TO_FILE = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
-const SAN_REGEX = /^[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBNP])?[+#]?$|^O-O(?:-O)?$|^0-0(?:-0)?$|^[a-h][1-8]$/
+// Castling variants include optional check/mate suffix; pawn-to-rank handles e.g. a1 (rare promotions)
+const SAN_REGEX = /^[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBNP])?[+#]?$|^O-O(?:-O)?[+#]?$|^0-0(?:-0)?[+#]?$|^[a-h][1-8]$/
 
 const NAG_REGEX = /^(.+?)(!{1,2}|\?{1,2}|\?!\?!|!\?|\?\?=|\?!|=\+|=|\+-|~|\+|-\+|-\-|□|△|▽|⊗|⊙|→|⇢|∇|◊|®|©|™|±|∓|⩱|⩲|∞|↻|↺|⊕|⊖)$/
 
@@ -165,46 +165,43 @@ export function parsePgn(pgn: string): ParsedPgnChapter {
 
   for (const line of lines) {
     const trimmed = line.trim()
-    if (!trimmed) continue
+    if (!trimmed) { inHeaders = false; continue }
 
     if (inHeaders && trimmed.startsWith('[')) {
       const match = trimmed.match(/\[(\w+)\s+"([^"]+)"\]/)
-      if (match) {
-        headers[match[1]] = match[2]
-      }
+      if (match) headers[match[1]] = match[2]
     } else {
       inHeaders = false
       movetext += ' ' + trimmed
     }
   }
 
-  const moves = parseMovetext(movetext)
+  // Support games that start from a custom FEN (e.g. [SetUp "1"] [FEN "..."])
+  const startFen =
+    headers['SetUp'] === '1' && headers['FEN'] ? headers['FEN'] : FEN_INITIAL
 
-  return {
-    headers,
-    moves,
-    fullPgn: pgn,
-  }
+  return { headers, moves: parseMovetext(movetext, startFen), fullPgn: pgn }
 }
 
 export function parsePgnStudy(pgn: string): ParsedPgnStudy {
   const chapters: ParsedPgnChapter[] = []
   let studyName: string | undefined
 
-  const gameBlocks = pgn.split(/\n(?=\[Event\b)/g).filter(b => b.trim())
+  // Split on blank line followed by a header tag (handles both \r\n and \n)
+  const gameBlocks = pgn
+    .split(/\n\n(?=\[)/)
+    .map(b => b.trim())
+    .filter(b => b.startsWith('['))
 
   for (const block of gameBlocks) {
-    const trimmed = block.trim()
-    if (!trimmed || !trimmed.startsWith('[')) continue
-
-    const lines = trimmed.split('\n')
+    const lines = block.split('\n')
     const headers: Record<string, string> = {}
     let movetext = ''
     let inHeaders = true
 
     for (const line of lines) {
       const l = line.trim()
-      if (!l) continue
+      if (!l) { inHeaders = false; continue }
 
       if (inHeaders && l.startsWith('[')) {
         const match = l.match(/\[(\w+)\s+"([^"]+)"\]/)
@@ -219,10 +216,12 @@ export function parsePgnStudy(pgn: string): ParsedPgnStudy {
     }
 
     if (movetext.trim()) {
+      const startFen =
+        headers['SetUp'] === '1' && headers['FEN'] ? headers['FEN'] : FEN_INITIAL
       chapters.push({
         headers,
-        moves: parseMovetextWithComments(movetext),
-        fullPgn: trimmed,
+        moves: parseMovetext(movetext, startFen),
+        fullPgn: block,
       })
     }
   }
@@ -230,108 +229,128 @@ export function parsePgnStudy(pgn: string): ParsedPgnStudy {
   return { chapters, studyName }
 }
 
-function parseMovetext(movetext: string): ParsedPgnMove[] {
-  return parseMovetextWithComments(movetext)
+function parseMovetext(movetext: string, startFen: string = FEN_INITIAL): ParsedPgnMove[] {
+  return parseMovetextWithComments(movetext, startFen)
 }
 
-function parseMovetextWithComments(movetext: string): ParsedPgnMove[] {
+/**
+ * Proper character-by-character PGN movetext parser.
+ * Handles: comments {…}, variations (…), NAGs $N, move-embedded annotations ?!/??/!!/!
+ * Multiple comment blocks per move are merged: text comments → comment field,
+ * machine annotation blocks ([%eval] [%clk] [%cal] [%csl]) → structured fields.
+ */
+function parseMovetextWithComments(
+  movetext: string,
+  startFen: string = FEN_INITIAL
+): ParsedPgnMove[] {
   const moves: ParsedPgnMove[] = []
-  
-  const cleanText = movetext
-    .replace(/\d+\.\.\./g, '')
-    .replace(/\d+\./g, ' ')
-    .replace(/\d+\)\s*/g, ' ')
-    .trim()
+  const game = new Chess(startFen)
+  let moveNumber = Math.ceil(game.moveNumber())
 
-  const tokens = cleanText.split(/\s+/)
-  let currentFen = FEN_INITIAL
-  let moveNumber = 1
-  let lastTokenWasMoveNumber = false
+  const s = movetext
+  let i = 0
 
-  const game = new Chess()
-  
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i]
-    
+  while (i < s.length) {
+    const ch = s[i]
+
+    // Whitespace
+    if (/\s/.test(ch)) { i++; continue }
+
+    // Comment block {…} — attach to the preceding move (or discard if no moves yet)
+    if (ch === '{') {
+      i++ // skip opening brace
+      let comment = ''
+      let depth = 0
+      while (i < s.length) {
+        const c = s[i]
+        if (c === '{') { depth++; comment += c; i++ }
+        else if (c === '}') {
+          if (depth === 0) { i++; break }
+          depth--; comment += c; i++
+        } else { comment += c; i++ }
+      }
+      if (moves.length > 0) {
+        attachCommentToMove(moves[moves.length - 1], comment.trim())
+      }
+      continue
+    }
+
+    // Variation (…) — skip entirely (main line only)
+    if (ch === '(') {
+      let depth = 0
+      while (i < s.length) {
+        if (s[i] === '(') depth++
+        else if (s[i] === ')') { depth--; if (depth === 0) { i++; break } }
+        i++
+      }
+      continue
+    }
+
+    // NAG numeric annotation $N — skip
+    if (ch === '$') {
+      while (i < s.length && !/\s/.test(s[i])) i++
+      continue
+    }
+
+    // Read token (until whitespace or comment/variation delimiter)
+    let token = ''
+    while (i < s.length && !/[\s{}()]/.test(s[i])) token += s[i++]
+
     if (!token) continue
-    
-    if (/^\d+\.\.\.$/.test(token) || /^\d+\)\s*$/.test(token)) {
-      lastTokenWasMoveNumber = true
-      continue
-    }
-    
-    if (/^\d+\.$/.test(token)) {
-      lastTokenWasMoveNumber = true
-      continue
-    }
-    
-    const isBlack = lastTokenWasMoveNumber
-    
+
+    // Result markers — stop
+    if (token === '1-0' || token === '0-1' || token === '1/2-1/2' || token === '*') break
+
+    // Move number indicators like "1.", "1...", "12.", "1…"
+    if (/^\d+\.+$/.test(token) || /^\d+…+$/.test(token)) continue
+
+    // Attempt to interpret as a chess move
     const moveCheck = isValidChessMove(token)
     if (moveCheck.valid) {
-      const escapedSan = moveCheck.san.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const commentRegex = new RegExp(`${escapedSan}\\s*(\\{[^}]*\\})`)
-      const commentMatch = movetext.match(commentRegex)
-      
-      let commentText: string | undefined
-      if (commentMatch && commentMatch[1]) {
-        const commentContent = commentMatch[1].slice(1, -1)
-        const annotations = parsePgnAnnotations(commentContent)
-        
-        const parts: string[] = []
-        if (commentContent.includes('%clk') || commentContent.includes('%eval') || 
-            commentContent.includes('%cal') || commentContent.includes('%csl')) {
-          if (annotations.clock) parts.push(`[%clk ${annotations.clock}]`)
-          if (annotations.eval) parts.push(`[%eval ${annotations.eval}]`)
-          if (annotations.arrows?.length) {
-            const arrowStr = annotations.arrows.map(a => `${a.color === 'green' ? 'G' : a.color === 'red' ? 'R' : a.color === 'blue' ? 'B' : a.color === 'yellow' ? 'Y' : 'O'}${a.from}${a.to}`).join('')
-            parts.push(`[%cal ${arrowStr}]`)
-          }
-          if (annotations.highlights?.length) {
-            parts.push(`[%csl ${annotations.highlights.map(h => h[0].toUpperCase() + h).join('')}]`)
-          }
-          commentText = parts.length > 0 ? parts.join(' ') : undefined
-        } else {
-          commentText = commentContent
-        }
-      }
-
+      const fenBefore = game.fen()
       try {
-        game.move(moveCheck.san)
-        
-        moves.push({
-          moveNumber,
-          san: moveCheck.san,
-          nag: moveCheck.nag,
-          fen: currentFen,
-          comment: commentText,
-          clock: commentText?.match(PGN_ANNOTATION_REGEX.CLOCK)?.[1],
-          eval: commentText?.match(PGN_ANNOTATION_REGEX.EVAL)?.[1] ? parseFloat(commentText.match(PGN_ANNOTATION_REGEX.EVAL)?.[1] || '0') : undefined,
-          arrows: commentText?.match(PGN_ANNOTATION_REGEX.ARROWS) ? (() => {
-            const match = commentText.match(PGN_ANNOTATION_REGEX.ARROWS)
-            if (!match) return undefined
-            const color = match[1]
-            const squares = match[2].split(',')
-            const arrows: Array<{ from: string; to: string; color: string }> = []
-            for (let j = 0; j < squares.length - 1; j++) {
-              arrows.push({ from: squares[j], to: squares[j + 1], color: getArrowColor(color) })
-            }
-            return arrows
-          })() : undefined,
-          highlights: commentText?.match(PGN_ANNOTATION_REGEX.HIGHLIGHTS)?.[2]?.split(','),
-        })
-        
-        currentFen = game.fen()
-        
-        if (isBlack) moveNumber++
-      } catch {
-      }
+        const result = game.move(moveCheck.san)
+        if (result) {
+          moves.push({
+            moveNumber,
+            san: moveCheck.san,
+            nag: moveCheck.nag,
+            fen: fenBefore,
+            comment: undefined,
+            clock: undefined,
+            eval: undefined,
+          })
+          // Full move number increments after black's move
+          if (result.color === 'b') moveNumber++
+        }
+      } catch { /* illegal in current position — skip */ }
     }
-    
-    lastTokenWasMoveNumber = false
   }
 
   return moves
+}
+
+/**
+ * Attaches a single comment block to a move.
+ * Annotation blocks ([%clk], [%eval], [%cal], [%csl]) are parsed into
+ * structured fields. Plain-text blocks become the human-readable `comment`.
+ */
+function attachCommentToMove(move: ParsedPgnMove, comment: string): void {
+  if (!comment) return
+  const isAnnotation =
+    comment.includes('%clk') || comment.includes('%eval') ||
+    comment.includes('%cal') || comment.includes('%csl')
+
+  if (isAnnotation) {
+    const a = parsePgnAnnotations(comment)
+    if (a.clock !== undefined)      move.clock      = a.clock
+    if (a.eval  !== undefined)      move.eval       = a.eval as number
+    if (a.arrows?.length)           move.arrows     = a.arrows
+    if (a.highlights?.length)       move.highlights = a.highlights
+  } else {
+    // Human-readable annotation — append if multiple text blocks exist
+    move.comment = move.comment ? `${move.comment} ${comment}` : comment
+  }
 }
 
 export function extractStudyChapterMetadata(pgn: string): {

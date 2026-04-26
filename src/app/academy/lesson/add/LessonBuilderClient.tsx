@@ -824,19 +824,30 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setIsLichessImporting(true);
     try {
       const match = lichessStudyUrl.match(/lichess\.org\/study\/([a-zA-Z0-9]+)/);
-      if (!match) { alert("Invalid Lichess study URL"); return; }
+      if (!match) {
+        alert("Invalid Lichess study URL.\n\nExpected format: https://lichess.org/study/STUDY_ID");
+        return;
+      }
       const res = await fetch(`/api/study/lichess/${match[1]}`);
-      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
+      if (!res.ok) {
+        alert(`Import failed: ${data.error || `HTTP ${res.status}`}`);
+        return;
+      }
       if (data.chapters?.length > 0) {
         setChapters(prev => [...prev, ...data.chapters.map((c: any, i: number) => ({
           id: generateId(), name: c.name || `Chapter ${i + 1}`, pgn: c.pgn || "", orientation: c.orientation || "white",
         }))]);
-      } else if (data.pgn) {
-        setChapters(prev => [...prev, { id: generateId(), name: data.chapterName || "Chapter 1", pgn: data.pgn, orientation: "white" }]);
+      } else {
+        alert("The study imported successfully but contained no chapters.");
       }
-    } catch { alert("Failed to import study"); }
-    finally { setIsLichessImporting(false); setIsLichessStudyImportOpen(false); setLichessStudyUrl(""); }
+    } catch (err) {
+      alert(`Import failed: ${err instanceof Error ? err.message : "Network error — check your connection."}`);
+    } finally {
+      setIsLichessImporting(false);
+      setIsLichessStudyImportOpen(false);
+      setLichessStudyUrl("");
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1386,6 +1397,9 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         onAnnotationsChange={setMoveAnnotations}
         solveMovesByChapterId={interactiveSolveMoves}
         onSolveMovesByChapterIdChange={setInteractiveSolveMoves}
+        onChapterPgnChange={(index, pgn) =>
+          setChapters(prev => prev.map((ch, i) => i === index ? { ...ch, pgn } : ch))
+        }
       />
 
       {isCompleted && savedLessonId ? (
