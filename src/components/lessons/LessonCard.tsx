@@ -20,6 +20,8 @@ interface LessonCardProps {
   difficulty?: string | null
   showActions?: boolean
   lessonStatus?: string
+  isSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,17 +69,20 @@ export default function LessonCard({
   difficulty,
   showActions = true,
   lessonStatus,
+  isSelected,
+  onToggleSelect,
 }: LessonCardProps) {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isHovered, setIsHovered]   = useState(false)
 
-  const rawType       = getLessonType(content_type, blocks)
-  const { label, badge } = getTypeMeta(rawType)
-  const pts           = estimatePoints(rawType, difficulty)
-  const isCompleted   = lessonStatus === 'completed'
-  const isInProgress  = lessonStatus === 'in_progress'
-  const showStatus    = lessonStatus !== undefined
+  const rawType           = getLessonType(content_type, blocks)
+  const { label, badge }  = getTypeMeta(rawType)
+  const pts               = estimatePoints(rawType, difficulty)
+  const isCompleted       = lessonStatus === 'completed'
+  const isInProgress      = lessonStatus === 'in_progress'
+  const showStatus        = lessonStatus !== undefined
+  const isSelectMode      = onToggleSelect !== undefined
 
   const formattedDate = new Date(created_at).toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -100,6 +105,14 @@ export default function LessonCard({
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    router.push(`/academy/lesson/${id}/edit`)
+  }
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isSelectMode) {
+      e.preventDefault()
+      onToggleSelect!(id)
+    }
   }
 
   // ── Completed: compact row ───────────────────────────────────────────────
@@ -107,27 +120,30 @@ export default function LessonCard({
   if (isCompleted) {
     return (
       <Link
-        href={`/academy/lesson/${id}`}
+        href={isSelectMode ? '#' : `/academy/lesson/${id}`}
+        onClick={handleCardClick}
         className="block group outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 rounded"
       >
         <div className={cn(
           'flex items-center gap-3 px-3 py-2.5 rounded border border-border/40 bg-muted/40',
           'transition-colors duration-150 group-hover:bg-muted/60',
           isDeleting && 'opacity-40 pointer-events-none',
+          isSelected && 'ring-2 ring-primary border-primary',
         )}>
+          {isSelectMode && (
+            <div className={cn('w-4 h-4 rounded-sm border-2 flex-shrink-0 flex items-center justify-center transition-colors', isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40')}>
+              {isSelected && <svg className="w-2.5 h-2.5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+            </div>
+          )}
           <span className={cn('shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded', badge)}>
             {label}
           </span>
-          <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-            {title}
-          </span>
+          <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">{title}</span>
           <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="w-3 h-3" />
             Done
           </span>
-          <span className="shrink-0 text-[11px] text-muted-foreground/60">
-            {formattedDate}
-          </span>
+          <span className="shrink-0 text-[11px] text-muted-foreground/60">{formattedDate}</span>
         </div>
       </Link>
     )
@@ -137,7 +153,8 @@ export default function LessonCard({
 
   return (
     <Link
-      href={`/academy/lesson/${id}`}
+      href={isSelectMode ? '#' : `/academy/lesson/${id}`}
+      onClick={handleCardClick}
       className="block group outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 rounded-md"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -146,11 +163,21 @@ export default function LessonCard({
         className={cn(
           'relative flex flex-col h-full rounded-md border border-border bg-card overflow-hidden',
           'transition-all duration-200 ease-out',
-          'group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] dark:group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)]',
+          !isSelectMode && 'group-hover:-translate-y-0.5 group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] dark:group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)]',
           isDeleting && 'opacity-40 pointer-events-none',
+          isSelected && 'ring-2 ring-primary border-primary',
         )}
       >
-        <div className="flex flex-col flex-1 p-4">
+        {/* Select checkbox overlay */}
+        {isSelectMode && (
+          <div className="absolute top-3 left-3 z-10">
+            <div className={cn('w-5 h-5 rounded-sm border-2 flex items-center justify-center transition-colors shadow-sm', isSelected ? 'bg-primary border-primary' : 'bg-background/90 border-muted-foreground/40')}>
+              {isSelected && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+            </div>
+          </div>
+        )}
+
+        <div className={cn('flex flex-col flex-1 p-4', isSelectMode && 'pl-10')}>
 
           {/* Top row: type badge + status/actions */}
           <div className="flex items-center justify-between gap-2 mb-3">
@@ -159,7 +186,6 @@ export default function LessonCard({
             </span>
 
             <div className="flex items-center gap-1.5">
-              {/* Status (students only) */}
               {showStatus && (
                 <span className={cn(
                   'inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded',
@@ -172,8 +198,7 @@ export default function LessonCard({
                 </span>
               )}
 
-              {/* Actions (coaches/admins) */}
-              {showActions && (
+              {showActions && !isSelectMode && (
                 <div className={cn(
                   'flex items-center gap-0.5 transition-opacity duration-150',
                   isHovered ? 'opacity-100' : 'opacity-0',
@@ -191,10 +216,7 @@ export default function LessonCard({
                     className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                     title="Delete lesson"
                   >
-                    {isDeleting
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <Trash2 className="w-3 h-3" />
-                    }
+                    {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                   </button>
                 </div>
               )}
@@ -228,9 +250,7 @@ export default function LessonCard({
               <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                 ~{pts} pts
               </span>
-              <span className="text-[11px] text-muted-foreground">
-                {formattedDate}
-              </span>
+              <span className="text-[11px] text-muted-foreground">{formattedDate}</span>
             </div>
           </div>
         </div>

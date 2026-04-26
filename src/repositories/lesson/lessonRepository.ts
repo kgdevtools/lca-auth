@@ -201,6 +201,7 @@ export async function updateLesson(
     estimated_duration_minutes: number
     display_order: number
     published: boolean
+    created_by: string
   }>
 ): Promise<Lesson> {
   const supabase = await createClient()
@@ -351,4 +352,50 @@ export async function getStudentsForDropdown(): Promise<Array<{ id: string; full
   }
 
   return (data || []).map((s) => ({ id: s.id, full_name: s.full_name || 'Unknown' }))
+}
+
+export async function getCoachesForDropdown(): Promise<Array<{ id: string; full_name: string }>> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('role', ['coach', 'admin'])
+    .order('full_name', { ascending: true })
+  if (error) throw new Error('Failed to fetch coaches')
+  return (data || []).map((c: { id: string; full_name: string | null }) => ({ id: c.id, full_name: c.full_name || 'Unknown' }))
+}
+
+export async function getStudentsAssignedToLesson(lessonId: string): Promise<string[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('lesson_students')
+    .select('student_id')
+    .eq('lesson_id', lessonId)
+  if (error) throw new Error('Failed to fetch assigned students')
+  return (data || []).map((r: { student_id: string }) => r.student_id)
+}
+
+export async function reassignStudentsForLesson(
+  lessonId: string,
+  studentIds: string[],
+  assignedBy: string
+): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('lesson_students').delete().eq('lesson_id', lessonId)
+  if (studentIds.length === 0) return
+  const rows = studentIds.map((studentId) => ({ lesson_id: lessonId, student_id: studentId, assigned_by: assignedBy }))
+  const { error } = await supabase.from('lesson_students').insert(rows)
+  if (error) throw new Error('Failed to reassign students')
+}
+
+export async function resetLessonProgress(lessonId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('reset_lesson_progress', { p_lesson_id: lessonId })
+  if (error) throw new Error('Failed to reset lesson progress')
+}
+
+export async function bulkDeleteLessons(lessonIds: string[]): Promise<void> {
+  for (const id of lessonIds) {
+    await deleteLesson(id)
+  }
 }
