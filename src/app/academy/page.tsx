@@ -34,6 +34,8 @@ export default async function AcademyDashboard() {
     id: string; full_name: string | null; lessonsCompleted: number; totalPoints: number; level: number
   }[] = [];
 
+  let activeClassroomSession: { id: string; title: string } | null = null;
+
   let totalStudentsCount = 0;
   let totalCoachesCount = 0;
 
@@ -66,8 +68,8 @@ export default async function AcademyDashboard() {
         .eq("student_id", profile.id),
     ]);
 
-    // Round 2 — player stats only (coach name now comes from coach_students.coach_name)
-    const { data: playerRow } = await (
+    // Round 2 — player stats + active classroom session
+    const [{ data: playerRow }, { data: liveSession }] = await Promise.all([
       profile.tournament_fullname
         ? supabase
             .from("active_players_august_2025_profiles")
@@ -75,8 +77,18 @@ export default async function AcademyDashboard() {
             .ilike("name", profile.tournament_fullname)
             .limit(1)
             .maybeSingle()
-        : Promise.resolve({ data: null })
-    );
+        : Promise.resolve({ data: null }),
+      coachRow?.coach_id
+        ? supabase
+            .from("classroom_sessions")
+            .select("id, title")
+            .eq("coach_id", coachRow.coach_id)
+            .eq("status", "active")
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    if (liveSession) activeClassroomSession = liveSession as { id: string; title: string };
 
     // Gamification
     if (summary) {
@@ -140,11 +152,21 @@ export default async function AcademyDashboard() {
 
   // ── Coach ─────────────────────────────────────────────────────────────────
   if (profile.role === "coach") {
-    const { count, data: coachStudentRows } = await supabase
-      .from("coach_students")
-      .select("student_id", { count: "exact" })
-      .eq("coach_id", profile.id)
-      .limit(5);
+    const [{ count, data: coachStudentRows }, { data: coachLiveSession }] = await Promise.all([
+      supabase
+        .from("coach_students")
+        .select("student_id", { count: "exact" })
+        .eq("coach_id", profile.id)
+        .limit(5),
+      supabase
+        .from("classroom_sessions")
+        .select("id, title")
+        .eq("coach_id", profile.id)
+        .eq("status", "active")
+        .maybeSingle(),
+    ]);
+
+    if (coachLiveSession) activeClassroomSession = coachLiveSession as { id: string; title: string };
 
     coachStudentsCount = count ?? 0;
 
@@ -200,6 +222,7 @@ export default async function AcademyDashboard() {
       coachStudentsSummary={coachStudentsSummary}
       totalStudentsCount={totalStudentsCount}
       totalCoachesCount={totalCoachesCount}
+      activeClassroomSession={activeClassroomSession}
     />
   );
 }

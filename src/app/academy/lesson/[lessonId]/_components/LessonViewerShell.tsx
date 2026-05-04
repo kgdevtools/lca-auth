@@ -47,6 +47,7 @@ type ViewerAction =
   | { type: 'NEXT_BLOCK' }
   | { type: 'PREV_BLOCK' }
   | { type: 'LESSON_COMPLETE' }
+  | { type: 'RESTORE'; currentIndex: number; completedIds: Set<number> }
 
 function viewerReducer(state: ViewerState, action: ViewerAction): ViewerState {
   switch (action.type) {
@@ -67,6 +68,8 @@ function viewerReducer(state: ViewerState, action: ViewerAction): ViewerState {
       }
     case 'LESSON_COMPLETE':
       return { ...state, isComplete: true }
+    case 'RESTORE':
+      return { ...state, currentIndex: action.currentIndex, completedIds: action.completedIds }
     default:
       return state
   }
@@ -205,6 +208,35 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
     blockStartTimeRef.current = Date.now()
   }, [state.currentIndex])
 
+  // ── Restore position from localStorage after hydration ────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`lca_lesson_${lesson.id}`)
+      if (!saved) return
+      const parsed = JSON.parse(saved)
+      if (
+        typeof parsed.currentIndex === 'number' &&
+        parsed.currentIndex > 0 &&
+        parsed.currentIndex < lesson.blocks.length &&
+        Array.isArray(parsed.completedIds)
+      ) {
+        dispatch({ type: 'RESTORE', currentIndex: parsed.currentIndex, completedIds: new Set<number>(parsed.completedIds) })
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.id])
+
+  // ── Persist position to localStorage on every navigation/solve ────────────
+  useEffect(() => {
+    if (state.isComplete) return
+    try {
+      localStorage.setItem(`lca_lesson_${lesson.id}`, JSON.stringify({
+        currentIndex: state.currentIndex,
+        completedIds: Array.from(state.completedIds),
+      }))
+    } catch {}
+  }, [state.currentIndex, state.completedIds, state.isComplete, lesson.id])
+
   // ── Flush time spent when the user leaves (tab close / navigate away) ──────
   useEffect(() => {
     const flushTime = () => {
@@ -246,6 +278,7 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
     if (isLastBlock) {
       // ── Lesson complete — dispatch immediately for instant feedback,
       // then resolve gamification data asynchronously.
+      try { localStorage.removeItem(`lca_lesson_${lesson.id}`) } catch {}
       dispatch({ type: 'LESSON_COMPLETE' })
       setGamificationPending(true)
       markLessonComplete(lesson.id)

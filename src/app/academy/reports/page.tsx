@@ -3,6 +3,8 @@ import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import { getCoachStudentsWithProgress, getAllStudentsWithProgressAdmin, getStudentSelfProgress, getStudentLessonDetail, getStudentFeedback } from '@/repositories/lesson/studentRepository'
 import { getAllLessons, type LessonWithCategory } from '@/repositories/lesson/lessonRepository'
 import { getStudentGamificationSummary } from '@/services/gamificationService'
+import { getClassroomSessionsReport } from '@/actions/academy/classroomActions'
+import type { ClassroomSessionReport } from '@/services/classroomService'
 import ReportsClient from './_components/ReportsClient'
 
 export const metadata = {
@@ -43,11 +45,12 @@ export default async function ReportsPage() {
   }
 
   const isAdmin = profile.role === 'admin'
-  const [students, lessons] = await Promise.all([
+  const [students, lessons, classroomSessions] = await Promise.all([
     isAdmin
       ? getAllStudentsWithProgressAdmin()
       : getCoachStudentsWithProgress(profile.id),
     getAllLessons(),
+    isAdmin ? Promise.resolve([] as ClassroomSessionReport[]) : getClassroomSessionsReport(),
   ])
 
   const studentIds = students.map(s => s.id)
@@ -76,6 +79,7 @@ export default async function ReportsPage() {
       lessons={transformLessons(lessons)}
       isAdmin={isAdmin}
       studentLessonsData={studentLessonsData}
+      classroomSessions={classroomSessions}
     />
   )
 }

@@ -153,6 +153,10 @@ export async function markLessonComplete(
     existing = await startLesson(lessonId)
   }
 
+  if (existing.status === 'completed') {
+    return { progress: existing, gamification: null }
+  }
+
   const { data, error } = await supabase
     .from('lesson_progress')
     .update({

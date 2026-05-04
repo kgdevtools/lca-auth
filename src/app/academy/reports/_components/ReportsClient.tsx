@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { StudentWithProgress, StudentLessonProgress, CoachFeedbackRow } from '@/repositories/lesson/studentRepository'
+import type { ClassroomSessionReport } from '@/services/classroomService'
 import FeedbackForm from '@/components/academy/FeedbackForm'
 import StudentProgressTable from '@/components/academy/StudentProgressTable'
 import LessonCentricReport from '@/components/academy/LessonCentricReport'
@@ -50,9 +51,10 @@ interface ReportsClientProps {
   }
   gamification?: GamificationSummary | null
   studentLessonsData?: Record<string, StudentLessonsData>
+  classroomSessions?: ClassroomSessionReport[]
 }
 
-type Tab = 'by-student' | 'by-lesson'
+type Tab = 'by-student' | 'by-lesson' | 'classroom'
 
 function formatTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
@@ -68,6 +70,7 @@ export default function ReportsClient({
   selfProgress,
   gamification,
   studentLessonsData = {},
+  classroomSessions = [],
 }: ReportsClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>('by-student')
   const [selectedStudentId, setSelectedStudentId] = useState<string>('')
@@ -95,18 +98,22 @@ export default function ReportsClient({
 
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-5 border-b border-border">
-        {(['by-student', 'by-lesson'] as const).map(tab => (
+        {([
+          { key: 'by-student', label: 'By Student' },
+          { key: 'by-lesson',  label: 'By Lesson'  },
+          { key: 'classroom',  label: 'Classroom'  },
+        ] as const).map(({ key, label }) => (
           <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setSelectedStudentId(''); setShowFeedbackForm(false) }}
+            key={key}
+            onClick={() => { setActiveTab(key); setSelectedStudentId(''); setShowFeedbackForm(false) }}
             className={cn(
               'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-              activeTab === tab
+              activeTab === key
                 ? 'border-foreground text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            {tab === 'by-student' ? 'By Student' : 'By Lesson'}
+            {label}
           </button>
         ))}
       </div>
@@ -120,8 +127,10 @@ export default function ReportsClient({
           setShowFeedbackForm={setShowFeedbackForm}
           studentLessonsData={studentLessonsData}
         />
-      ) : (
+      ) : activeTab === 'by-lesson' ? (
         <LessonCentricView lessons={lessons} />
+      ) : (
+        <ClassroomSessionsView sessions={classroomSessions} />
       )}
     </div>
   )
@@ -269,6 +278,99 @@ function StudentCentricView({
 
 function LessonCentricView({ lessons }: { lessons: LessonOption[] }) {
   return <LessonCentricReport lessons={lessons} progressByLesson={{}} />
+}
+
+const EVENT_LABELS: Partial<Record<string, string>> = {
+  session_start: 'Session started',
+  session_end:   'Session ended',
+  mode_change:   'Mode changed',
+  board_freeze:  'Board freeze toggled',
+  pawn_grant:    'Pawn granted',
+  pawn_revoke:   'Pawn revoked',
+  raise_hand:    'Hand raised',
+}
+
+function ClassroomSessionsView({ sessions }: { sessions: ClassroomSessionReport[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-4 py-10 text-center">
+        <p className="text-sm text-muted-foreground">No ended classroom sessions yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {sessions.map(session => {
+        const isExpanded = expandedId === session.id
+        const date = session.started_at
+          ? new Date(session.started_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '—'
+        const duration = session.durationMinutes !== null
+          ? session.durationMinutes < 60
+            ? `${session.durationMinutes}m`
+            : `${Math.floor(session.durationMinutes / 60)}h ${session.durationMinutes % 60}m`
+          : '—'
+
+        return (
+          <div key={session.id} className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Summary row */}
+            <button
+              onClick={() => setExpandedId(isExpanded ? null : session.id)}
+              className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{session.title}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{date}</p>
+              </div>
+              <div className="flex items-center gap-5 flex-shrink-0 text-xs text-muted-foreground">
+                <span title="Duration">{duration}</span>
+                <span title="Participants">{session.participantCount} joined</span>
+                <span title="Moves">{session.moveCount} moves</span>
+                <span className="text-muted-foreground/50">{isExpanded ? '▲' : '▼'}</span>
+              </div>
+            </button>
+
+            {/* Event log */}
+            {isExpanded && (
+              <div className="border-t border-border px-4 py-3 space-y-1.5 bg-muted/20">
+                {session.keyEvents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No key events logged.</p>
+                ) : (
+                  session.keyEvents.map((evt, i) => {
+                    const time = new Date(evt.createdAt).toLocaleTimeString('en-GB', {
+                      hour: '2-digit', minute: '2-digit',
+                    })
+                    const label = EVENT_LABELS[evt.eventType] ?? evt.eventType
+
+                    let detail = ''
+                    if (evt.eventType === 'mode_change' && evt.metadata?.mode) {
+                      detail = `→ ${evt.metadata.mode}`
+                    } else if (evt.eventType === 'pawn_grant' && evt.metadata?.studentName) {
+                      detail = `→ ${evt.metadata.studentName}`
+                    } else if (evt.eventType === 'board_freeze' && evt.metadata?.frozen !== undefined) {
+                      detail = evt.metadata.frozen ? '(frozen)' : '(unfrozen)'
+                    }
+
+                    return (
+                      <div key={i} className="flex items-baseline gap-2 text-xs">
+                        <span className="text-muted-foreground/60 flex-shrink-0 font-mono w-10">{time}</span>
+                        <span className="text-muted-foreground font-medium flex-shrink-0">{evt.userName}</span>
+                        <span className="text-foreground/70">{label}</span>
+                        {detail && <span className="text-muted-foreground">{detail}</span>}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 const LEVEL_PIECES: Record<number, string> = { 1: '♙', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' }

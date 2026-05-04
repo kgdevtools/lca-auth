@@ -12,6 +12,7 @@ import {
   Home,
   Settings,
   Trophy,
+  Monitor,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -30,6 +31,7 @@ const baseSidebarItems: SidebarItem[] = [
 
 const studentItems: SidebarItem[] = [
   { title: "Lessons",      href: "/academy/lesson",       icon: BookOpen  },
+  { title: "Classroom",    href: "/academy/classroom",    icon: Monitor   },
   { title: "My Reports",   href: "/academy/reports",      icon: BarChart3 },
   { title: "Leaderboard",  href: "/academy/leaderboard",  icon: Trophy    },
 ];

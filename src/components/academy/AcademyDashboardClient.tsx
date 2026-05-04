@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion, type Variants } from 'framer-motion'
 import { LEVEL_NAMES, type LevelNumber } from '@/lib/constants/achievements'
 import type { Profile } from '@/utils/auth/academyAuth'
+import ClassroomRealtimeSync from '@/components/classroom/ClassroomRealtimeSync'
 
 // ── Level display data ────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ interface AcademyDashboardClientProps {
   coachStudentsSummary: StudentSummaryRow[]
   totalStudentsCount: number
   totalCoachesCount: number
+  activeClassroomSession?: { id: string; title: string } | null
 }
 
 // ── Root component ────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ export default function AcademyDashboardClient({
   coachStudentsSummary,
   totalStudentsCount,
   totalCoachesCount,
+  activeClassroomSession = null,
 }: AcademyDashboardClientProps) {
   const firstName   = profile.full_name?.split(' ')[0] ?? 'there'
   const memberSince = new Date(profile.created_at).toLocaleDateString('en-US', {
@@ -88,6 +91,7 @@ export default function AcademyDashboardClient({
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <ClassroomRealtimeSync userId={profile.id} role={profile.role as 'coach' | 'student' | 'admin'} />
       <motion.div
         variants={stagger}
         initial="hidden"
@@ -215,10 +219,18 @@ export default function AcademyDashboardClient({
 
         {/* ── Role-specific sections ───────────────────────────────────────── */}
         {profile.role === 'student' && (
-          <StudentSection gamification={gamification} lessonSummary={lessonSummary} />
+          <StudentSection
+            gamification={gamification}
+            lessonSummary={lessonSummary}
+            activeClassroomSession={activeClassroomSession}
+          />
         )}
         {profile.role === 'coach' && (
-          <CoachSection studentsCount={coachStudentsCount} studentsSummary={coachStudentsSummary} />
+          <CoachSection
+            studentsCount={coachStudentsCount}
+            studentsSummary={coachStudentsSummary}
+            activeClassroomSession={activeClassroomSession}
+          />
         )}
         {profile.role === 'admin' && (
           <AdminSection studentsCount={totalStudentsCount} coachesCount={totalCoachesCount} />
@@ -234,9 +246,11 @@ export default function AcademyDashboardClient({
 function StudentSection({
   gamification,
   lessonSummary,
+  activeClassroomSession,
 }: {
   gamification: GamificationData | null
   lessonSummary: LessonSummaryData | null
+  activeClassroomSession: { id: string; title: string } | null
 }) {
   const level       = gamification?.level       ?? 1
   const totalPoints = gamification?.totalPoints ?? 0
@@ -257,6 +271,32 @@ function StudentSection({
 
   return (
     <motion.div variants={fadeUp} transition={{ duration: 0.25 }} className="space-y-10">
+
+      {/* Live classroom banner */}
+      {activeClassroomSession && (
+        <Link
+          href={`/academy/classroom/${activeClassroomSession.id}`}
+          className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                Your coach is teaching live
+              </p>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate">
+                {activeClassroomSession.title}
+              </p>
+            </div>
+          </div>
+          <span className="flex-shrink-0 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            Join Class →
+          </span>
+        </Link>
+      )}
 
       {/* Lessons */}
       <div>
@@ -383,12 +423,38 @@ function StudentSection({
 function CoachSection({
   studentsCount,
   studentsSummary,
+  activeClassroomSession,
 }: {
   studentsCount: number
   studentsSummary: StudentSummaryRow[]
+  activeClassroomSession: { id: string; title: string } | null
 }) {
   return (
     <motion.div variants={fadeUp} transition={{ duration: 0.25 }} className="space-y-10">
+
+      {/* Live session badge */}
+      {activeClassroomSession && (
+        <Link
+          href={`/academy/classroom/${activeClassroomSession.id}`}
+          className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Live now</p>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                {activeClassroomSession.title}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            Go to class →
+          </span>
+        </Link>
+      )}
 
       <div>
         <div className="flex items-baseline justify-between mb-4">
