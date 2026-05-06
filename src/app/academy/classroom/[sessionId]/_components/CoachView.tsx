@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { Plus, FlipVertical, MoreHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { persistSessionState, grantPawn, revokePawn, addSessionStudent, removeSessionStudent } from '@/actions/academy/classroomActions'
 import type { ClassroomSession, SessionMode } from '@/services/classroomService'
 import { useClassroomChannel, type BoardUpdatePayload, type AnnotationUpdatePayload, type ModeChangePayload, type PawnTransferPayload, type BoardFreezePayload } from '../_hooks/useClassroomChannel'
@@ -34,9 +35,11 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
   const [frozen,          setFrozen]          = useState(session.board_frozen)
   const [activeStudentId, setActiveStudentId] = useState<string | null>(session.active_student_id)
   const [enrolled,        setEnrolled]        = useState<EnrolledStudent[]>(enrolledStudents)
-  // Annotations received from broadcast (Phase 8 populates these)
   const [remoteArrows,     setRemoteArrows]     = useState<Arrow[]>([])
   const [remoteHighlights, setRemoteHighlights] = useState<string[]>([])
+  const [orientation,      setOrientation]      = useState<'white' | 'black'>('white')
+  const [mobileTab,        setMobileTab]        = useState<'video' | 'session'>('session')
+  const [stripOpen,        setStripOpen]        = useState(false)
 
   // ── Realtime ────────────────────────────────────────────────────────────────
 
@@ -194,42 +197,90 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
             onSetFen={handleSetFen}
             onLoadPgn={handleLoadPgn}
             controlsDisabled={session.status !== 'active'}
+            orientation={orientation}
+            onOrientationChange={setOrientation}
           />
         </div>
 
         {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 border-l border-border flex flex-col overflow-hidden bg-background">
-          <VideoPanel sessionId={session.id} isCoach={true} sessionActive={session.status === 'active'} />
-          <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Students</p>
-            <div className="flex items-center gap-2">
-              {/* Add student dropdown */}
-              {availableToAdd.length > 0 && (
-                <Select onValueChange={handleAddStudent}>
-                  <SelectTrigger className="h-8 w-8 p-0 border-0 bg-transparent rounded-sm [&>svg]:hidden group transition-colors hover:bg-muted" title="Add student">
-                    <span className="flex items-center justify-center w-full h-full">
-                      <Plus className="w-4 h-4 text-muted-foreground transition-all duration-150 group-hover:text-foreground group-hover:scale-110" />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent align="end" className="min-w-[180px]">
-                    {availableToAdd.map(s => (
-                      <SelectItem key={s.id} value={s.id} className="text-xs">
-                        {s.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {/* Connection indicator */}
-              <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
-                {isConnected && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
-                )}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-              </span>
-            </div>
+        <div className="w-[110px] sm:w-32 lg:w-64 flex-shrink-0 border-l border-border flex flex-col overflow-hidden bg-background">
+
+          {/* Collapsible strip — mobile only */}
+          <div className="flex-shrink-0 lg:hidden border-b border-border">
+            <button
+              onClick={() => setStripOpen(o => !o)}
+              className="w-full flex items-center justify-center py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {stripOpen && (
+              <div className="flex items-center justify-center gap-3 pb-2">
+                <button
+                  onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+                  title="Flip board"
+                  className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <FlipVertical className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex-shrink-0 overflow-y-auto border-b border-border max-h-[45%]">
+
+          {/* Tab bar — mobile only */}
+          <div className="flex-shrink-0 flex lg:hidden border-b border-border">
+            <button
+              onClick={() => setMobileTab('video')}
+              className={cn(
+                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors',
+                mobileTab === 'video' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >Video</button>
+            <button
+              onClick={() => setMobileTab('session')}
+              className={cn(
+                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide border-l border-border transition-colors',
+                mobileTab === 'session' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >Session</button>
+          </div>
+
+          {/* VideoPanel: always on desktop, tab-controlled on mobile */}
+          <div className={cn('flex-shrink-0', mobileTab !== 'video' && 'hidden lg:block')}>
+            <VideoPanel sessionId={session.id} isCoach={true} sessionActive={session.status === 'active'} />
+          </div>
+
+          {/* Students section: always on desktop, tab-controlled on mobile */}
+          <div className={cn(
+            'flex flex-col flex-shrink-0 overflow-y-auto border-b border-border max-h-[40%]',
+            mobileTab !== 'session' && 'hidden lg:flex',
+          )}>
+            <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Students</p>
+              <div className="flex items-center gap-2">
+                {availableToAdd.length > 0 && (
+                  <Select onValueChange={handleAddStudent}>
+                    <SelectTrigger className="h-8 w-8 p-0 border-0 bg-transparent rounded-sm [&>svg]:hidden group transition-colors hover:bg-muted" title="Add student">
+                      <span className="flex items-center justify-center w-full h-full">
+                        <Plus className="w-4 h-4 text-muted-foreground transition-all duration-150 group-hover:text-foreground group-hover:scale-110" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[180px]">
+                      {availableToAdd.map(s => (
+                        <SelectItem key={s.id} value={s.id} className="text-xs">
+                          {s.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
+                  {isConnected && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                </span>
+              </div>
+            </div>
             <PresencePanel
               users={connectedUsers}
               activeStudentId={activeStudentId}
@@ -242,6 +293,7 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
             />
           </div>
 
+          {/* Moves — always visible */}
           <div className="flex-shrink-0 px-3 py-2 border-b border-border">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Moves</p>
           </div>

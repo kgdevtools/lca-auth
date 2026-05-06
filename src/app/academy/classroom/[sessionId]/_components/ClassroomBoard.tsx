@@ -51,6 +51,9 @@ interface ClassroomBoardProps {
   onSetFen?: (fen: string) => void
   onLoadPgn?: (fen: string, pgn: string) => void
   controlsDisabled?: boolean
+  // Controlled orientation — managed by parent so mobile strip can flip too
+  orientation?: 'white' | 'black'
+  onOrientationChange?: (o: 'white' | 'black') => void
 }
 
 function initGame(fen: string, pgn: string): Chess {
@@ -81,8 +84,11 @@ export default function ClassroomBoard({
   onSetFen,
   onLoadPgn,
   controlsDisabled = false,
+  orientation: orientationProp,
+  onOrientationChange,
 }: ClassroomBoardProps) {
-  const [orientation,    setOrientation]    = useState<'white' | 'black'>('white')
+  const orientation = orientationProp ?? 'white'
+  const flipOrientation = () => onOrientationChange?.(orientation === 'white' ? 'black' : 'white')
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [arrows,         setArrows]         = useState<Arrow[]>(remoteArrows)
   const [highlights,     setHighlights]     = useState<string[]>(remoteHighlights)
@@ -404,7 +410,7 @@ export default function ClassroomBoard({
                   <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuItem onSelect={() => setOrientation(p => p === 'white' ? 'black' : 'white')}>
+              <DropdownMenuItem onSelect={flipOrientation}>
                 Flip board
               </DropdownMenuItem>
             </DropdownMenuContent>

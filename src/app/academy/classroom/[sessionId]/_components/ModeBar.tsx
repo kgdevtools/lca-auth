@@ -72,7 +72,8 @@ export default function ModeBar({
         )}
       >
         <MonitorPlay className="w-3.5 h-3.5" />
-        Demonstration
+        <span className="hidden lg:inline">Demonstration</span>
+        <span className="lg:hidden">Demo</span>
       </button>
 
       <button

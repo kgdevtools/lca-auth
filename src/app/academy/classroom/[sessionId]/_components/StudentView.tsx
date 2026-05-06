@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Hand } from 'lucide-react'
+import { Hand, FlipVertical, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logClassroomEvent, getSessionState, persistSessionState } from '@/actions/academy/classroomActions'
 import type { ClassroomSession } from '@/services/classroomService'
@@ -32,6 +32,9 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
   const [remoteHighlights, setRemoteHighlights] = useState<string[]>([])
   const [handRaised,      setHandRaised]      = useState(false)
   const [isPending,       startTransition]    = useTransition()
+  const [orientation,     setOrientation]     = useState<'white' | 'black'>('white')
+  const [mobileTab,       setMobileTab]       = useState<'video' | 'session'>('session')
+  const [stripOpen,       setStripOpen]       = useState(false)
 
   // ── Realtime ─────────────────────────────────────────────────────────────
 
@@ -137,12 +140,14 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
                 persistSessionState(session.id, result.newFen, result.newPgn).catch(console.error)
               }, [broadcastMove, session.id])}
               onAnnotationsChange={handleAnnotationsChange}
+              orientation={orientation}
+              onOrientationChange={setOrientation}
             />
           </div>
 
-          {/* Raise hand */}
+          {/* Raise hand — desktop only (mobile: in collapsible strip) */}
           {session.status === 'active' && (
-            <div className="flex-shrink-0 flex items-center justify-center px-4 py-3 border-t border-border">
+            <div className="hidden lg:flex flex-shrink-0 items-center justify-center px-4 py-3 border-t border-border">
               <button
                 onClick={handleRaiseHand}
                 disabled={isPending}
@@ -161,18 +166,82 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
         </div>
 
         {/* Sidebar */}
-        <div className="w-64 flex-shrink-0 border-l border-border flex flex-col overflow-hidden bg-background">
-          <VideoPanel sessionId={session.id} isCoach={false} sessionActive={session.status === 'active'} />
-          <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">In this session</p>
-            <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
-              {isConnected && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
-              )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-            </span>
+        <div className="w-[110px] sm:w-32 lg:w-64 flex-shrink-0 border-l border-border flex flex-col overflow-hidden bg-background">
+
+          {/* Collapsible strip — mobile only */}
+          <div className="flex-shrink-0 lg:hidden border-b border-border">
+            <button
+              onClick={() => setStripOpen(o => !o)}
+              className="w-full flex items-center justify-center py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {stripOpen && (
+              <div className="flex items-center justify-center gap-3 pb-2">
+                <button
+                  onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+                  title="Flip board"
+                  className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <FlipVertical className="w-4 h-4" />
+                </button>
+                {session.status === 'active' && (
+                  <button
+                    onClick={handleRaiseHand}
+                    disabled={isPending}
+                    title={handRaised ? 'Lower hand' : 'Raise hand'}
+                    className={cn(
+                      'p-1.5 rounded-sm transition-colors',
+                      handRaised
+                        ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/30'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                    )}
+                  >
+                    <Hand className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto border-b border-border">
+
+          {/* Tab bar — mobile only */}
+          <div className="flex-shrink-0 flex lg:hidden border-b border-border">
+            <button
+              onClick={() => setMobileTab('video')}
+              className={cn(
+                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors',
+                mobileTab === 'video' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >Video</button>
+            <button
+              onClick={() => setMobileTab('session')}
+              className={cn(
+                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide border-l border-border transition-colors',
+                mobileTab === 'session' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >Session</button>
+          </div>
+
+          {/* VideoPanel: always on desktop, tab-controlled on mobile */}
+          <div className={cn('flex-shrink-0', mobileTab !== 'video' && 'hidden lg:block')}>
+            <VideoPanel sessionId={session.id} isCoach={false} sessionActive={session.status === 'active'} />
+          </div>
+
+          {/* Session section: flex-1 on desktop, capped height + tab-controlled on mobile */}
+          <div className={cn(
+            'flex flex-col overflow-y-auto border-b border-border',
+            'flex-shrink-0 max-h-[40%] lg:flex-1 lg:min-h-0 lg:max-h-none',
+            mobileTab !== 'session' && 'hidden lg:flex',
+          )}>
+            <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">In this session</p>
+              <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
+                {isConnected && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+              </span>
+            </div>
             <PresencePanel
               users={connectedUsers}
               activeStudentId={activeStudentId}
@@ -181,6 +250,7 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
             />
           </div>
 
+          {/* Moves — always visible */}
           <div className="flex-shrink-0 px-3 py-2 border-b border-border">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Moves</p>
           </div>
