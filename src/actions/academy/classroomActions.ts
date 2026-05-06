@@ -6,8 +6,6 @@ import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import * as classroomService from '@/services/classroomService'
 import type { SessionMode, LogEventType, ClassroomSession, ClassroomSessionReport } from '@/services/classroomService'
 
-export type { ClassroomSession }
-
 // ── Guards ────────────────────────────────────────────────────────────────────
 
 async function requireCoach() {
