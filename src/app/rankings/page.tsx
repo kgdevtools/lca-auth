@@ -230,9 +230,9 @@ export default function RankingsPage() {
     setData(rows)
   }, [filters, allData])
 
-  const handleSearch = (next: RankingFilters) => {
+  const handleSearch = React.useCallback((next: RankingFilters) => {
     setFilters((prev) => ({ ...prev, ...next }))
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">

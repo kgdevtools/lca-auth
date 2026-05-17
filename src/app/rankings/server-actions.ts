@@ -219,30 +219,41 @@ function calculateSelectionStats(
     );
   });
 
-  // If we have approved tournaments from the meta table, use them
-  // Otherwise fall back to keyword-based detection
+  // Categorize each tournament - use meta table if available, otherwise fall back to keyword detection
   let juniorQualifyingTournaments: TournamentEntry[] = []
   let openTournaments: TournamentEntry[] = []
   
-  if (approvedTournaments.size > 0) {
-    // Use approved tournaments from tournament_selection_meta
-    juniorQualifyingTournaments = playedTournaments.filter(t => {
-      const meta = approvedTournaments.get(t.tournament_id)
-      return meta?.type === 'junior_qualifying'
-    })
+  for (const t of playedTournaments) {
+    const meta = t.tournament_id ? approvedTournaments.get(t.tournament_id) : null
     
-    openTournaments = playedTournaments.filter(t => {
-      const meta = approvedTournaments.get(t.tournament_id)
-      return meta?.type === 'open'
-    })
-  } else {
-    // Fallback to keyword-based detection (old logic)
-    juniorQualifyingTournaments = playedTournaments.filter(t => isJuniorQualifyingTournament(t));
-    
-    openTournaments = playedTournaments.filter(t => {
-      const type = t.tournament_type?.toLowerCase() ?? "";
-      return !type.includes("junior") && !type.includes("team");
-    });
+    if (meta) {
+      // Use meta table entry if available
+      if (meta.type === 'junior_qualifying') {
+        juniorQualifyingTournaments.push(t)
+      } else if (meta.type === 'open') {
+        openTournaments.push(t)
+      }
+    } else if (approvedTournaments.size > 0) {
+      // Meta table exists but tournament not found in it - use keyword detection
+      if (isJuniorQualifyingTournament(t)) {
+        juniorQualifyingTournaments.push(t)
+      } else {
+        const type = t.tournament_type?.toLowerCase() ?? ""
+        if (!type.includes("junior") && !type.includes("team")) {
+          openTournaments.push(t)
+        }
+      }
+    } else {
+      // No meta table - use keyword-based detection (old logic)
+      if (isJuniorQualifyingTournament(t)) {
+        juniorQualifyingTournaments.push(t)
+      } else {
+        const type = t.tournament_type?.toLowerCase() ?? ""
+        if (!type.includes("junior") && !type.includes("team")) {
+          openTournaments.push(t)
+        }
+      }
+    }
   }
 
   const limpopoKeywords = [
@@ -275,7 +286,7 @@ function calculateSelectionStats(
   let hasCapricornOpen = false
   if (approvedTournaments.size > 0) {
     hasCapricornOpen = openTournaments.some(t => {
-      const meta = approvedTournaments.get(t.tournament_id)
+      const meta = t.tournament_id ? approvedTournaments.get(t.tournament_id) : null
       return meta?.isCapricorn === true
     })
   } else {

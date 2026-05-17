@@ -2,8 +2,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Award } from "lucide-react"
+import { Check, X, CircleQuestionMark } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useState } from "react"
 import type { PlayerRanking, TournamentEntry } from "../server-actions"
 
 const PERIODS = [
@@ -79,6 +80,8 @@ interface PerformanceDetailsModalProps {
 }
 
 export function PerformanceDetailsModal({ player, open, period, onClose }: PerformanceDetailsModalProps) {
+  const [showPolicyTooltip, setShowPolicyTooltip] = useState(false)
+  
   if (!player) return null
 
   const filteredByPeriod = filterTournamentsByPeriod(player.tournaments, period)
@@ -94,6 +97,8 @@ export function PerformanceDetailsModal({ player, open, period, onClose }: Perfo
 
   const activePeriod = PERIODS.find(p => p.value === period)
   const periodLabel = activePeriod ? activePeriod.label : 'All Time'
+
+  const { selection_stats } = player
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -118,7 +123,7 @@ export function PerformanceDetailsModal({ player, open, period, onClose }: Perfo
               {player.is_junior && (
                 <span>
                   {player.selection_stats.meetsCriteria ? (
-                    <span className="text-red-600 font-bold">✓ QUALIFIED</span>
+                    <span className="text-cyan-500 font-bold">✓ QUALIFIED</span>
                   ) : (
                     <span className="text-muted-foreground">Not Qualified</span>
                   )}
@@ -128,15 +133,130 @@ export function PerformanceDetailsModal({ player, open, period, onClose }: Perfo
             {player.is_junior && (
               <div className="text-[10px] text-muted-foreground flex items-center gap-4 mt-1">
                 <span className="flex items-center gap-1">
-                  <Award className="w-3 h-3 text-amber-500" /> Counts for CDC Selection
+                  <span className="font-mono font-bold text-[10px] tracking-tighter text-amber-600">CDCJQ</span>
+                  <span className="text-muted-foreground">Counts for CDC Selection</span>
                 </span>
-                <span className="flex items-center gap-1 font-bold text-red-600">
-                  Q Meets Qualification Criteria
-                </span>
+                {player.selection_stats.meetsCriteria && (
+                  <span className="flex items-center gap-1 font-bold text-cyan-500">
+                    Meets Qualification Criteria
+                  </span>
+                )}
               </div>
             )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Selection Criteria Section */}
+        {player.is_junior && (
+          <div className="px-3 sm:px-4 py-3 border-b border-border bg-muted/20">
+            <div className="flex items-center gap-1 mb-2 relative">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Selection Criteria</h4>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowPolicyTooltip(!showPolicyTooltip)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <CircleQuestionMark className="w-4 h-4" strokeWidth={2.25} />
+                </button>
+                {showPolicyTooltip && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowPolicyTooltip(false)} 
+                    />
+                    <div className="absolute left-1/2 top-6 -translate-x-1/2 w-64 p-3 bg-card border-2 border-border rounded-sm shadow-xl z-50 text-xs">
+                      <p className="font-semibold text-foreground mb-1">CDC Junior Selection Policy</p>
+                      <p className="text-muted-foreground mb-2">To qualify for CDC Junior Selection, a player must:</p>
+                      <ul className="text-muted-foreground space-y-1">
+                        <li>• Play 6 tournaments in the period</li>
+                        <li>• Meet ONE of the following combinations:</li>
+                        <li className="ml-2">- 2 Open + 4 Junior Qualifying</li>
+                        <li className="ml-2">- 3 Open + 3 Junior Qualifying</li>
+                        <li>• Play at least 1 Open tournament in Capricorn/Limpopo region</li>
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {/* Total Tournaments */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium",
+                selection_stats.openTournamentsCount + selection_stats.juniorTournamentsCount >= 6 
+                  ? "text-cyan-600 font-bold" 
+                  : "text-red-600 font-bold"
+              )}>
+                {selection_stats.openTournamentsCount + selection_stats.juniorTournamentsCount >= 6 ? (
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                ) : (
+                  <X className="w-3.5 h-3.5" strokeWidth={4} />
+                )}
+                <span>Total: {selection_stats.openTournamentsCount + selection_stats.juniorTournamentsCount}</span>
+              </div>
+              
+              {/* Open Tournaments */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium",
+                selection_stats.openTournamentsCount >= 2 
+                  ? "text-cyan-600 font-bold" 
+                  : "text-red-600 font-bold"
+              )}>
+                {selection_stats.openTournamentsCount >= 2 ? (
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                ) : (
+                  <X className="w-3.5 h-3.5" strokeWidth={4} />
+                )}
+                <span>Open: {selection_stats.openTournamentsCount}</span>
+              </div>
+              
+              {/* Junior Tournaments */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium",
+                selection_stats.juniorTournamentsCount >= 4 
+                  ? "text-cyan-600 font-bold" 
+                  : "text-red-600 font-bold"
+              )}>
+                {selection_stats.juniorTournamentsCount >= 4 ? (
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                ) : (
+                  <X className="w-3.5 h-3.5" strokeWidth={4} />
+                )}
+                <span>Junior: {selection_stats.juniorTournamentsCount}</span>
+              </div>
+              
+              {/* Alternative Combo */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium",
+                (selection_stats.openTournamentsCount >= 3 && selection_stats.juniorTournamentsCount >= 3)
+                  ? "text-cyan-600 font-bold" 
+                  : "text-muted-foreground"
+              )}>
+                {(selection_stats.openTournamentsCount >= 3 && selection_stats.juniorTournamentsCount >= 3) ? (
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                ) : (
+                  <X className="w-3.5 h-3.5" strokeWidth={4} />
+                )}
+                <span>3 Open + 3 CDCJQ</span>
+              </div>
+              
+              {/* Capricorn Open */}
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium",
+                selection_stats.hasCapricornOpen
+                  ? "text-cyan-600 font-bold" 
+                  : "text-red-600 font-bold"
+              )}>
+                {selection_stats.hasCapricornOpen ? (
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                ) : (
+                  <X className="w-3.5 h-3.5" strokeWidth={4} />
+                )}
+                <span>Capricorn Open</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto px-2 sm:px-3 pb-2">
           <Table className="w-full">
@@ -171,7 +291,7 @@ export function PerformanceDetailsModal({ player, open, period, onClose }: Perfo
                       <div className="flex items-start gap-1.5">
                         <span className="whitespace-normal break-words">{t.tournament_name}</span>
                         {meetsSelection && (
-                          <Award className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <span className="font-mono font-bold text-[9px] tracking-tighter text-amber-600 flex-shrink-0 mt-0.5">CDCJQ</span>
                         )}
                       </div>
                       {!hasValidTieBreaks && (

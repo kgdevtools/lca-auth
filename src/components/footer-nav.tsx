@@ -36,7 +36,10 @@ export default function FooterNav() {
         </div>
         <div className="mt-2 pt-2 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
-            © 2025 Limpopo Chess Academy. All rights reserved.
+            © 2026 Limpopo Chess Academy{' '}
+            <Link href="/license" className="hover:underline underline-offset-2">
+              License
+            </Link>
           </p>
         </div>
       </div>

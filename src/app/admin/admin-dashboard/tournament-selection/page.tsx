@@ -1,7 +1,7 @@
 // src/app/admin/admin-dashboard/tournament-selection/page.tsx
 import { Suspense } from "react"
 import TournamentSelectionTable from "./TournamentSelectionTable"
-import { getSelectionMeta, getDetectedTournaments } from "./actions"
+import { getSelectionMeta, getDetectedTournaments, getJuniorPlayersWithStats } from "./actions"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 }
 
 export default async function TournamentSelectionPage() {
-  const [selectionMeta, detectedTournaments] = await Promise.all([
+  const [selectionMeta, detectedTournaments, juniorPlayers] = await Promise.all([
     getSelectionMeta(),
-    getDetectedTournaments()
+    getDetectedTournaments(),
+    getJuniorPlayersWithStats('2025-2026')
   ])
   
   return (
@@ -36,6 +37,7 @@ export default async function TournamentSelectionPage() {
         <TournamentSelectionTable 
           initialSelectionMeta={selectionMeta}
           detectedTournaments={detectedTournaments}
+          juniorPlayers={juniorPlayers}
         />
       </Suspense>
     </div>
