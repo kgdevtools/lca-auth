@@ -1,47 +1,33 @@
 "use client"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import type { PlayerRanking, TournamentEntry } from "../server-actions"
 
-// Period definitions (same as tournaments)
 const PERIODS = [
   { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
   { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
 ]
 
-// Helper function to normalize date format to YYYY-MM-DD
 function normalizeDate(date: string): string {
-  // Replace all slashes with dashes
   return date.replace(/\//g, '-')
 }
 
-// Helper function to check if tournament date is in period
 function isInPeriod(date: string | null, periodValue: string): boolean {
   if (!date) return false
-
   const period = PERIODS.find(p => p.value === periodValue)
   if (!period) return false
-
-  // Normalize the date format before comparison
-  const normalizedDate = normalizeDate(date)
-  return normalizedDate >= period.start && normalizedDate <= period.end
+  return normalizeDate(date) >= period.start && normalizeDate(date) <= period.end
 }
 
-// Helper function to filter tournaments by period and check if played
 function getFilteredTournaments(tournaments: TournamentEntry[], periodValue: string): TournamentEntry[] {
-  // Filter by period if not "ALL"
   let filtered = tournaments
   if (periodValue && periodValue !== "ALL") {
     filtered = tournaments.filter(t => isInPeriod(t.tournament_date, periodValue))
   }
-
-  // Only return tournaments that were actually played (have valid tie breaks)
-  return filtered.filter(tournament => {
-    const tieBreaks = tournament.tie_breaks || {}
-    const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
-      value !== null && value !== undefined && value !== "" && value !== 0
-    )
-    return hasValidTieBreaks && tournament.performance_rating
+  return filtered.filter(t => {
+    const tieBreaks = t.tie_breaks || {}
+    return Object.values(tieBreaks).some(v => v !== null && v !== undefined && v !== "" && v !== 0)
   })
 }
 
@@ -65,7 +51,7 @@ function TableSkeleton() {
             <TableHead className="w-[10%] text-center">Events</TableHead>
             <TableHead className="w-[10%] text-center">Fed</TableHead>
             <TableHead className="w-[15%] text-center">Rating</TableHead>
-            <TableHead className="w-[22%] text-center">Average Performance Rating</TableHead>
+            <TableHead className="w-[22%] text-center">APR</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -111,7 +97,7 @@ export function RankingsTable({ data, loading = false, period, onSelectPlayer }:
   return (
     <div className="w-full">
       <div className="rounded-md border-2 border-border bg-card overflow-hidden">
-        <div className="overflow-auto max-h-[calc(100vh-280px)]">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-muted/50">
               <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
@@ -122,73 +108,68 @@ export function RankingsTable({ data, loading = false, period, onSelectPlayer }:
                 <TableHead className="w-[10%] text-center font-semibold text-muted-foreground bg-muted/50">No of Events</TableHead>
                 <TableHead className="w-[10%] text-center font-semibold text-muted-foreground bg-muted/50">Fed</TableHead>
                 <TableHead className="w-[15%] text-center font-semibold text-muted-foreground bg-muted/50">Rating</TableHead>
-                <TableHead className="w-[22%] text-left font-semibold text-muted-foreground pl-0 bg-muted/50">
-                  <div className="text-balance">APR</div>
-                </TableHead>
+                <TableHead className="w-[22%] text-left font-semibold text-muted-foreground pl-0 bg-muted/50">APR</TableHead>
               </TableRow>
             </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No players found matching your criteria
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((player, idx) => {
-                const sex = String(player.sex ?? '').toUpperCase();
-                const displaySex = sex.startsWith('M') ? 'M' : sex.startsWith('F') ? 'F' : '-';
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No players found matching your criteria
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((player, idx) => {
+                  const sex = String(player.sex ?? '').toUpperCase()
+                  const displaySex = sex.startsWith('M') ? 'M' : sex.startsWith('F') ? 'F' : '-'
+                  const filteredTournaments = getFilteredTournaments(player.tournaments, period)
+                  const validPerformanceRatings = filteredTournaments.map(t => t.performance_rating).filter((r): r is number => r !== null && r !== undefined)
+                  const avgPerformanceRating = validPerformanceRatings.length > 0 ? validPerformanceRatings.reduce((s, r) => s + r, 0) / validPerformanceRatings.length : null
+                  const tournamentsCount = filteredTournaments.length
 
-                // Calculate average performance rating only from played tournaments within the selected period
-                const filteredTournaments = getFilteredTournaments(player.tournaments, period)
-
-                const validPerformanceRatings = filteredTournaments
-                  .map(t => t.performance_rating)
-                  .filter((rating): rating is number => rating !== null && rating !== undefined)
-
-                const avgPerformanceRating = validPerformanceRatings.length > 0
-                  ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
-                  : null
-
-                const tournamentsCount = filteredTournaments.length
-
-                return (
-                  <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
-                    <TableCell className="pr-2">
-                      <button
-                        onClick={() => onSelectPlayer(player)}
-                        className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left truncate"
-                      >
-                        {player.display_name}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground">
-                      {displaySex}
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground">
-                      {player.age_group ?? "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground">
-                      <Badge variant="secondary" className="text-xs px-2 py-0.5" title="Tournaments played">
-                        {tournamentsCount}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground">
-                      {player.fed ?? "-"}
-                    </TableCell>
-                    <TableCell className="text-sm text-center text-muted-foreground">
-                      {player.rating ?? "-"}
-                    </TableCell>
-                    <TableCell className="text-sm font-semibold text-left text-foreground pl-0">
-                      {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
+                  return (
+                    <TableRow key={player.name_key} className="cursor-pointer hover:bg-muted/30 transition-colors">
+                      <TableCell className="text-sm font-medium text-left text-foreground pl-4">{idx + 1}</TableCell>
+                      <TableCell className="pr-2">
+                        <button
+                          onClick={() => onSelectPlayer(player)}
+                          className="text-sm font-semibold text-primary hover:text-primary/80 hover:underline transition-colors text-left flex items-center gap-1"
+                        >
+                          <span className="truncate">{player.display_name}</span>
+                          {player.is_junior && player.selection_stats.meetsCriteria && (
+                            <span className="text-[10px] font-bold text-red-600 italic">Q</span>
+                          )}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground">
+                        {displaySex}
+                      </TableCell>
+                      <TableCell className={cn(
+                        "text-sm text-center",
+                        player.is_junior ? "font-semibold text-amber-600" : "text-muted-foreground"
+                      )}>
+                        {player.age_group ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground">
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5" title="Tournaments played">
+                          {tournamentsCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground">
+                        {player.fed ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-center text-muted-foreground">
+                        {player.rating ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-sm font-bold text-amber-600 pl-0">
+                        {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

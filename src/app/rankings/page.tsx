@@ -62,12 +62,14 @@ export default function RankingsPage() {
   // Local filter state mirrors Players route behavior
   const [filters, setFilters] = React.useState<RankingFilters>({
     name: "",
-    fed: "ALL" as any,
+    fed: "Limpopo" as any,
     rating: "ALL" as any,
     gender: "ALL" as any,
     ageGroup: "ALL" as any,
     events: "ALL" as any,
     period: "2025-2026" as any,
+    juniors: "ALL" as any,
+    qualified: "ALL" as any,
   })
 
   React.useEffect(() => {
@@ -93,6 +95,8 @@ export default function RankingsPage() {
       ageGroup = "ALL",
       events = "ALL",
       period = "ALL",
+      juniors = "ALL",
+      qualified = "ALL",
     } = filters
 
     if (name && name.trim().length > 0) {
@@ -112,7 +116,7 @@ export default function RankingsPage() {
     if (fed && fed !== ("ALL" as any)) {
       const want = String(fed)
       if (want === "Limpopo") {
-        const LIM_SET = new Set(["LCP", "LMG", "LVT", "LWT", "LSG", "LIM"])
+        const LIM_SET = new Set(["LCP", "LMG", "LVT", "LWT", "LSG", "LIM", "CSA", "RSA"])
         rows = rows.filter((p) => LIM_SET.has(String(p.fed ?? "").toUpperCase()))
       } else {
         const wantUp = want.toUpperCase()
@@ -197,6 +201,16 @@ export default function RankingsPage() {
       })
     }
 
+    if (juniors && juniors !== ("ALL" as any)) {
+      const wantJuniors = juniors === "yes"
+      rows = rows.filter((p) => p.is_junior === wantJuniors)
+    }
+
+    if (qualified && qualified !== ("ALL" as any)) {
+      const wantQualified = qualified === "yes"
+      rows = rows.filter((p) => p.selection_stats.meetsCriteria === wantQualified)
+    }
+
     // Sort by APR using same calculation as table display (only played tournaments with valid tie breaks and within period)
     rows.sort((a, b) => {
       const getDisplayAPR = (player: PlayerRanking) => {
@@ -228,11 +242,15 @@ export default function RankingsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Player Rankings</h1>
             <p className="text-muted-foreground">View player performance rankings and statistics</p>
             <p className="text-xs text-muted-foreground">
-              Tournament data from 1 October 2025 - 30 September 2026. If missing data, or info please contact us{" "}
+              Tournament data from 1 October 2025 - 30 September 2026. If missing data or info please contact us{" "}
               <Link href="/forms/contact-us" className="underline text-primary font-semibold">
                 here
               </Link>
-              .
+              . For junior players who played open tournaments not recognised by CDC or Chess Limpopo and not listed in the rankings stats, please contact us via our{" "}
+              <Link href="/forms/contact-us" className="underline text-primary font-semibold">
+                contact form
+              </Link>{" "}
+              and include the name of the tournament you want recognised for CDC qualification in the message area.
             </p>
           </div>
 

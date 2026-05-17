@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=794px">
+  <title>Limpopo Chess Academy — Poster</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Design tokens: exact dark mode from globals.css ── */
+    :root {
+      --bg:        #020617; /* slate-950 */
+      --card:      #0f172a; /* slate-900 */
+      --secondary: #1e293b; /* slate-800 */
+      --border:    #334155; /* slate-700 */
+      --primary:   #60a5fa; /* blue-400  */
+      --accent:    #1e40af; /* blue-800  */
+      --amber:     #fbbf24; /* amber-400 */
+      --amber-d:   #d97706; /* amber-600 */
+      --fg:        #f8fafc; /* slate-50  */
+      --muted:     #94a3b8; /* slate-400 */
+      --dim:       #475569; /* slate-600 */
+      --green:     #34d399; /* emerald-400 */
+    }
+
+    @page { size: A4 portrait; margin: 0; }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #111827;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @media print {
+      body { padding: 0; background: none; }
+      .poster { box-shadow: none; }
+    }
+
+    /* ══════════════════════════════
+       POSTER SHELL
+    ══════════════════════════════ */
+    .poster {
+      width: 794px;
+      min-height: 1123px;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.8);
+    }
+
+    /* Chessboard tile texture — very subtle */
+    .poster::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: repeating-conic-gradient(
+        rgba(30, 41, 59, 0.35) 0% 25%,
+        transparent 0% 50%
+      );
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Radial blue glow centred behind hero text */
+    .glow {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 500px;
+      background: radial-gradient(ellipse at center,
+        rgba(30, 64, 175, 0.28) 0%,
+        rgba(96, 165, 250, 0.08) 40%,
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Amber corner accent */
+    .amber-accent {
+      position: absolute;
+      bottom: 200px;
+      right: -60px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* All direct children stack above the texture */
+    .poster > * { position: relative; z-index: 1; }
+
+    /* ══════════════════════════════
+       TOP BAR
+    ══════════════════════════════ */
+    .top-bar {
+      background: var(--amber);
+      padding: 11px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .top-bar-name {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--bg);
+    }
+
+    .top-bar-pieces {
+      font-size: 16px;
+      letter-spacing: 5px;
+      color: rgba(2, 6, 23, 0.45);
+      user-select: none;
+    }
+
+    /* ══════════════════════════════
+       HERO
+    ══════════════════════════════ */
+    .hero {
+      padding: 36px 36px 0 36px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .hero-left { flex: 1; }
+
+    .hero-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--amber);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      display: inline-block;
+      width: 28px;
+      height: 2px;
+      background: var(--amber);
+    }
+
+    .headline {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 900;
+      font-size: 76px;
+      line-height: 0.9;
+      color: var(--fg);
+      text-transform: uppercase;
+      letter-spacing: -0.03em;
+    }
+
+    .headline .line-blue  { color: var(--primary); }
+    .headline .line-amber { color: var(--amber); display: block; font-size: 52px; letter-spacing: 0.02em; margin-top: 6px; }
+
+    .hero-desc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      font-weight: 400;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 300px;
+      margin-top: 20px;
+      border-left: 2px solid var(--border);
+      padding-left: 14px;
+    }
+
+    /* Giant chess piece — decorative right side */
+    .hero-piece {
+      font-size: 220px;
+      line-height: 1;
+      color: transparent;
+      -webkit-text-stroke: 1.5px rgba(96, 165, 250, 0.2);
+      text-shadow:
+        0 0 80px rgba(251, 191, 36, 0.12),
+        0 0 160px rgba(96, 165, 250, 0.08);
+      user-select: none;
+      margin-top: -10px;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════
+       STAT CHIPS
+    ══════════════════════════════ */
+    .stats {
+      display: flex;
+      gap: 10px;
+      padding: 20px 36px 0;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+
+    .stat-val {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--fg);
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      line-height: 1.3;
+    }
+
+    /* ══════════════════════════════
+       DIVIDER
+    ══════════════════════════════ */
+    .divider {
+      margin: 22px 36px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--primary) 40%, transparent 100%);
+      position: relative;
+    }
+
+    .divider-label {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      color: var(--dim);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      background: var(--bg);
+      padding-left: 10px;
+    }
+
+    /* ══════════════════════════════
+       SERVICES
+    ══════════════════════════════ */
+    .services-label {
+      padding: 0 36px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    .services {
+      padding: 0 36px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .svc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px 18px 16px 20px;
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 0 12px;
+      align-items: start;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .svc::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+    }
+
+    .svc.a::before { background: var(--amber); }
+    .svc.b::before { background: var(--primary); }
+
+    .svc-icon {
+      font-size: 22px;
+      line-height: 1;
+      grid-row: span 2;
+      margin-top: 2px;
+      text-align: center;
+    }
+
+    .svc-title {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--fg);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1.2;
+    }
+
+    .svc-desc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      color: var(--dim);
+      line-height: 1.6;
+      margin-top: 5px;
+    }
+
+    /* ══════════════════════════════
+       CTA BANNER
+    ══════════════════════════════ */
+    .cta-wrap {
+      padding: 22px 36px 0;
+    }
+
+    .cta {
+      background: linear-gradient(110deg, var(--amber) 0%, #f59e0b 60%, #d97706 100%);
+      border-radius: 5px;
+      padding: 20px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .cta-left {}
+
+    .cta-headline {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 900;
+      font-size: 28px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--bg);
+      line-height: 1;
+    }
+
+    .cta-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(2, 6, 23, 0.6);
+      margin-top: 5px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+
+    .cta-piece {
+      font-size: 60px;
+      color: rgba(2, 6, 23, 0.18);
+      user-select: none;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    /* ══════════════════════════════
+       CONTACT
+    ══════════════════════════════ */
+    .contact {
+      padding: 20px 36px 0;
+    }
+
+    .contact-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .coaches {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .coach {
+      background: var(--card);
+      border: 1px solid var(--secondary);
+      border-radius: 4px;
+      padding: 12px 14px;
+    }
+
+    .coach-name {
+      font-family: 'Work Sans', sans-serif;
+      font-weight: 800;
+      font-size: 11.5px;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .coach-role {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      color: var(--dim);
+      margin: 3px 0 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .coach-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--fg);
+      letter-spacing: 0.05em;
+    }
+
+    .coach-tags {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      color: var(--green);
+      margin-top: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .website-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      background: var(--secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    .website-icon { font-size: 15px; }
+
+    .website-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--primary);
+      letter-spacing: 0.04em;
+    }
+
+    .website-note {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* ══════════════════════════════
+       FOOTER
+    ══════════════════════════════ */
+    .footer {
+      margin-top: auto;
+      padding: 16px 36px;
+      border-top: 1px solid var(--secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      color: var(--border);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    /* Mini chessboard pattern */
+    .footer-board {
+      display: grid;
+      grid-template-columns: repeat(8, 10px);
+      grid-template-rows: repeat(2, 10px);
+      gap: 0;
+      border: 1px solid var(--secondary);
+    }
+
+    .sq { width: 10px; height: 10px; }
+    .sq.d { background: var(--secondary); }
+    .sq.l { background: var(--border); }
+  </style>
+</head>
+<body>
+  <div class="poster">
+
+    <!-- Decorative overlays (z-index 0) -->
+    <div class="glow" style="position:absolute;z-index:0;pointer-events:none;"></div>
+    <div class="amber-accent" style="position:absolute;z-index:0;pointer-events:none;"></div>
+
+    <!-- ── Top bar ── -->
+    <div class="top-bar">
+      <span class="top-bar-name">Limpopo Chess Academy</span>
+      <span class="top-bar-pieces">♔ ♕ ♖ ♗</span>
+    </div>
+
+    <!-- ── Hero ── -->
+    <div class="hero">
+      <div class="hero-left">
+        <div class="hero-eyebrow">Kids &amp; Juniors · All Levels Welcome</div>
+
+        <div class="headline">
+          Chess<br>
+          <span class="line-blue">Coaching</span>
+          <span class="line-amber">&amp; Academy</span>
+        </div>
+
+        <p class="hero-desc">
+          Build the mind of a champion.<br>
+          Expert coaches helping young<br>
+          players develop strategy, focus,<br>
+          and confidence through the<br>
+          game of kings.
+        </p>
+      </div>
+
+      <div class="hero-piece">♛</div>
+    </div>
+
+    <!-- ── Stat chips ── -->
+    <div class="stats">
+      <div class="stat-chip">
+        <div>
+          <div class="stat-val">3</div>
+          <div class="stat-label">Expert<br>Coaches</div>
+        </div>
+      </div>
+      <div class="stat-chip">
+        <div>
+          <div class="stat-val">4</div>
+          <div class="stat-label">Services<br>Offered</div>
+        </div>
+      </div>
+      <div class="stat-chip">
+        <div>
+          <div class="stat-val">∞</div>
+          <div class="stat-label">Levels<br>Welcome</div>
+        </div>
+      </div>
+      <div class="stat-chip">
+        <div>
+          <div class="stat-val">LP</div>
+          <div class="stat-label">Limpopo<br>Based</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Divider ── -->
+    <div class="divider">
+      <span class="divider-label">// Our Services</span>
+    </div>
+
+    <!-- ── Services label ── -->
+    <div class="services-label">// What we offer</div>
+
+    <!-- ── Services grid ── -->
+    <div class="services">
+
+      <div class="svc a">
+        <div class="svc-icon">♞</div>
+        <div class="svc-title">1-on-1 Coaching</div>
+        <div class="svc-desc">Personalised sessions tailored to your child's skill level. Direct feedback and targeted improvement from an expert coach.</div>
+      </div>
+
+      <div class="svc b">
+        <div class="svc-icon">♟</div>
+        <div class="svc-title">Academy Lessons</div>
+        <div class="svc-desc">Interactive online puzzles, studies, and exercises designed for juniors. Progress at your own pace with gamified rewards.</div>
+      </div>
+
+      <div class="svc b">
+        <div class="svc-icon">♕</div>
+        <div class="svc-title">Tournaments</div>
+        <div class="svc-desc">Compete in structured tournaments to test your skills, earn recognition, and grow under real match pressure.</div>
+      </div>
+
+      <div class="svc a">
+        <div class="svc-icon">♙</div>
+        <div class="svc-title">Group Classes</div>
+        <div class="svc-desc">Collaborative group sessions where juniors learn together, challenge each other, and build lasting skills and friendships.</div>
+      </div>
+
+    </div>
+
+    <!-- ── CTA ── -->
+    <div class="cta-wrap">
+      <div class="cta">
+        <div class="cta-left">
+          <div class="cta-headline">Enrol Today</div>
+          <div class="cta-sub">Contact any coach below to get started — beginner friendly · no experience needed</div>
+        </div>
+        <div class="cta-piece">♔</div>
+      </div>
+    </div>
+
+    <!-- ── Contact ── -->
+    <div class="contact">
+      <div class="contact-label">// Reach our coaches · Calls &amp; WhatsApp</div>
+
+      <div class="coaches">
+        <div class="coach">
+          <div class="coach-name">Coach KG</div>
+          <div class="coach-role">Head Coach</div>
+          <div class="coach-num">083 454 4862</div>
+          <div class="coach-tags">📱 Call · WhatsApp</div>
+        </div>
+        <div class="coach">
+          <div class="coach-name">Coach Tebogo</div>
+          <div class="coach-role">Academy Coach</div>
+          <div class="coach-num">064 008 8227</div>
+          <div class="coach-tags">📱 Call · WhatsApp</div>
+        </div>
+        <div class="coach">
+          <div class="coach-name">Coach Joe</div>
+          <div class="coach-role">Academy Coach</div>
+          <div class="coach-num">061 541 9367</div>
+          <div class="coach-tags">📱 Call · WhatsApp</div>
+        </div>
+      </div>
+
+      <div class="website-row">
+        <span class="website-icon">🌐</span>
+        <span class="website-url">www.limpopochessacademy.co.za</span>
+        <span class="website-note">Academy · Lessons · Reports · Leaderboard</span>
+      </div>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="footer">
+      <span class="footer-text">Limpopo Chess Academy · Limpopo, South Africa · All ages welcome · Est. 2024</span>
+      <div class="footer-board">
+        <div class="sq l"></div><div class="sq d"></div><div class="sq l"></div><div class="sq d"></div>
+        <div class="sq l"></div><div class="sq d"></div><div class="sq l"></div><div class="sq d"></div>
+        <div class="sq d"></div><div class="sq l"></div><div class="sq d"></div><div class="sq l"></div>
+        <div class="sq d"></div><div class="sq l"></div><div class="sq d"></div><div class="sq l"></div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

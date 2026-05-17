@@ -2,17 +2,37 @@
 
 import { createClient } from "@/utils/supabase/server";
 
+export interface TournamentDetails {
+  id: string;
+  tournament_name: string | null;
+  location: string | null;
+  tournament_type: string | null;
+  date: string | null;
+}
+
 export interface TournamentEntry {
   raw_name: string;
   tournament_id: string | null;
   tournament_name: string | null;
   tournament_date: string | null;
+  tournament_type: string | null;
+  location: string | null;
   player_rating: number | null;
   performance_rating: number | null;
   confidence: string | null;
   tie_breaks: Record<string, number | string>;
   classifications: Record<string, string>;
   created_at: string | null;
+}
+
+export interface SelectionStats {
+  isJunior: boolean;
+  openTournamentsCount: number;
+  openTournamentsRequired: number;
+  juniorTournamentsCount: number;
+  juniorTournamentsRequired: number;
+  hasCapricornOpen: boolean;
+  meetsCriteria: boolean;
 }
 
 export interface PlayerRanking {
@@ -29,6 +49,8 @@ export interface PlayerRanking {
   age_years: number | null;
   age_group: string | null; // U20/U18/... computed once per player
   sex: string | null;
+  is_junior: boolean;
+  selection_stats: SelectionStats;
 }
 
 export interface RankingFilters {
@@ -39,6 +61,8 @@ export interface RankingFilters {
   gender?: string;
   events?: string;
   period?: string;
+  juniors?: string;  // "ALL" | "yes" | "no"
+  qualified?: string;  // "ALL" | "yes" | "no"
 }
 
 function safeNumber(v: any): number | null {
@@ -129,6 +153,148 @@ function deriveAgeGroup(age: number | null): string | null {
   return null;
 }
 
+const juniorQualifyingKeywords = [
+  "cdc junior qualifiers", "cdc junior qualifying", "cdc qualifiers",
+  "capricorn junior qualifying", "capricorn district chess",
+  "vhembe district chess junior", "vhembe district junior",
+  "mopani open junior", "mopani district junior qualifiers", "mopani open junior qualifying",
+  "sekhukhune junior qualifying", "sekhukhune junior qualifiers",
+  "vhembe district junior qualifier", "waterberg junior"
+];
+
+function isJuniorAgeGroup(ageGroup: string | null): boolean {
+  if (!ageGroup) return false;
+  return ['U20', 'U18', 'U16', 'U14', 'U12', 'U10'].includes(ageGroup);
+}
+
+function isJuniorQualifyingTournament(t: TournamentEntry): boolean {
+  const name = t.tournament_name?.toLowerCase() ?? "";
+  return juniorQualifyingKeywords.some(kw => name.includes(kw));
+}
+
+function isJuniorAgeGroupU14OrAbove(ageGroup: string | null): boolean {
+  if (!ageGroup) return false;
+  return ['U20', 'U18', 'U16', 'U14'].includes(ageGroup);
+}
+
+function isJuniorAgeGroupU12OrBelow(ageGroup: string | null): boolean {
+  if (!ageGroup) return false;
+  return ['U12', 'U10', 'U8'].includes(ageGroup);
+}
+
+async function getApprovedTournamentsMap(supabase: any): Promise<Map<string, { type: 'junior_qualifying' | 'open' | 'other'; isCapricorn: boolean }>> {
+  const { data, error } = await supabase
+    .from('tournament_selection_meta')
+    .select('tournament_id, tournament_type, is_capricorn')
+    .eq('approved', true)
+  
+  if (error || !data) {
+    console.error('[rankings] Error fetching approved tournaments:', error)
+    return new Map()
+  }
+  
+  const map = new Map<string, { type: 'junior_qualifying' | 'open' | 'other'; isCapricorn: boolean }>()
+  for (const row of data) {
+    if (row.tournament_id) {
+      map.set(row.tournament_id, {
+        type: row.tournament_type || 'other',
+        isCapricorn: row.is_capricorn || false
+      })
+    }
+  }
+  return map
+}
+
+function calculateSelectionStats(
+  tournaments: TournamentEntry[],
+  ageGroup: string | null,
+  approvedTournaments: Map<string, { type: 'junior_qualifying' | 'open' | 'other'; isCapricorn: boolean }> = new Map()
+): SelectionStats {
+  const isJunior = isJuniorAgeGroup(ageGroup);
+  
+  const playedTournaments = tournaments.filter(t => {
+    const tieBreaks = t.tie_breaks || {};
+    return Object.values(tieBreaks).some(
+      v => v !== null && v !== undefined && v !== "" && v !== 0
+    );
+  });
+
+  // If we have approved tournaments from the meta table, use them
+  // Otherwise fall back to keyword-based detection
+  let juniorQualifyingTournaments: TournamentEntry[] = []
+  let openTournaments: TournamentEntry[] = []
+  
+  if (approvedTournaments.size > 0) {
+    // Use approved tournaments from tournament_selection_meta
+    juniorQualifyingTournaments = playedTournaments.filter(t => {
+      const meta = approvedTournaments.get(t.tournament_id)
+      return meta?.type === 'junior_qualifying'
+    })
+    
+    openTournaments = playedTournaments.filter(t => {
+      const meta = approvedTournaments.get(t.tournament_id)
+      return meta?.type === 'open'
+    })
+  } else {
+    // Fallback to keyword-based detection (old logic)
+    juniorQualifyingTournaments = playedTournaments.filter(t => isJuniorQualifyingTournament(t));
+    
+    openTournaments = playedTournaments.filter(t => {
+      const type = t.tournament_type?.toLowerCase() ?? "";
+      return !type.includes("junior") && !type.includes("team");
+    });
+  }
+
+  const limpopoKeywords = [
+    "tzaneen", "polokwane", "northern academy", "mokopane", "limpopo", 
+    "modimolle", "mookgopong", "seshego", "capricorn", "vhembe", 
+    "mopani", "sekhukhune", "hans strijdom", "bela-bela", "tshakhuma",
+    "turfloop", "university of limp", "capricorn tvet", "flora park", "waterberg"
+  ];
+
+  const isLimpopoTournament = (t: TournamentEntry): boolean => {
+    const name = t.tournament_name?.toLowerCase() ?? "";
+    const loc = t.location?.toLowerCase() ?? "";
+    return limpopoKeywords.some(kw => name.includes(kw) || loc.includes(kw));
+  };
+
+  const openTournamentsCount = openTournaments.length;
+  const juniorQualifyingCount = juniorQualifyingTournaments.length;
+
+  const totalRequired = 6;
+  const minOpenRequired = 2;
+  const minJuniorRequired = 4;
+
+  const meetsTotal = playedTournaments.length >= totalRequired;
+  
+  const meetsOpenAndJuniorCombo = 
+    (openTournamentsCount >= 2 && juniorQualifyingCount >= 4) ||
+    (openTournamentsCount >= 3 && juniorQualifyingCount >= 3);
+
+  // Check for Capricorn open - use meta table if available, otherwise keyword fallback
+  let hasCapricornOpen = false
+  if (approvedTournaments.size > 0) {
+    hasCapricornOpen = openTournaments.some(t => {
+      const meta = approvedTournaments.get(t.tournament_id)
+      return meta?.isCapricorn === true
+    })
+  } else {
+    hasCapricornOpen = openTournaments.some(t => isLimpopoTournament(t))
+  }
+
+  const meetsCriteria = meetsTotal && meetsOpenAndJuniorCombo && hasCapricornOpen;
+
+  return {
+    isJunior,
+    openTournamentsCount,
+    openTournamentsRequired: minOpenRequired,
+    juniorTournamentsCount: juniorQualifyingCount,
+    juniorTournamentsRequired: minJuniorRequired,
+    hasCapricornOpen,
+    meetsCriteria,
+  };
+}
+
 async function fetchAllProfilesBatched(supabase: any, pageSize = 1000): Promise<any[]> {
   // PostgREST enforces max-rows per response (commonly 1000). To fetch everything
   // without RPC/migrations, we must page on the server action and aggregate here.
@@ -216,6 +382,10 @@ async function fetchViaRPC(supabase: any): Promise<any[] | null> {
 export async function getRankings(): Promise<PlayerRanking[]> {
   const supabase = await createClient();
 
+  // Fetch approved tournaments for selection criteria
+  const approvedTournaments = await getApprovedTournamentsMap(supabase)
+  console.log('[rankings] Approved tournaments count:', approvedTournaments.size)
+
   let rows: any[] = [];
   // Prefer RPC (one call, pre-aggregated). Fallback to full-table fetch if RPC is not present.
   const rpcRows = await fetchViaRPC(supabase);
@@ -230,45 +400,57 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     }
   }
   
-  // Fetch tournament dates for all unique tournament IDs
+// Fetch tournament dates and details for all unique tournament IDs
   const tournamentIds = Array.from(new Set(
     rows
       .map(r => r["tournament_id"])
       .filter((id): id is string => id != null && id !== "")
   ));
 
-  const tournamentDatesMap = new Map<string, string>();
+  const tournamentDetailsMap = new Map<string, TournamentDetails>();
   if (tournamentIds.length > 0) {
     // Fetch from both tournaments and team_tournaments tables
     const { data: tournamentData, error: tournamentError } = await supabase
       .from("tournaments")
-      .select("id, date")
+      .select("id, tournament_name, location, tournament_type, date")
       .in("id", tournamentIds);
 
     const { data: teamTournamentData, error: teamTournamentError } = await supabase
       .from("team_tournaments")
-      .select("id, date")
+      .select("id, tournament_name, location, tournament_type, date")
       .in("id", tournamentIds);
 
     if (tournamentError) {
-      console.error("[rankings] Error fetching tournament dates:", tournamentError);
+      console.error("[rankings] Error fetching tournament details:", tournamentError);
     } else if (tournamentData) {
       for (const t of tournamentData) {
-        if (t.id && t.date) {
-          tournamentDatesMap.set(t.id, t.date);
+        if (t.id) {
+          tournamentDetailsMap.set(t.id, {
+            id: t.id,
+            tournament_name: t.tournament_name ?? null,
+            location: t.location ?? null,
+            tournament_type: t.tournament_type ?? null,
+            date: t.date ?? null,
+          });
         }
       }
-          }
+    }
 
     if (teamTournamentError) {
-      console.error("[rankings] Error fetching team tournament dates:", teamTournamentError);
+      console.error("[rankings] Error fetching team tournament details:", teamTournamentError);
     } else if (teamTournamentData) {
       for (const t of teamTournamentData) {
-        if (t.id && t.date) {
-          tournamentDatesMap.set(t.id, t.date);
+        if (t.id) {
+          tournamentDetailsMap.set(t.id, {
+            id: t.id,
+            tournament_name: t.tournament_name ?? null,
+            location: t.location ?? null,
+            tournament_type: t.tournament_type ?? null,
+            date: t.date ?? null,
+          });
         }
       }
-          }
+    }
   }
 
   // Group strictly by UNIQUE_NO
@@ -289,13 +471,15 @@ export async function getRankings(): Promise<PlayerRanking[]> {
     // Build per-tournament entries (keep raw rows for the details modal)
     let tournaments: TournamentEntry[] = gr.map((r) => {
       const tournamentId = (r["tournament_id"] ?? null) as string | null;
-      const tournamentDate = tournamentId ? (tournamentDatesMap.get(tournamentId) ?? null) : null;
+      const tournamentDetails = tournamentId ? tournamentDetailsMap.get(tournamentId) : null;
 
       return {
         raw_name: String(r["name"] ?? ""),
         tournament_id: tournamentId,
-        tournament_name: (r["tournament_name"] ?? null) as string | null,
-        tournament_date: tournamentDate,
+        tournament_name: tournamentDetails?.tournament_name ?? (r["tournament_name"] ?? null) as string | null,
+        tournament_date: tournamentDetails?.date ?? null,
+        tournament_type: tournamentDetails?.tournament_type ?? null,
+        location: tournamentDetails?.location ?? null,
         player_rating: safeNumber(r["player_rating"]) ?? safeNumber(r["RATING"]),
         performance_rating: safeNumber(r["performance_rating"]) ?? 0, // treat null as 0
         confidence: (r["confidence"] ?? null) as string | null,
@@ -335,6 +519,7 @@ export async function getRankings(): Promise<PlayerRanking[]> {
 
     const ageYears = computeAgeYears(latestRow["BDATE"]);
     const ageGroup = deriveAgeGroup(ageYears);
+    const selectionStats = calculateSelectionStats(tournaments, ageGroup, approvedTournaments);
 
     const p: PlayerRanking = {
       name_key: key,
@@ -350,6 +535,8 @@ export async function getRankings(): Promise<PlayerRanking[]> {
       age_years: ageYears,
       age_group: ageGroup,
       sex: (latestRow["SEX"] ?? null) as string | null,
+      is_junior: selectionStats.isJunior,
+      selection_stats: selectionStats,
     };
 
     return p;
@@ -387,6 +574,8 @@ export async function getRankingsForPeriod(periodValue?: string): Promise<Player
     '2025-2026': { start: '2025-10-01', end: '2026-09-30' },
   }
 
+  const supabase = await createClient()
+  const approvedTournaments = await getApprovedTournamentsMap(supabase)
   const players = await getRankings()
 
   if (!periodValue || !PERIODS[periodValue]) return players
@@ -413,11 +602,16 @@ export async function getRankingsForPeriod(periodValue?: string): Promise<Player
 
     const avg = validPerformanceRatings.length > 0 ? validPerformanceRatings.reduce((s, r) => s + r, 0) / validPerformanceRatings.length : 0
 
+    // Recalculate selection stats based on filtered tournaments for the period
+    const selectionStats = calculateSelectionStats(filteredTournaments, p.age_group, approvedTournaments)
+
     return {
       ...p,
       tournaments: filteredTournaments,
       tournaments_count: filteredTournaments.length,
       avg_performance_rating: Number(avg.toFixed(2)),
+      is_junior: selectionStats.isJunior,
+      selection_stats: selectionStats,
     }
   })
 

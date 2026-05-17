@@ -1,33 +1,28 @@
 "use client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Award } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { PlayerRanking, TournamentEntry } from "../server-actions"
 
-// Period definitions (same as tournaments)
 const PERIODS = [
   { label: '1 Oct 2024 - 30 Sept 2025', value: '2024-2025', start: '2024-10-01', end: '2025-09-30' },
   { label: '1 Oct 2025 - 30 Sept 2026', value: '2025-2026', start: '2025-10-01', end: '2026-09-30' },
 ]
 
-// Helper function to normalize date format to YYYY-MM-DD
 function normalizeDate(date: string): string {
-  // Replace all slashes with dashes
   return date.replace(/\//g, '-')
 }
 
-// Helper function to check if tournament date is in period
 function isInPeriod(date: string | null, periodValue: string): boolean {
   if (!date) return false
-
   const period = PERIODS.find(p => p.value === periodValue)
   if (!period) return false
-
-  // Normalize the date format before comparison
   const normalizedDate = normalizeDate(date)
   return normalizedDate >= period.start && normalizedDate <= period.end
 }
 
-// Helper function to filter tournaments by period
 function filterTournamentsByPeriod(tournaments: TournamentEntry[], periodValue: string): TournamentEntry[] {
   if (!periodValue || periodValue === "ALL") {
     return tournaments
@@ -35,9 +30,45 @@ function filterTournamentsByPeriod(tournaments: TournamentEntry[], periodValue: 
   return tournaments.filter(t => isInPeriod(t.tournament_date, periodValue))
 }
 
-function formatClassification(className: string): string {
-  if (className === "RATING_RELATED") return "PERFORMANCE"
-  return className.replaceAll("_", " ")
+function getTournamentType(t: TournamentEntry): 'open' | 'junior' | 'other' {
+  const type = t.tournament_type?.toLowerCase() ?? ''
+  if (type.includes('junior')) return 'junior'
+  if (type.includes('team')) return 'other'
+  return 'open'
+}
+
+const limpopoKeywords = [
+  'tzaneen', 'polokwane', 'northern academy', 'mokopane', 'limpopo',
+  'modimolle', 'mookgopong', 'seshego', 'capricorn', 'vhembe',
+  'mopane', 'sekhukhune', 'hans strijdom', 'bela-bela', 'tshakhuma',
+  'turfloop', 'university of limp', 'capricorn tvet', 'flora park', 'waterberg'
+]
+
+const juniorQualifyingKeywords = [
+  "cdc junior qualifiers", "cdc junior qualifying", "cdc qualifiers",
+  "capricorn junior qualifying", "capricorn district chess",
+  "vhembe district chess junior", "vhembe district junior",
+  "mopani open junior", "mopani district junior qualifiers", "mopani open junior qualifying",
+  "sekhukhune junior qualifying", "sekhukhune junior qualifiers",
+  "vhembe district junior qualifier", "waterberg junior"
+]
+
+function isLimpopoTournament(t: TournamentEntry): boolean {
+  const name = t.tournament_name?.toLowerCase() ?? ''
+  const loc = t.location?.toLowerCase() ?? ''
+  return limpopoKeywords.some(kw => name.includes(kw) || loc.includes(kw))
+}
+
+function isJuniorQualifyingTournament(t: TournamentEntry): boolean {
+  const name = t.tournament_name?.toLowerCase() ?? ''
+  return juniorQualifyingKeywords.some(kw => name.includes(kw))
+}
+
+function meetsJuniorSelectionCriteria(t: TournamentEntry): boolean {
+  if (isJuniorQualifyingTournament(t)) return true
+  const type = getTournamentType(t)
+  if (type === 'open' && isLimpopoTournament(t)) return true
+  return false
 }
 
 interface PerformanceDetailsModalProps {
@@ -50,147 +81,126 @@ interface PerformanceDetailsModalProps {
 export function PerformanceDetailsModal({ player, open, period, onClose }: PerformanceDetailsModalProps) {
   if (!player) return null
 
-  // Always display TB1-TB6 columns
-  const allTieBreakColumns = ['TB1', 'TB2', 'TB3', 'TB4', 'TB5', 'TB6']
-
-  // Filter tournaments by period first
   const filteredByPeriod = filterTournamentsByPeriod(player.tournaments, period)
 
-  // Debug logging - only log when modal is actually open
-  if (open) {
-    console.log('[PerformanceDetailsModal] Player:', player.display_name)
-    console.log('[PerformanceDetailsModal] Period filter:', period)
-    console.log('[PerformanceDetailsModal] Total tournaments:', player.tournaments.length)
-    console.log('[PerformanceDetailsModal] Filtered by period:', filteredByPeriod.length)
-    console.log('[PerformanceDetailsModal] Filtered tournaments:', filteredByPeriod.map(t => ({
-      name: t.tournament_name,
-      date: t.tournament_date,
-      inPeriod: period === "ALL" ? true : isInPeriod(t.tournament_date, period)
-    })))
-  }
-
-  // Calculate tournaments actually played (excluding those where all TB values are 0 or null)
-  const playedTournaments = filteredByPeriod.filter(tournament => {
-    const tieBreaks = tournament.tie_breaks || {}
-    const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
-      value !== null && value !== undefined && value !== "" && value !== 0
-    )
-    return hasValidTieBreaks
+  const playedTournaments = filteredByPeriod.filter(t => {
+    const tieBreaks = t.tie_breaks || {}
+    return Object.values(tieBreaks).some(v => v !== null && v !== undefined && v !== '' && v !== 0)
   })
 
   const tournamentsPlayedCount = playedTournaments.length
-
-  // Calculate average performance rating only from played tournaments in the period
-  const validPerformanceRatings = playedTournaments
-    .map(t => t.performance_rating)
-    .filter((rating): rating is number => rating !== null && rating !== undefined)
-
-  const avgPerformanceRating = validPerformanceRatings.length > 0
-    ? validPerformanceRatings.reduce((sum, rating) => sum + rating, 0) / validPerformanceRatings.length
-    : null
+  const validPerformanceRatings = playedTournaments.map(t => t.performance_rating).filter((r): r is number => r !== null && r !== undefined)
+  const avgPerformanceRating = validPerformanceRatings.length > 0 ? validPerformanceRatings.reduce((s, r) => s + r, 0) / validPerformanceRatings.length : null
 
   const activePeriod = PERIODS.find(p => p.value === period)
   const periodLabel = activePeriod ? activePeriod.label : 'All Time'
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent size="wide" className="border-2 border-border bg-card text-card-foreground flex flex-col rounded-md">
-        <DialogHeader className="flex-shrink-0 pb-3 px-2 sm:px-4">
-          <DialogTitle className="text-xl sm:text-2xl font-bold flex flex-col gap-2">
-            <span className="text-foreground truncate">{player.display_name}</span>
-            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4 text-base sm:text-lg font-semibold text-muted-foreground">
-              <span className="whitespace-nowrap">
-                Period: <span className="text-primary">{periodLabel}</span>
-              </span>
-              <span className="whitespace-nowrap">
-                Tournaments Played: {tournamentsPlayedCount}
-              </span>
-              <span className="whitespace-nowrap">
-                Avg Performance: {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}
-              </span>
+      <DialogContent 
+        size="wide" 
+        className="border-2 border-border bg-card text-card-foreground flex flex-col rounded-md max-h-[90vh] !max-w-[98vw] p-0"
+      >
+        <DialogHeader className="flex-shrink-0 px-3 py-2 sm:px-4 sm:py-3 border-b border-border">
+          <DialogTitle className="text-base sm:text-lg font-bold flex flex-col gap-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-foreground truncate">{player.display_name}</span>
+              {player.is_junior && (
+                <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">
+                  Junior
+                </Badge>
+              )}
+              <span className="text-sm font-bold text-amber-600">APR: {avgPerformanceRating ? Number(avgPerformanceRating).toFixed(1) : "-"}</span>
             </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-muted-foreground">
+              <span>Period: <span className="text-primary">{periodLabel}</span></span>
+              <span>Events: {tournamentsPlayedCount}</span>
+              {player.is_junior && (
+                <span>
+                  {player.selection_stats.meetsCriteria ? (
+                    <span className="text-red-600 font-bold">✓ QUALIFIED</span>
+                  ) : (
+                    <span className="text-muted-foreground">Not Qualified</span>
+                  )}
+                </span>
+              )}
+            </div>
+            {player.is_junior && (
+              <div className="text-[10px] text-muted-foreground flex items-center gap-4 mt-1">
+                <span className="flex items-center gap-1">
+                  <Award className="w-3 h-3 text-amber-500" /> Counts for CDC Selection
+                </span>
+                <span className="flex items-center gap-1 font-bold text-red-600">
+                  Q Meets Qualification Criteria
+                </span>
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 px-2 sm:px-4 pb-4">
-          <div className="h-full w-full overflow-x-auto overflow-y-auto">
-            <Table className="min-w-[1200px]">
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-bold uppercase text-xs text-muted-foreground min-w-[260px] w-[260px]">
-                    Tournament
-                  </TableHead>
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
-                    Date
-                  </TableHead>
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[80px]">
-                    Rating
-                  </TableHead>
-                  {allTieBreakColumns.map((tbKey) => (
-                    <TableHead
-                      key={tbKey}
-                      className="text-center font-bold uppercase text-xs text-muted-foreground w-[70px]"
-                    >
-                      {tbKey}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
-                    Performance
-                  </TableHead>
-                  <TableHead className="text-center font-bold uppercase text-xs text-muted-foreground w-[100px]">
-                    Confidence
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredByPeriod.map((t, idx) => {
-                  const tieBreaks = t.tie_breaks || {}
-                  const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
-                    value !== null && value !== undefined && value !== "" && value !== 0
-                  )
+        <div className="flex-1 overflow-auto px-2 sm:px-3 pb-2">
+          <Table className="w-full">
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground">Event</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-20">Date</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-16 hidden md:table-cell">Rate</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-12 hidden lg:table-cell">TB1</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-12 hidden lg:table-cell">TB2</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-12 hidden lg:table-cell">TB3</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] text-muted-foreground text-center w-20">Perf</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredByPeriod.map((t, idx) => {
+                const tieBreaks = t.tie_breaks || {}
+                const hasValidTieBreaks = Object.values(tieBreaks).some(value =>
+                  value !== null && value !== undefined && value !== "" && value !== 0
+                )
+                const meetsSelection = player.is_junior && meetsJuniorSelectionCriteria(t)
 
-                  return (
-                    <TableRow key={`${t.tournament_id}-${idx}`} className={`hover:bg-muted/30 ${!hasValidTieBreaks ? 'opacity-50' : ''}`}>
-                      <TableCell className="text-sm font-medium text-foreground min-w-[260px] w-[260px] break-words leading-tight py-3">
-                        {t.tournament_name}
-                        {!hasValidTieBreaks && (
-                          <span className="text-xs text-muted-foreground ml-2">(Registered)</span>
+                return (
+                  <TableRow 
+                    key={`${t.tournament_id}-${idx}`} 
+                    className={cn(
+                      "hover:bg-muted/30",
+                      !hasValidTieBreaks && "opacity-50"
+                    )}
+                  >
+                    <TableCell className="text-xs sm:text-sm font-medium text-foreground py-2 align-top">
+                      <div className="flex items-start gap-1.5">
+                        <span className="whitespace-normal break-words">{t.tournament_name}</span>
+                        {meetsSelection && (
+                          <Award className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
-                        {t.tournament_date ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-center text-muted-foreground w-[80px]">
-                        {t.player_rating ?? "-"}
-                      </TableCell>
-                      {allTieBreakColumns.map((tbKey) => {
-                        const value = t.tie_breaks?.[tbKey]
-                        const hasValue = value !== undefined && value !== null && value !== ""
-                        return (
-                          <TableCell 
-                            key={tbKey} 
-                            className={`text-sm text-center w-[70px] ${
-                              hasValue 
-                                ? "text-foreground font-medium" 
-                                : "text-muted-foreground/40 italic"
-                            }`}
-                          >
-                            {hasValue ? value : "-"}
-                          </TableCell>
-                        )
-                      })}
-                      <TableCell className="text-sm font-semibold text-center text-foreground w-[100px]">
-                        {t.performance_rating ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-center text-muted-foreground w-[100px]">
-                        {t.confidence ?? "-"}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                      </div>
+                      {!hasValidTieBreaks && (
+                        <span className="text-[10px] text-muted-foreground ml-1">(Reg)</span>
+                      )}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm text-center py-2 align-top", meetsSelection ? "text-amber-700" : "text-muted-foreground")}>
+                      {t.tournament_date ?? "-"}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm text-center py-2 align-top hidden md:table-cell", meetsSelection ? "text-amber-700" : "text-muted-foreground")}>
+                      {t.player_rating ?? "-"}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm text-center py-2 align-top hidden lg:table-cell", hasValidTieBreaks ? (meetsSelection ? "text-amber-700 font-medium" : "text-foreground font-medium") : "text-muted-foreground/40 italic")}>
+                      {tieBreaks['TB1'] ?? "-"}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm text-center py-2 align-top hidden lg:table-cell", hasValidTieBreaks ? (meetsSelection ? "text-amber-700 font-medium" : "text-foreground font-medium") : "text-muted-foreground/40 italic")}>
+                      {tieBreaks['TB2'] ?? "-"}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm text-center py-2 align-top hidden lg:table-cell", hasValidTieBreaks ? (meetsSelection ? "text-amber-700 font-medium" : "text-foreground font-medium") : "text-muted-foreground/40 italic")}>
+                      {tieBreaks['TB3'] ?? "-"}
+                    </TableCell>
+                    <TableCell className={cn("text-xs sm:text-sm font-bold text-center py-2 align-top", meetsSelection ? "text-amber-700" : "text-foreground")}>
+                      {t.performance_rating ?? "-"}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         </div>
       </DialogContent>
     </Dialog>

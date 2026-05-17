@@ -1,15 +1,49 @@
 "use client"
 
 import * as React from "react"
-import { Search, ChevronDown, ChevronUp, Filter } from "lucide-react"
+import { Search, ChevronDown, ChevronUp, Filter, X } from "lucide-react"
 
-// Period definitions (same as tournaments)
 const PERIODS = [
-  { label: "1 Oct 2024 - 30 Sept 2025", value: "2024-2025", start: "2024-10-01", end: "2025-09-30" },
-  { label: "1 Oct 2025 - 30 Sept 2026", value: "2025-2026", start: "2025-10-01", end: "2026-09-30" },
+  { label: "2024-2025", value: "2024-2025" },
+  { label: "2025-2026", value: "2025-2026" },
 ]
 
-export interface SearchFiltersState {
+const AGE_GROUPS = [
+  { label: "All Ages", value: "ALL" },
+  { label: "Adult (20-49)", value: "ADT" },
+  { label: "Senior (50+)", value: "SNR" },
+  { label: "Veteran (60+)", value: "VET" },
+  { label: "U20", value: "U20" },
+  { label: "U18", value: "U18" },
+  { label: "U16", value: "U16" },
+  { label: "U14", value: "U14" },
+  { label: "U12", value: "U12" },
+  { label: "U10", value: "U10" },
+]
+
+const RATING_OPTIONS = [
+  { label: "All Ratings", value: "ALL" },
+  { label: "Rated", value: "RATED" },
+  { label: "Unrated", value: "UNRATED" },
+]
+
+const GENDER_OPTIONS = [
+  { label: "All Genders", value: "ALL" },
+  { label: "Male", value: "Male" },
+  { label: "Female", value: "Female" },
+]
+
+const EVENTS_OPTIONS = [
+  { label: "All Events", value: "ALL" },
+  { label: "1 Event", value: "1" },
+  { label: "2+ Events", value: "2+" },
+  { label: "3+ Events", value: "3+" },
+  { label: "4+ Events", value: "4+" },
+  { label: "5+ Events", value: "5+" },
+  { label: "6+ Events", value: "6+" },
+]
+
+interface SearchFiltersState {
   name: string
   fed: string
   rating: string
@@ -17,6 +51,8 @@ export interface SearchFiltersState {
   ageGroup: string
   events: string
   period: string
+  juniors: string
+  qualified: string
 }
 
 interface SearchFiltersProps {
@@ -25,14 +61,71 @@ interface SearchFiltersProps {
   initialState?: Partial<SearchFiltersState>
 }
 
+function Select({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { label: string; value: string }[]
+  placeholder?: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const selected = options.find((o) => o.value === value)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full h-9 px-3 py-1.5 text-sm border-2 border-border rounded-md bg-background text-foreground flex items-center justify-between gap-2 hover:border-primary/50 transition-colors"
+      >
+        <span className="truncate">{selected?.label ?? placeholder ?? "Select..."}</span>
+        <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="fixed z-[9999] border-2 border-border rounded-md bg-background shadow-lg max-h-60 overflow-auto" style={{ top: ref.current?.getBoundingClientRect().bottom ? `${ref.current?.getBoundingClientRect().bottom + 4}px` : 'auto', left: ref.current?.getBoundingClientRect().left ? `${ref.current?.getBoundingClientRect().left}px` : 'auto', minWidth: ref.current?.offsetWidth }}>
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                onChange(opt.value)
+                setOpen(false)
+              }}
+              className={`w-full px-3 py-2 text-sm text-left hover:bg-muted ${value === opt.value ? "bg-primary/10 text-primary font-medium" : "text-foreground"}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFiltersProps) {
   const [name, setName] = React.useState(initialState?.name ?? "")
-  const [fed, setFed] = React.useState(initialState?.fed ?? "ALL")
+  const [fed, setFed] = React.useState(initialState?.fed ?? "Limpopo")
   const [rating, setRating] = React.useState(initialState?.rating ?? "ALL")
   const [gender, setGender] = React.useState(initialState?.gender ?? "ALL")
   const [ageGroup, setAgeGroup] = React.useState(initialState?.ageGroup ?? "ALL")
   const [events, setEvents] = React.useState(initialState?.events ?? "ALL")
-  const [period, setPeriod] = React.useState(initialState?.period ?? "ALL")
+  const [period, setPeriod] = React.useState(initialState?.period ?? "2025-2026")
   const [isExpanded, setIsExpanded] = React.useState(false)
 
   const apply = React.useCallback(
@@ -45,6 +138,8 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
         ageGroup,
         events,
         period,
+        juniors: "ALL",
+        qualified: ageGroup === "QUALIFIED" ? "yes" : ageGroup === "NOT_QUALIFIED" ? "no" : "ALL",
         ...next,
       }
       onSearch(payload)
@@ -52,23 +147,22 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
     [name, fed, rating, gender, ageGroup, events, period, onSearch],
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    apply()
+  const handleAgeGroupChange = (value: string) => {
+    setAgeGroup(value)
+    onSearch({ ageGroup: value, juniors: "ALL", qualified: "ALL" })
   }
 
   const handleReset = () => {
     setName("")
-    setFed("ALL")
+    setFed("Limpopo")
     setRating("ALL")
     setGender("ALL")
     setAgeGroup("ALL")
     setEvents("ALL")
-    setPeriod("ALL")
-    onSearch({ name: "", fed: "ALL", rating: "ALL", gender: "ALL", ageGroup: "ALL", events: "ALL", period: "ALL" })
+    setPeriod("2025-2026")
+    onSearch({ name: "", fed: "Limpopo", rating: "ALL", gender: "ALL", ageGroup: "ALL", events: "ALL", period: "2025-2026", qualified: "ALL", juniors: "ALL" })
   }
 
-  // Debounce name input
   React.useEffect(() => {
     const id = setTimeout(() => {
       apply({ name })
@@ -76,17 +170,6 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
     return () => clearTimeout(id)
   }, [name, apply])
 
-  const Chip = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1 text-xs rounded-md border ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border hover:bg-muted"}`}
-    >
-      {children}
-    </button>
-  )
-
-  // Count active filters
   const activeFiltersCount = React.useMemo(() => {
     let count = 0
     if (name.trim()) count++
@@ -99,9 +182,25 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
     return count
   }, [name, fed, rating, gender, ageGroup, events, period])
 
+  const activeFilterLabels = React.useMemo(() => {
+    const labels: string[] = []
+    if (fed !== "ALL") labels.push("Federation")
+    if (ageGroup !== "ALL") labels.push("Age")
+    if (rating !== "ALL") labels.push("Rating")
+    if (gender !== "ALL") labels.push("Gender")
+    if (events !== "ALL") labels.push("Events")
+    if (period !== "ALL") labels.push("Period")
+    return labels
+  }, [fed, ageGroup, rating, gender, events, period])
+
+  const fedSelectOptions = [
+    { label: "Limpopo + CSA + RSA", value: "Limpopo" },
+    { label: "All Federations", value: "ALL" },
+    ...fedOptions.map((f) => ({ label: f, value: f })),
+  ]
+
   return (
     <div className="w-full bg-card border-2 border-border rounded-lg shadow-md overflow-hidden">
-      {/* Sticky Header Stub */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -114,17 +213,15 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
           <div className="flex flex-col items-start">
             <span className="text-sm font-semibold text-foreground">Search & Filter Rankings</span>
             <span className="text-xs text-muted-foreground">
-              {activeFiltersCount > 0
-                ? `${activeFiltersCount} active filter${activeFiltersCount > 1 ? "s" : ""}`
+              {activeFiltersCount > 0 
+                ? `${activeFilterLabels.join(", ")} filter${activeFilterLabels.length > 1 ? "s" : ""} selected`
                 : "Click to expand filters"}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {activeFiltersCount > 0 && (
-            <span className="px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-              {activeFiltersCount}
-            </span>
+            <span className="px-2 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium">{activeFiltersCount}</span>
           )}
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -134,19 +231,14 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
         </div>
       </button>
 
-      {/* Collapsible Content */}
-      <div
-        className={`transition-all duration-300 ease-in-out ${
-          isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"
-        } overflow-hidden`}
-      >
-        <form onSubmit={handleSubmit} className="p-4 space-y-3 border-t-2 border-border">
+      <div className={`transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <form className="p-4 space-y-3 border-t-2 border-border">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search players by name, federation, or ID..."
+                  placeholder="Search players by name..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full h-9 pl-9 pr-3 py-1.5 text-sm border-2 border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
@@ -154,165 +246,45 @@ export function SearchFilters({ onSearch, fedOptions, initialState }: SearchFilt
                 <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                className="flex items-center justify-center gap-2 px-4 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 whitespace-nowrap"
-              >
-                Apply
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="px-3 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
-              >
-                Reset
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="px-3 py-1.5 h-9 text-sm border-2 border-border rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors flex items-center gap-1"
+            >
+              <X className="h-3 w-3" />
+              Reset
+            </button>
           </div>
 
-          {/* Filters Row */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground">Period:</span>
-              <Chip
-                active={period === "ALL"}
-                onClick={() => {
-                  setPeriod("ALL")
-                  apply({ period: "ALL" })
-                }}
-              >
-                ALL
-              </Chip>
-              {PERIODS.map((p) => (
-                <Chip
-                  key={p.value}
-                  active={period === p.value}
-                  onClick={() => {
-                    const next = period === p.value ? "ALL" : p.value
-                    setPeriod(next)
-                    apply({ period: next })
-                  }}
-                >
-                  {p.label}
-                </Chip>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Period</label>
+              <Select value={period} onChange={(v) => { setPeriod(v); apply({ period: v }) }} options={[{ label: "All Periods", value: "ALL" }, ...PERIODS]} />
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground">Rating:</span>
-              <Chip
-                active={rating === "RATED"}
-                onClick={() => {
-                  const next = rating === "RATED" ? "ALL" : "RATED"
-                  setRating(next)
-                  apply({ rating: next })
-                }}
-              >
-                Rated
-              </Chip>
-              <Chip
-                active={rating === "UNRATED"}
-                onClick={() => {
-                  const next = rating === "UNRATED" ? "ALL" : "UNRATED"
-                  setRating(next)
-                  apply({ rating: next })
-                }}
-              >
-                Unrated
-              </Chip>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Federation</label>
+              <Select value={fed} onChange={(v) => { setFed(v); apply({ fed: v }) }} options={fedSelectOptions} />
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground">Age:</span>
-              {["ADT", "SNR", "VET", "U20", "U18", "U16", "U14", "U12", "U10"].map((a) => (
-                <Chip
-                  key={a}
-                  active={ageGroup === a}
-                  onClick={() => {
-                    const next = ageGroup === a ? "ALL" : a
-                    setAgeGroup(next)
-                    apply({ ageGroup: next })
-                  }}
-                >
-                  {a}
-                </Chip>
-              ))}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Age Group</label>
+              <Select value={ageGroup} onChange={handleAgeGroupChange} options={AGE_GROUPS} />
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground">Events:</span>
-              {["1", "2+", "3+", "4+", "5+", "6+"].map((e) => (
-                <Chip
-                  key={e}
-                  active={events === e}
-                  onClick={() => {
-                    const next = events === e ? "ALL" : e
-                    setEvents(next)
-                    apply({ events: next })
-                  }}
-                >
-                  {e}
-                </Chip>
-              ))}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Rating</label>
+              <Select value={rating} onChange={(v) => { setRating(v); apply({ rating: v }) }} options={RATING_OPTIONS} />
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground">Gender:</span>
-              <Chip
-                active={gender === "Male"}
-                onClick={() => {
-                  const next = gender === "Male" ? "ALL" : "Male"
-                  setGender(next)
-                  apply({ gender: next })
-                }}
-              >
-                Male
-              </Chip>
-              <Chip
-                active={gender === "Female"}
-                onClick={() => {
-                  const next = gender === "Female" ? "ALL" : "Female"
-                  setGender(next)
-                  apply({ gender: next })
-                }}
-              >
-                Female
-              </Chip>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Gender</label>
+              <Select value={gender} onChange={(v) => { setGender(v); apply({ gender: v }) }} options={GENDER_OPTIONS} />
             </div>
 
-            <div className="flex items-start gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-muted-foreground leading-7">Federation:</span>
-              <Chip
-                active={fed === "ALL"}
-                onClick={() => {
-                  setFed("ALL")
-                  apply({ fed: "ALL" })
-                }}
-              >
-                ALL
-              </Chip>
-              <Chip
-                active={fed === "Limpopo"}
-                onClick={() => {
-                  setFed("Limpopo")
-                  apply({ fed: "Limpopo" })
-                }}
-              >
-                Limpopo
-              </Chip>
-              {fedOptions.map((f) => (
-                <Chip
-                  key={f}
-                  active={fed === f}
-                  onClick={() => {
-                    setFed(f)
-                    apply({ fed: f })
-                  }}
-                >
-                  {f}
-                </Chip>
-              ))}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Events</label>
+              <Select value={events} onChange={(v) => { setEvents(v); apply({ events: v }) }} options={EVENTS_OPTIONS} />
             </div>
           </div>
         </form>

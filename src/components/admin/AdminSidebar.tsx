@@ -42,6 +42,7 @@ const navGroups: NavGroup[] = [
     icon: Database,
     items: [
       { title: "Tournaments", href: "/admin/admin-dashboard/tournaments" },
+      { title: "Tournament Selection", href: "/admin/admin-dashboard/tournament-selection" },
     ],
     defaultOpen: true,
   },
