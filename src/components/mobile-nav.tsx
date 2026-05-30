@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  Menu, X, Trophy, TrendingUp, Gamepad2, Newspaper,
+  Menu, X, TrendingUp, Gamepad2, Newspaper,
   Calendar, FileText, Shield, Upload, LayoutDashboard, UserPlus,
   Info, Phone, LogOut,
 } from "lucide-react";
@@ -126,10 +126,9 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             {/* LCA DB */}
             <SectionLabel>LCA DB</SectionLabel>
             <div className="space-y-0.5 mb-1">
-              <MobileNavItem href="/tournaments" icon={Trophy}     onClick={close}>Tournaments</MobileNavItem>
-              <MobileNavItem href="/view"        icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
-              <MobileNavItem href="/rankings"    icon={TrendingUp} onClick={close}>Rankings</MobileNavItem>
-              <MobileNavItem href="/blog"        icon={Newspaper}  onClick={close}>Blog</MobileNavItem>
+              <MobileNavItem href="/view"            icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
+              <MobileNavItem href="/player-rankings" icon={TrendingUp} onClick={close}>Rankings</MobileNavItem>
+              <MobileNavItem href="/blog"            icon={Newspaper}  onClick={close}>Blog</MobileNavItem>
             </div>
 
             <div className="my-2 border-t border-border/50" />

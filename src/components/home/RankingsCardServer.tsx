@@ -1,15 +1,20 @@
-import {
-  getRankingsForPeriod,
-  type PlayerRanking,
-} from "@/app/rankings/server-actions";
+import { getSummaries } from "@/lib/rankingsServer";
+import type { RankedSummary } from "@/lib/rankings";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { cache } from "@/utils/cache";
 import { cn } from "@/lib/utils";
 
-const AGE_GROUPS = ["U8", "U10", "U12", "U14", "U16", "U18", "U20", "Seniors"];
-const GENDERS = ["M", "F"];
-const FEDERATIONS = ["LCP", "LMG", "LVT", "LWT", "LSG", "LIM"];
+// Chess-season start year for the card: 2025 = Oct 2025–Sep 2026.
+const SEASON = 2025;
+const SEASON_LABEL = "2025–2026";
+const REF_YEAR = 2026;
+
+// Limpopo grouping — any of the local-union federation codes.
+const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWT", "LIM"]);
+const isLimpopo = (p: RankedSummary) =>
+  p.federations.some((c) => LIM_CODES.has(c.toUpperCase()));
+const ageOf = (p: RankedSummary) =>
+  p.birthYear != null ? REF_YEAR - p.birthYear : null;
 
 function RankBadge({ index }: { index: number }) {
   const base = "inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold tabular-nums leading-none"
@@ -37,65 +42,53 @@ function RankBadge({ index }: { index: number }) {
 
 export async function RankingsCardServer() {
   try {
-    const rankingsCacheKey = "rankings-2025-2026";
-    let allRankings: PlayerRanking[] | null = cache.get(rankingsCacheKey);
+    // Player-rankings aggregation for the season (module-cached server-side).
+    const allRankings = await getSummaries(SEASON);
+    const limpopoRankings = allRankings.filter(isLimpopo);
 
-    if (!allRankings) {
-      allRankings = await getRankingsForPeriod("2025-2026");
-      cache.set(rankingsCacheKey, allRankings, 86400);
-    }
-
-    const limpopoRankings = allRankings.filter((p) =>
-      FEDERATIONS.includes(p.fed || ""),
-    );
-
-    const filterOptions = [
+    // A rotating "category" headline, derived from age (birthYear) + sex.
+    const AGE_CAPS = [8, 10, 12, 14, 16, 18, 20];
+    const filterOptions: (() => { filtered: RankedSummary[]; label: string })[] = [
       () => {
-        const randomAge = AGE_GROUPS[Math.floor(Math.random() * AGE_GROUPS.length)];
-        return { filtered: limpopoRankings.filter((p) => p.age_group === randomAge), label: `Top 10 ${randomAge} Limpopo Players` };
+        const cap = AGE_CAPS[Math.floor(Math.random() * AGE_CAPS.length)];
+        return {
+          filtered: limpopoRankings.filter((p) => { const a = ageOf(p); return a != null && a <= cap; }),
+          label: `Top 10 U${cap} Limpopo Players`,
+        };
       },
       () => {
-        const randomGender = GENDERS[Math.floor(Math.random() * GENDERS.length)];
+        const g = Math.random() < 0.5 ? "M" : "F";
         return {
-          filtered: limpopoRankings.filter((p) => p.sex === randomGender),
-          label: randomGender === "M" ? "Top 10 Male Limpopo Players" : "Top 10 Female Limpopo Players",
+          filtered: limpopoRankings.filter((p) => (p.sex ?? "").toUpperCase() === g),
+          label: g === "M" ? "Top 10 Male Limpopo Players" : "Top 10 Female Limpopo Players",
         };
       },
       () => ({ filtered: limpopoRankings, label: "Top 10 Limpopo Players" }),
-      () => {
-        const age16AndUnder = limpopoRankings.filter((p) => p.age_years != null && p.age_years <= 16);
-        return { filtered: age16AndUnder, label: "Top 10 Limpopo U16 Players" };
-      },
-      () => {
-        const veterans = limpopoRankings.filter((p) => p.age_years != null && p.age_years >= 60);
-        return { filtered: veterans, label: "Top 10 Limpopo Veterans" };
-      },
-      () => {
-        const seniors = limpopoRankings.filter((p) => p.age_years != null && p.age_years >= 50);
-        return { filtered: seniors, label: "Top 10 Limpopo Seniors" };
-      },
-      () => {
-        const u10 = limpopoRankings.filter((p) => p.age_years != null && p.age_years <= 10);
-        return { filtered: u10, label: "Top 10 Limpopo U10 Players" };
-      },
-      () => ({ filtered: limpopoRankings.filter((p) => p.sex === "F"), label: "Top 10 Limpopo Female Players" }),
-      () => ({ filtered: limpopoRankings.filter((p) => p.sex === "M"), label: "Top 10 Limpopo Male Players" }),
+      () => ({
+        filtered: limpopoRankings.filter((p) => { const a = ageOf(p); return a != null && a <= 16; }),
+        label: "Top 10 Limpopo U16 Players",
+      }),
+      () => ({
+        filtered: limpopoRankings.filter((p) => { const a = ageOf(p); return a != null && a >= 60; }),
+        label: "Top 10 Limpopo Veterans",
+      }),
+      () => ({
+        filtered: limpopoRankings.filter((p) => { const a = ageOf(p); return a != null && a >= 50; }),
+        label: "Top 10 Limpopo Seniors",
+      }),
     ];
 
-    const randomFilter = filterOptions[Math.floor(Math.random() * filterOptions.length)];
-    const { filtered, label } = randomFilter();
+    const { filtered, label } = filterOptions[Math.floor(Math.random() * filterOptions.length)]();
 
     const sorted = filtered
-      .filter((p) => p.avg_performance_rating)
-      .sort((a, b) => (b.avg_performance_rating || 0) - (a.avg_performance_rating || 0))
+      .filter((p) => p.avgPerf)
+      .sort((a, b) => b.avgPerf - a.avgPerf)
       .slice(0, 10);
 
+    // Fall back to the overall top 10 when the random category is empty.
     const rankings =
       sorted.length === 0
-        ? allRankings
-            .filter((p) => p.avg_performance_rating)
-            .sort((a, b) => (b.avg_performance_rating || 0) - (a.avg_performance_rating || 0))
-            .slice(0, 10)
+        ? allRankings.filter((p) => p.avgPerf).sort((a, b) => b.avgPerf - a.avgPerf).slice(0, 10)
         : sorted;
 
     const categoryLabel = sorted.length === 0 ? "Top 10 Players Overall" : label;
@@ -115,13 +108,13 @@ export async function RankingsCardServer() {
       <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col">
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex-shrink-0 bg-muted/20">
-          <Link href="/rankings" className="group flex items-center justify-between">
+          <Link href="/player-rankings" className="group flex items-center justify-between">
             <h2 className="text-sm font-bold text-primary group-hover:text-primary/80 flex items-center gap-1.5 leading-tight">
               {categoryLabel}
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </h2>
             <span className="text-xs font-semibold text-muted-foreground font-mono tabular-nums">
-              2025–2026
+              {SEASON_LABEL}
             </span>
           </Link>
         </div>
@@ -155,7 +148,7 @@ export async function RankingsCardServer() {
               <tbody>
                 {rankings.map((player, index) => (
                   <tr
-                    key={player.name_key || index}
+                    key={player.key || index}
                     className={cn(
                       "border-b border-border/40 transition-colors hover:bg-muted/30",
                       index % 2 === 1 && "bg-muted/10",
@@ -173,13 +166,13 @@ export async function RankingsCardServer() {
                       </span>
                     </td>
                     <td className="hidden sm:table-cell px-2 py-2.5 text-center text-muted-foreground">
-                      {player.tournaments_count || 0}
+                      {player.ratedTournaments || 0}
                     </td>
                     <td className="hidden md:table-cell px-2 py-2.5">
-                      <span className="text-muted-foreground">{player.fed || "—"}</span>
+                      <span className="text-muted-foreground">{player.federation || "—"}</span>
                     </td>
                     <td className="hidden lg:table-cell px-2 py-2.5 text-right text-muted-foreground">
-                      {player.rating || "—"}
+                      {player.currentRating ?? player.fideRating ?? "—"}
                     </td>
                     <td className={cn(
                       "px-3 py-2.5 text-right font-bold tabular-nums whitespace-nowrap",
@@ -188,9 +181,7 @@ export async function RankingsCardServer() {
                       index === 2 ? "text-orange-600 dark:text-orange-400" :
                       "text-primary",
                     )}>
-                      {player.avg_performance_rating
-                        ? Math.round(player.avg_performance_rating)
-                        : "—"}
+                      {player.avgPerf ? Math.round(player.avgPerf) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -201,7 +192,7 @@ export async function RankingsCardServer() {
           {/* Footer */}
           <div className="px-4 py-2.5 border-t border-border bg-muted/10 flex-shrink-0">
             <Link
-              href="/rankings"
+              href="/player-rankings"
               className="text-xs text-primary hover:text-primary/80 font-medium flex items-center justify-center gap-1 group"
             >
               View All Rankings
@@ -219,7 +210,7 @@ export async function RankingsCardServer() {
         <div className="flex-1 flex items-center justify-center text-center">
           <div>
             <p className="text-muted-foreground text-sm">Error loading rankings</p>
-            <Link href="/rankings" className="mt-2 text-primary hover:underline text-sm">
+            <Link href="/player-rankings" className="mt-2 text-primary hover:underline text-sm">
               Try again
             </Link>
           </div>

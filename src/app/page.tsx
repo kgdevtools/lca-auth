@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { BlogCardServer } from "@/components/home/BlogCardServer";
-import { CompactTournamentsCard } from "@/components/home/CompactTournamentsCard";
 import { UpcomingTournamentCardServer } from "@/components/home/UpcomingTournamentCard";
 import { RankingsCardServer } from "@/components/home/RankingsCardServer";
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer";
@@ -76,7 +75,6 @@ export default function Home() {
 
         {/* Right: info cards */}
         <div className="flex flex-col gap-4 sm:gap-6">
-          <CompactTournamentsCard />
           <UpcomingTournamentCardServer />
         </div>
 

@@ -50,14 +50,9 @@ export default function NotFound() {
                 Games Database
               </Button>
             </Link>
-            <Link href="/rankings">
+            <Link href="/player-rankings">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                 Rankings
-              </Button>
-            </Link>
-            <Link href="/tournaments">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                Tournaments
               </Button>
             </Link>
           </div>

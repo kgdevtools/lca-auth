@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Search, Plus, Edit2, Trash2, Eye, Users, FileSpreadsheet, FileText, FileJson, SlidersHorizontal, X } from "lucide-react"
+import { Search, Plus, Edit2, Trash2, Users, FileSpreadsheet, FileText, FileJson, SlidersHorizontal, X } from "lucide-react"
 import { getTournaments, deleteTournament, bulkDeleteTournaments, getAllTournamentsForExport } from "../server-actions"
 import TournamentFormModal from "./TournamentFormModal"
 import { useExport } from "@/hooks/useExport"
@@ -462,13 +462,6 @@ export default function TournamentsTable() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-0.5">
-                          <button
-                            title="View"
-                            onClick={() => window.open(`/tournaments/${tournament.id}`, "_blank")}
-                            className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
                           <button
                             title="Edit"
                             onClick={() => handleEdit(tournament)}

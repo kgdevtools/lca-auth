@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { getNextUpcomingTournament } from "@/repositories/upcomingTournamentRepo";
 import type { UpcomingTournament } from "@/types/upcoming-tournament";
@@ -9,7 +8,7 @@ export async function UpcomingTournamentCardServer() {
 
     if (!tournament) {
       return (
-        <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col min-h-[280px] hover:border-primary/30 transition-colors">
+        <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col h-full min-h-[280px] hover:border-primary/30 transition-colors">
           <div className="flex items-center justify-between gap-2 mb-3">
             <Link
               href="/events"
@@ -43,7 +42,7 @@ export async function UpcomingTournamentCardServer() {
   } catch (error) {
     console.error("Error in UpcomingTournamentCardServer:", error);
     return (
-      <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col min-h-[280px] hover:border-destructive/30 transition-colors">
+      <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col h-full min-h-[280px] hover:border-destructive/30 transition-colors">
         <div className="flex items-center justify-between gap-2 mb-3">
           <Link
             href="/events"
@@ -93,9 +92,9 @@ function UpcomingTournamentCardClient({
     : null;
 
   const CardInner = (
-    <div className="rounded-lg border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-card/80 dark:bg-card/60 backdrop-blur-sm group/card">
+    <div className="rounded-lg border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-card/80 dark:bg-card/60 backdrop-blur-sm group/card flex-1 flex flex-col">
       {hasPoster ? (
-        <div className="w-full bg-black flex items-center justify-center">
+        <div className="w-full flex-1 bg-black flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={tournament.poster_url!}
@@ -141,7 +140,7 @@ function UpcomingTournamentCardClient({
   );
 
   return (
-    <div className="block group">
+    <div className="block group h-full flex flex-col">
       {/* Header row */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <Link

@@ -1,0 +1,540 @@
+/* Scoped styling for /player-rankings. Adapts the rankings design onto the app's
+   existing theme tokens (Geist fonts, slate/blue palette). Dark mode comes free
+   via the app's .dark class because every colour resolves from an app token.
+   Mobile-first, near-square (2px) radius. */
+
+.page {
+  /* local aliases → app tokens, so dark mode just works */
+  --rk-surface: var(--card);
+  --rk-surface-2: var(--input);
+  --rk-text: var(--foreground);
+  --rk-muted: var(--muted-foreground);
+  --rk-faint: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  --rk-border: var(--border);
+  --rk-hover: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+  --rk-expand: color-mix(in srgb, var(--muted-foreground) 6%, transparent);
+  --rk-zebra: color-mix(in srgb, var(--muted-foreground) 5%, transparent);
+  --rk-head-bg: color-mix(in srgb, var(--muted-foreground) 11%, transparent);
+  --rk-accent: var(--primary);
+  --rk-accent-soft: color-mix(in srgb, var(--primary) 13%, transparent);
+  --rk-pos: var(--chart-2);
+  --rk-neg: var(--destructive);
+
+  --rk-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --row-pad-y: 4px;
+  --cell-pad-x: 12px;
+  --rank-w: 44px;
+
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 12px 72px;
+  color: var(--rk-text);
+}
+
+.mono {
+  font-family: var(--rk-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* custom horizontal scrollbar */
+.scrollX {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-border) transparent;
+}
+.scrollX::-webkit-scrollbar { height: 9px; }
+.scrollX::-webkit-scrollbar-thumb {
+  background: var(--rk-border);
+  border-radius: 99px;
+  border: 3px solid var(--background);
+}
+.scrollX::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Filter bar ───────────────────────────────────────── */
+.filters {
+  background: var(--rk-surface);
+  border: 1px solid var(--rk-border);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--rk-surface-2);
+  border: 1px solid var(--rk-border);
+  border-radius: 7px;
+  padding: 0 12px;
+  height: 34px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.search:focus-within {
+  border-color: var(--rk-accent);
+  box-shadow: 0 0 0 3px var(--rk-accent-soft);
+}
+.search input {
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--rk-text);
+  font: inherit;
+  font-size: 14px;
+  width: 100%;
+}
+.search input::placeholder { color: var(--rk-faint); }
+.search svg { color: var(--rk-faint); flex-shrink: 0; }
+
+/* Scope controls: stacked label-over-control, responsive auto-fit grid. */
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 14px;
+}
+.field, .fieldNum { display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+.field > span, .fieldNum > span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rk-faint);
+  white-space: nowrap;
+}
+/* Display controls + reset. */
+.filterFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rk-border);
+}
+.fieldNum { flex: 0 0 auto; }
+.num {
+  width: 110px;
+  height: 34px;
+  border: 1px solid var(--rk-border);
+  background: var(--rk-surface-2);
+  border-radius: 7px;
+  padding: 0 11px;
+  font-family: var(--rk-mono);
+  font-size: 13px;
+  color: var(--rk-text);
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+  -moz-appearance: textfield;
+}
+.num:hover { border-color: color-mix(in srgb, var(--rk-border) 50%, var(--rk-muted)); }
+.num:focus { border-color: var(--rk-accent); box-shadow: 0 0 0 3px var(--rk-accent-soft); }
+.num::-webkit-outer-spin-button,
+.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Shaded, borderless controls — a light cyan/blue fill that deepens on
+   hover/focus (no border or focus ring). */
+.sel {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: none;
+  background-color: color-mix(in srgb, var(--rk-accent) 10%, var(--rk-surface-2));
+  border-radius: 7px;
+  padding: 0 30px 0 11px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--rk-text);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  transition: background-color .12s, opacity .12s;
+}
+.sel:hover { background-color: color-mix(in srgb, var(--rk-accent) 16%, var(--rk-surface-2)); }
+.sel:focus { background-color: color-mix(in srgb, var(--rk-accent) 20%, var(--rk-surface-2)); }
+.sel:disabled { opacity: 0.4; cursor: not-allowed; }
+.clearBtn {
+  margin-left: auto;
+  align-self: flex-end;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--rk-muted);
+  background: color-mix(in srgb, var(--rk-accent) 10%, var(--rk-surface-2));
+  border: none;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 7px;
+  height: 34px;
+  transition: background-color .12s, color .12s;
+}
+.clearBtn:hover { color: var(--rk-accent); background: color-mix(in srgb, var(--rk-accent) 18%, var(--rk-surface-2)); }
+
+/* ── Table ────────────────────────────────────────────── */
+.empty { margin-top: 32px; text-align: center; color: var(--rk-muted); font-size: 14px; }
+.tableWrap {
+  margin-top: 14px;
+  background: var(--rk-surface);
+  border: 1px solid var(--rk-border);
+  border-radius: 10px;
+}
+.tableScroll { overflow-x: auto; border-radius: 10px; }
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.table th, .table td { white-space: nowrap; }
+
+/* group band + column header (slightly larger, darker shaded bg) */
+.grp th {
+  padding: 9px var(--cell-pad-x) 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--rk-muted);
+  text-align: right;
+  background: var(--rk-head-bg);
+}
+.grp th.gl { text-align: left; }
+.grp th.spacer { padding: 0; }
+
+.col th {
+  padding: 0 var(--cell-pad-x) 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--rk-muted);
+  text-align: right;
+  background: var(--rk-head-bg);
+  border-bottom: 1px solid var(--rk-border);
+}
+.col th.gl { text-align: left; }
+.col th.sortable { cursor: pointer; user-select: none; }
+.col th.sortable:hover { color: var(--rk-text); }
+.arr { color: var(--rk-accent); font-size: 9px; margin-left: 3px; }
+
+.table tbody td {
+  padding: var(--row-pad-y) var(--cell-pad-x);
+  text-align: right;
+  color: var(--rk-text);
+  vertical-align: middle;
+}
+.row { transition: background .1s; cursor: pointer; }
+.row[data-even="true"] { background: var(--rk-zebra); }
+.row:hover { background: var(--rk-hover); }
+.row[data-open="true"] { background: var(--rk-expand); }
+
+/* sticky left columns */
+.cRank, .cName { position: sticky; background: var(--rk-surface); z-index: 1; }
+.cRank { left: 0; }
+.table th.cRank, .table td.cRank {
+  width: var(--rank-w);
+  min-width: var(--rank-w);
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: center;
+}
+.cName { left: var(--rank-w); }
+.table thead .cRank, .table thead .cName { z-index: 3; background: var(--rk-head-bg); }
+.row[data-even="true"] .cRank, .row[data-even="true"] .cName { background: var(--rk-zebra); }
+.row:hover .cRank, .row:hover .cName { background: var(--rk-hover); }
+.row[data-open="true"] .cRank, .row[data-open="true"] .cName { background: var(--rk-expand); }
+
+/* rank cell */
+.rankN {
+  font-family: var(--rk-mono);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--rk-muted);
+  font-variant-numeric: tabular-nums;
+}
+.row[data-medal="1"] .rankN { color: oklch(0.70 0.14 78); font-weight: 600; }
+.row[data-medal="2"] .rankN { color: oklch(0.62 0.02 250); font-weight: 600; }
+.row[data-medal="3"] .rankN { color: oklch(0.55 0.09 50); font-weight: 600; }
+
+/* name cell */
+.table td.cName { text-align: left; }
+.nameWrap { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.caret { color: var(--rk-faint); flex-shrink: 0; transition: transform .18s ease, color .12s; }
+.row:hover .caret { color: var(--rk-accent); }
+.row[data-open="true"] .caret { transform: rotate(90deg); color: var(--rk-accent); }
+.nameMain { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nameLine { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.pname {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--rk-text);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.titleBadge {
+  font-family: var(--rk-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--rk-accent);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.nameMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--rk-faint);
+  font-family: var(--rk-mono);
+}
+.nameMeta .fed { color: var(--rk-muted); font-weight: 500; }
+.nameMeta .dot { opacity: 0.5; }
+
+/* numeric cells */
+.numCell {
+  font-family: var(--rk-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.dim { color: var(--rk-muted); }
+.faint { color: var(--rk-faint); }
+.hero { color: var(--rk-accent); font-weight: 600; font-size: 14px; }
+.delta { font-weight: 500; }
+.delta[data-sign="pos"] { color: var(--rk-pos); }
+.delta[data-sign="neg"] { color: var(--rk-neg); }
+.tri { font-size: 8px; margin-right: 2px; vertical-align: 1px; }
+
+/* hidden on small screens (everything past Player + Performance) */
+@media (max-width: 720px) {
+  .hideSm { display: none !important; }
+}
+
+/* ── Expanded panel ───────────────────────────────────── */
+.expandCell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--rk-border) !important;
+  background: var(--rk-expand);
+}
+/* The expanded row is conditionally rendered (mounted only when open), so it
+   takes its natural height — no max-height/grid-rows reveal tricks that can
+   fail to expand on mobile. A light mount animation provides the polish. */
+.expandPad {
+  padding: 12px 14px 22px;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  align-items: stretch;
+  animation: rk-reveal .24s ease;
+}
+@keyframes rk-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.profile {
+  /* no card chrome — sits plainly on the expanded background */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+.profileName { font-size: 16px; font-weight: 600; color: var(--rk-text); letter-spacing: -0.01em; }
+.profileSub { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 6px; }
+.pfTag { font-size: 12px; font-family: var(--rk-mono); color: var(--rk-muted); }
+.pfTag:not(:last-child)::after { content: "·"; margin-left: 7px; color: var(--rk-faint); }
+.profileBig {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rk-border);
+  width: 100%;
+}
+.profileBig .val { font-family: var(--rk-mono); font-size: 32px; font-weight: 600; color: var(--rk-accent); line-height: 1; }
+.profileBig .lab { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--rk-faint); }
+.profileStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin-top: 14px;
+  width: 100%;
+}
+.ps { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; }
+.ps .l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rk-faint); }
+.ps .v { font-family: var(--rk-mono); font-size: 14.5px; font-weight: 500; color: var(--rk-text); }
+.ps .v[data-sign="pos"] { color: var(--rk-pos); }
+.ps .v[data-sign="neg"] { color: var(--rk-neg); }
+.idBadge { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--rk-muted); margin-top: auto; padding-top: 14px; }
+.idDot { width: 6px; height: 6px; border-radius: 99px; background: var(--rk-pos); }
+.idDot[data-kind="fuzzy"] { background: oklch(0.72 0.13 78); }
+.idDot[data-kind="fide"] { background: oklch(0.62 0.1 250); }
+
+.historyHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.historyTitle { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rk-muted); }
+
+/* region toggle on the tournament list */
+.regBar { display: inline-flex; background: var(--rk-surface-2); border-radius: 2px; padding: 2px; gap: 2px; }
+.regBtn {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rk-muted);
+  background: none;
+  border: none;
+  padding: 4px 9px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color .12s, background .12s;
+}
+.regBtn:hover { color: var(--rk-text); }
+.regBtn[data-active="true"] { background: var(--rk-accent-soft); color: var(--rk-accent); }
+
+/* Fixed-height scroll area: long histories scroll instead of stretching the
+   panel. The header stays pinned while rows scroll under it. */
+.histScroll {
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-border) transparent;
+}
+.histScroll::-webkit-scrollbar { width: 9px; }
+.histScroll::-webkit-scrollbar-thumb {
+  background: var(--rk-border);
+  border-radius: 99px;
+  border: 3px solid var(--background);
+}
+.histScroll::-webkit-scrollbar-track { background: transparent; }
+
+.hist { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+.hist th {
+  text-align: right;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rk-faint);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--rk-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rk-surface);
+}
+.hist th.l { text-align: left; }
+.hist td {
+  text-align: right;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--rk-border);
+  font-family: var(--rk-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--rk-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hist tr:last-child td { border-bottom: none; }
+.hist td.l { text-align: left; }
+.hist tr:hover td { background: var(--rk-hover); }
+/* Fixed widths for the data columns (they must always read in full); Event is
+   the only flexible column, so it absorbs the slack and is the only one that
+   ellipsises. Widened slightly here vs. before to give the numbers more room. */
+.hist col.histDate { width: 54px; }
+.hist col.histRank { width: 48px; }
+.hist col.histPts { width: 52px; }
+.hist col.histRating { width: 64px; }
+.hist col.histPerf { width: 60px; }
+.hist col.histGap { width: 64px; }
+/* Only the Event cell crops; data cells never do. */
+.hist td:not(.l) { overflow: visible; text-overflow: clip; }
+.evName { font-family: var(--font-geist-sans), sans-serif; font-weight: 500; color: var(--rk-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evLoc { font-family: var(--font-geist-sans), sans-serif; font-size: 11px; color: var(--rk-faint); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evDate { color: var(--rk-muted); }
+.evPerf { font-weight: 600; color: var(--rk-text); }
+/* stacked date: month on top, year small underneath (no ellipsis) */
+.evDateCell { overflow: visible; }
+.evMonth { color: var(--rk-text); line-height: 1.1; }
+.evYear { font-size: 10px; color: var(--rk-faint); margin-top: 1px; line-height: 1; }
+
+/* ── Performance chart (with axes) ────────────────────── */
+/* SVG draws only the geometry (non-scaling strokes so it can stretch freely);
+   y-tick numbers, x-month labels and the points are HTML overlaid by % so they
+   stay crisp and undistorted at any width. */
+.chart {
+  /* no border/background — fills the full history width */
+  width: 100%;
+  margin: 2px 0 14px;
+  padding: 4px 2px 0;
+}
+.chartBody { display: flex; gap: 7px; }
+.chartYAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 150px;
+  width: 30px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.chartYTick { font-family: var(--rk-mono); font-size: 9px; color: var(--rk-faint); line-height: 1; }
+.chartPlot { position: relative; flex: 1; height: 150px; min-width: 0; }
+.chartSvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.chartGrid { stroke: var(--rk-border); stroke-width: 1; opacity: 0.45; }
+.chartArea { fill: url(#rk-spark); }
+.chartLine { fill: none; stroke: var(--rk-accent); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.chartDot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--rk-accent);
+  transform: translate(-50%, -50%);
+}
+.chartDot[data-last="true"] {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--rk-surface);
+  box-shadow: 0 0 0 1px var(--rk-accent);
+}
+.chartXAxis { position: relative; height: 12px; margin: 5px 0 0 37px; }
+.chartXTick {
+  position: absolute;
+  font-family: var(--rk-mono);
+  font-size: 9px;
+  color: var(--rk-faint);
+  white-space: nowrap;
+  line-height: 1;
+}
+.chartEmpty {
+  font-size: 11.5px;
+  color: var(--rk-faint);
+  font-family: var(--rk-mono);
+  padding: 14px 2px;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (min-width: 600px) {
+  .search { height: 38px; }
+}
+@media (min-width: 768px) {
+  .page { padding: 28px 18px 80px; }
+}
+@media (min-width: 1024px) {
+  .page { padding: 32px 24px 96px; }
+}
+@media (max-width: 767px) {
+  .expandPad { grid-template-columns: 1fr; gap: 14px; padding: 10px 12px 18px; }
+  .profile { width: 100%; }
+}
+@media (max-width: 767px) {
+  /* keep the stacked panel comfortably within the reveal cap */
+  .histScroll { max-height: 240px; }
+}
+@media (max-width: 480px) {
+  .hist th, .hist td { padding-left: 7px; padding-right: 7px; }
+  .evLoc { display: none; }
+}

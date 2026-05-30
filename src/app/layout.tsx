@@ -180,10 +180,9 @@ export default async function RootLayout({
                     label="LCA DB"
                     groupIcon="database"
                     items={[
-                      { href: "/tournaments", label: "Tournaments", icon: "trophy"    },
-                      { href: "/view",        label: "View Games",  icon: "gamepad"   },
-                      { href: "/rankings",    label: "Rankings",    icon: "trending"  },
-                      { href: "/blog",        label: "Blog",        icon: "newspaper" },
+                      { href: "/view",            label: "View Games", icon: "gamepad"   },
+                      { href: "/player-rankings", label: "Rankings",   icon: "trending"  },
+                      { href: "/blog",            label: "Blog",       icon: "newspaper" },
                     ]}
                   />
                   <NavGroup

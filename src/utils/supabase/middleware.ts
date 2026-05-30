@@ -4,8 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/forms") ||
-    request.nextUrl.pathname.startsWith("/tournaments")
+    request.nextUrl.pathname.startsWith("/forms")
   ) {
     return NextResponse.next({ request });
   }
