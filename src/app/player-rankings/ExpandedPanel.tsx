@@ -4,7 +4,6 @@ import { useState } from "react"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import styles from "./rankings.module.css"
 
-const signed = (n: number) => (n >= 0 ? `+${n}` : String(n))
 const f1 = (n: number | null) => (n == null ? "0.0" : n.toFixed(1))
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const parseDate = (s: string | null) => {
@@ -210,7 +209,6 @@ export default function ExpandedPanel({
                 <col className={styles.histPts} />
                 <col className={styles.histRating} />
                 <col className={styles.histPerf} />
-                <col className={`${styles.histGap} ${styles.hideSm}`} />
               </colgroup>
               <thead>
                 <tr>
@@ -220,7 +218,6 @@ export default function ExpandedPanel({
                   <th>Pts</th>
                   <th>Rating</th>
                   <th>Perf</th>
-                  <th className={styles.hideSm}>Chg</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,16 +237,6 @@ export default function ExpandedPanel({
                     <td>{f1(a.points)}</td>
                     <td className={styles.evDate}>{a.seed ?? 0}</td>
                     <td className={styles.evPerf}>{a.perf ?? 0}</td>
-                    <td className={`${styles.delta} ${styles.hideSm}`} data-sign={a.gap == null ? undefined : a.gap >= 0 ? "pos" : "neg"}>
-                      {a.gap == null ? (
-                        0
-                      ) : (
-                        <>
-                          <span className={styles.tri}>{a.gap >= 0 ? "▲" : "▼"}</span>
-                          {signed(a.gap)}
-                        </>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
