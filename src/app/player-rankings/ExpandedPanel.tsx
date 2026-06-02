@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
+import type { SelectionVerdict } from "@/lib/cdcSelection"
 import styles from "./rankings.module.css"
 
 const f1 = (n: number | null) => (n == null ? "0.0" : n.toFixed(1))
@@ -115,10 +116,13 @@ function PerfChart({ points }: { points: { date: string | null; perf: number }[]
 export default function ExpandedPanel({
   p,
   appearances,
+  verdict,
 }: {
   p: RankedSummary
   /** Lazily fetched on expand; null while the request is in flight. */
   appearances: Appearance[] | null
+  /** CDC verdict for the active cohort, or null when selection doesn't apply. */
+  verdict?: SelectionVerdict | null
 }) {
   const [region, setRegion] = useState<Region>("all")
 
@@ -142,7 +146,7 @@ export default function ExpandedPanel({
           : "Name only"
 
   return (
-    <td className={styles.expandCell} colSpan={9}>
+    <td className={styles.expandCell} colSpan={8}>
       <div className={styles.expandPad}>
         {/* profile / summary */}
         <aside className={styles.profile}>
@@ -167,6 +171,20 @@ export default function ExpandedPanel({
             <div className={styles.ps}><span className={styles.l}>FIDE</span><span className={styles.v}>{p.fideRating ?? 0}</span></div>
             <div className={styles.ps}><span className={styles.l}>Chess SA</span><span className={styles.v}>{p.currentRating ?? 0}</span></div>
           </div>
+
+          {verdict && (
+            <div className={styles.selBlock} data-meets={verdict.meets}>
+              <div className={styles.selHead}>
+                <span className={styles.selBadge} data-meets={verdict.meets}>{verdict.meets ? "✓" : "✗"}</span>
+                <span className={styles.selComment}>{verdict.comment}</span>
+              </div>
+              <div className={styles.selCounts}>
+                <span>JQ <strong>{p.juniorTournaments}</strong></span>
+                <span>Open <strong>{p.openTournaments}</strong></span>
+                <span>Capricorn <strong>{p.capricornTournaments}</strong></span>
+              </div>
+            </div>
+          )}
 
           <div className={styles.idBadge}>
             <span className={styles.idDot} data-kind={idKind} />

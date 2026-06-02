@@ -6,6 +6,8 @@
  * averaging, and all filters. No I/O, no Node APIs.
  */
 
+import { classifyTournament, type TournamentType } from "./cdcSelection";
+
 // ── Raw shapes (as returned by Supabase / the regions json) ───────────────────
 
 export interface RawViewRow {
@@ -85,6 +87,8 @@ export interface Appearance {
   date: string | null;
   province: string | null;
   district: string | null;
+  /** CDC selection classification of the tournament (by name). */
+  type: TournamentType;
   rank: number | null;
   points: number | null;
   seed: number | null;
@@ -115,11 +119,24 @@ export interface RankedPlayer {
   worstPerf: number;
   ratedTournaments: number;
   totalAppearances: number;
+  /** Number of tournaments the player finished 1st (rank === 1). */
+  wins: number;
   /** The player's earliest tournament's seed rating (first instance, NOT an average). */
   tournamentRating: number | null;
   avgGap: number | null;
   avgPoints: number | null;
   avgMatch: number | null;
+  /** CDC selection counts (only meaningful within a single cycle / period). */
+  juniorTournaments: number;
+  openTournaments: number;
+  /** Counted (junior/open) tournaments played in Capricorn district. */
+  capricornTournaments: number;
+  hasCapricornOpen: boolean;
+  /** Played ≥1 event (any type) in Capricorn district / Limpopo province — used by
+   *  the location-based region filter so non-Limpopo-federation players who turned
+   *  up at local tournaments are still rankable. */
+  playedCapricorn: boolean;
+  playedLimpopo: boolean;
   /** Newest first. */
   appearances: Appearance[];
 }
@@ -307,6 +324,7 @@ export function rankPlayers(
       date: tourn?.date ?? null,
       province: reg?.province ?? null,
       district: reg?.district ?? null,
+      type: classifyTournament(tourn?.tournament_name),
       rank: num(r.rank),
       points: pointsVal,
       seed,
@@ -346,6 +364,17 @@ export function rankPlayers(
     const federations = [...p.federations].sort();
     const federation = pickFederation(federations) ?? p.federation;
 
+    // CDC selection counts — only the counted (junior/open) appearances.
+    const counted = p.appearances.filter((a) => a.type !== 'other');
+    const juniorTournaments = counted.filter((a) => a.type === 'junior').length;
+    const openTournaments = counted.filter((a) => a.type === 'open').length;
+    const capricornTournaments = counted.filter((a) => a.district === 'Capricorn').length;
+    const hasCapricornOpen = counted.some((a) => a.type === 'open' && a.district === 'Capricorn');
+    // Location-based participation across ALL appearances (any tournament type).
+    const playedCapricorn = p.appearances.some((a) => a.district === 'Capricorn');
+    const playedLimpopo = p.appearances.some((a) => a.province === 'Limpopo');
+    const wins = p.appearances.filter((a) => a.rank === 1).length;
+
     ranked.push({
       key: p.key,
       identityKind: p.identityKind,
@@ -364,10 +393,17 @@ export function rankPlayers(
       worstPerf: Math.min(...perfs),
       ratedTournaments: perfs.length,
       totalAppearances: p.appearances.length,
+      wins,
       tournamentRating: firstSeed === null ? null : Math.round(firstSeed),
       avgGap: avgGap === null ? null : Math.round(avgGap),
       avgPoints: mean(pts),
       avgMatch: mean(matches),
+      juniorTournaments,
+      openTournaments,
+      capricornTournaments,
+      hasCapricornOpen,
+      playedCapricorn,
+      playedLimpopo,
       appearances: [...p.appearances].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
     });
   }

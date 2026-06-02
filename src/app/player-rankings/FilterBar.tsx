@@ -1,8 +1,9 @@
 "use client"
 
 import styles from "./rankings.module.css"
+import { DEFAULT_PERIOD } from "./constants"
 
-export type Category = "all" | "juniors"
+export type Category = "all" | "juniors" | "seniors"
 
 export interface UiFilters {
   search?: string
@@ -16,9 +17,17 @@ export interface UiFilters {
   period?: number
   minTournaments?: number
   limit?: number
+  /** CDC selection: keep only players who meet the cohort criteria. */
+  qualifiedOnly?: boolean
 }
 
-export const FILTER_DEFAULTS: UiFilters = { category: "all", region: "all", minTournaments: 1, limit: 50 }
+export const FILTER_DEFAULTS: UiFilters = {
+  category: "all",
+  region: "LIM",
+  period: DEFAULT_PERIOD,
+  minTournaments: 3,
+  limit: 50,
+}
 
 const AGE_GROUPS = ["U08", "U10", "U12", "U14", "U16", "U18", "U20"]
 
@@ -58,7 +67,8 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
     (!!filters.region && filters.region !== "all") ||
     !!filters.sex ||
     filters.period != null ||
-    (!!filters.ageGroup && filters.ageGroup !== "all")
+    (!!filters.ageGroup && filters.ageGroup !== "all") ||
+    !!filters.qualifiedOnly
 
   return (
     <div className={styles.filters}>
@@ -79,14 +89,20 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           <span>Category</span>
           <select
             className={styles.sel}
+            data-active={filters.category !== "all"}
             value={filters.category}
             onChange={(e) => {
               const v = e.target.value as Category
-              set({ category: v, ageGroup: v === "juniors" ? (filters.ageGroup ?? "all") : undefined })
+              set({
+                category: v,
+                ageGroup: v === "juniors" ? (filters.ageGroup ?? "all") : undefined,
+                qualifiedOnly: v === "all" ? undefined : filters.qualifiedOnly,
+              })
             }}
           >
             <option value="all">All players</option>
             <option value="juniors">Juniors</option>
+            <option value="seniors">Seniors</option>
           </select>
         </label>
 
@@ -95,6 +111,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             <span>Age group</span>
             <select
               className={styles.sel}
+              data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
               value={filters.ageGroup ?? "all"}
               onChange={(e) => set({ ageGroup: e.target.value })}
             >
@@ -110,12 +127,19 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           <span>Region</span>
           <select
             className={styles.sel}
+            data-active={(filters.region ?? "all") !== "all"}
             value={filters.region ?? "all"}
             onChange={(e) => set({ region: e.target.value })}
           >
             <option value="all">All regions</option>
-            <option value="LIM">Limpopo (LIM)</option>
-            <option value="RSA">RSA</option>
+            <optgroup label="By federation">
+              <option value="LIM">Limpopo (LIM)</option>
+              <option value="RSA">RSA</option>
+            </optgroup>
+            <optgroup label="By tournaments played">
+              <option value="PLAYED_CAP">Played in Capricorn</option>
+              <option value="PLAYED_LIM">Played in Limpopo</option>
+            </optgroup>
           </select>
         </label>
 
@@ -123,6 +147,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           <span>Gender</span>
           <select
             className={styles.sel}
+            data-active={!!filters.sex}
             value={filters.sex ?? "all"}
             onChange={(e) => set({ sex: e.target.value === "all" ? undefined : (e.target.value as "M" | "F") })}
           >
@@ -136,6 +161,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           <span>Period</span>
           <select
             className={styles.sel}
+            data-active={filters.period != null}
             value={filters.period ?? "all"}
             onChange={(e) => set({ period: e.target.value === "all" ? undefined : Number(e.target.value) })}
           >
@@ -152,6 +178,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
           <span>Min events</span>
           <input
             className={styles.num}
+            data-active={(filters.minTournaments ?? 1) !== 1}
             type="number"
             inputMode="numeric"
             value={filters.minTournaments ?? ""}
@@ -170,6 +197,16 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             onChange={(e) => numPatch("limit", e.target.value)}
           />
         </label>
+        {filters.category !== "all" && (
+          <label className={styles.fieldCheck} data-active={!!filters.qualifiedOnly}>
+            <input
+              type="checkbox"
+              checked={!!filters.qualifiedOnly}
+              onChange={(e) => set({ qualifiedOnly: e.target.checked || undefined })}
+            />
+            <span>Qualified only</span>
+          </label>
+        )}
         {active && (
           <button type="button" className={styles.clearBtn} onClick={() => onChange({ ...FILTER_DEFAULTS })}>
             Reset filters

@@ -111,6 +111,23 @@
   border-top: 1px solid var(--rk-border);
 }
 .fieldNum { flex: 0 0 auto; }
+.fieldCheck {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  font-size: 13px;
+  color: var(--rk-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.fieldCheck input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--rk-accent);
+  cursor: pointer;
+}
+.fieldCheck[data-active="true"] { color: var(--rk-accent); font-weight: 600; }
 .num {
   width: 110px;
   height: 34px;
@@ -155,6 +172,17 @@
 .sel:hover { background-color: color-mix(in srgb, var(--rk-accent) 16%, var(--rk-surface-2)); }
 .sel:focus { background-color: color-mix(in srgb, var(--rk-accent) 20%, var(--rk-surface-2)); }
 .sel:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Active (non-default) filter — clearer accent fill + inset ring. */
+.sel[data-active="true"] {
+  background-color: color-mix(in srgb, var(--rk-accent) 26%, var(--rk-surface-2));
+  color: var(--rk-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rk-accent) 55%, transparent);
+}
+.num[data-active="true"] {
+  border-color: var(--rk-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rk-accent) 40%, transparent);
+}
 .clearBtn {
   margin-left: auto;
   align-self: flex-end;
@@ -306,6 +334,144 @@
 .delta[data-sign="pos"] { color: var(--rk-pos); }
 .delta[data-sign="neg"] { color: var(--rk-neg); }
 .tri { font-size: 8px; margin-right: 2px; vertical-align: 1px; }
+
+/* ── Selection columns (Meets / Comment) ──────────────── */
+.critHead { text-align: center !important; }
+.commentHead { text-align: left !important; }
+.table tbody td.critCell { text-align: center; }
+.table tbody td.commentCell { text-align: left; }
+
+.critBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+}
+.critBadge[data-meets="true"] {
+  background: color-mix(in srgb, var(--rk-pos) 20%, transparent);
+  color: var(--rk-pos);
+}
+.critBadge[data-meets="false"] {
+  background: color-mix(in srgb, var(--rk-neg) 16%, transparent);
+  color: var(--rk-neg);
+}
+
+.commentText {
+  font-size: 12px;
+  color: var(--rk-muted);
+  white-space: nowrap;
+}
+.commentText[data-meets="true"] { color: var(--rk-pos); font-weight: 500; }
+.naDash { color: var(--rk-faint); }
+
+/* Prominent, collapsible disclaimer / guidance notice (above the table). */
+.notice {
+  margin-top: 10px;
+  border: 1px solid color-mix(in srgb, var(--rk-accent) 32%, var(--rk-border));
+  background: color-mix(in srgb, var(--rk-accent) 6%, var(--rk-surface));
+  border-radius: 8px;
+  overflow: hidden;
+}
+.noticeHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--rk-text);
+  text-align: left;
+}
+.noticeIcon { width: 14px; height: 14px; color: var(--rk-accent); flex-shrink: 0; }
+.noticeTitle { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
+.noticeChevron { width: 14px; height: 14px; margin-left: auto; color: var(--rk-muted); flex-shrink: 0; transition: transform .18s; }
+.notice[data-open="true"] .noticeChevron { transform: rotate(180deg); }
+.noticeBody { padding: 0 11px 10px; display: flex; flex-direction: column; gap: 6px; }
+.noticeBody p { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--rk-muted); }
+.noticeBody strong { color: var(--rk-text); font-weight: 600; }
+.noticeBody em { font-style: italic; }
+
+/* Selection-criteria legend — collapsible disclosure (tap-friendly). */
+.legendBar { border-bottom: 1px solid var(--rk-border); }
+.legendText { display: block; padding: 10px 14px; font-size: 12px; color: var(--rk-faint); }
+.legendToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--rk-accent);
+  text-align: left;
+}
+.legendToggle svg { flex-shrink: 0; }
+.legendChevron { margin-left: auto; color: var(--rk-muted); transition: transform .18s; }
+.legendBar[data-open="true"] .legendChevron { transform: rotate(180deg); }
+.legendPanel { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.legendPanel p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--rk-muted); }
+.legendPanel strong { color: var(--rk-accent); font-weight: 700; }
+
+/* CDC selection summary — shown inside the expanded player card (not the row). */
+.selBlock {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--rk-border);
+  border-radius: 8px;
+}
+.selBlock[data-meets="true"] {
+  border-color: color-mix(in srgb, var(--rk-pos) 45%, var(--rk-border));
+  background: color-mix(in srgb, var(--rk-pos) 8%, transparent);
+}
+.selBlock[data-meets="false"] {
+  border-color: color-mix(in srgb, var(--rk-neg) 38%, var(--rk-border));
+  background: color-mix(in srgb, var(--rk-neg) 7%, transparent);
+}
+.selHead { display: flex; align-items: center; gap: 8px; }
+.selBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.selBadge[data-meets="true"] { background: color-mix(in srgb, var(--rk-pos) 20%, transparent); color: var(--rk-pos); }
+.selBadge[data-meets="false"] { background: color-mix(in srgb, var(--rk-neg) 18%, transparent); color: var(--rk-neg); }
+.selComment { font-size: 12.5px; font-weight: 600; color: var(--rk-text); }
+.selCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-family: var(--rk-mono);
+  font-size: 11.5px;
+  color: var(--rk-muted);
+}
+.selCounts strong { color: var(--rk-text); font-weight: 600; }
+
+/* Responsive column reveal:
+   .hideMobile → hidden ≤640px;  .hideTablet → hidden ≤1024px (tablet + mobile).
+   Counts/verdict that drop out at these widths live in the expanded card. */
+@media (max-width: 1024px) {
+  .hideTablet { display: none !important; }
+}
+@media (max-width: 640px) {
+  .hideMobile { display: none !important; }
+}
 
 /* hidden on small screens (everything past Player + Performance) */
 @media (max-width: 720px) {

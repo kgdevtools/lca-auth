@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -63,8 +64,11 @@ function MobileNavItem({
 
 export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
   const pathname = usePathname();
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Portal target (document.body) is only available after mount — SSR-safe.
+  React.useEffect(() => { setMounted(true); }, []);
 
   // Close on escape
   React.useEffect(() => {
@@ -73,24 +77,13 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Close on outside click
-  React.useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open]);
-
   // Close on navigate
   React.useEffect(() => { setOpen(false); }, [pathname]);
 
   const close = () => setOpen(false);
 
   return (
-    <div className="relative md:hidden" ref={containerRef}>
+    <div className="relative md:hidden">
       {/* Trigger */}
       <button
         type="button"
@@ -105,13 +98,17 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
         }
       </button>
 
-      {/* Drawer */}
-      {open && (
-        <div
-          role="menu"
-          className="fixed top-20 left-3 right-3 rounded-sm border border-border bg-background/95 backdrop-blur-md shadow-lg z-[200] overflow-hidden"
-        >
-          <div className="flex flex-col gap-0 p-2.5">
+      {/* Drawer — portaled to <body> so position:fixed resolves against the
+          viewport, not the navbar's transformed (ScrollNavbar) containing block,
+          which previously clipped/mispositioned the menu. */}
+      {mounted && open && createPortal(
+        <>
+          <div className="fixed inset-0 z-[190] md:hidden" aria-hidden onClick={close} />
+          <div
+            role="menu"
+            className="fixed top-20 left-3 right-3 rounded-sm border border-border bg-background/95 backdrop-blur-md shadow-lg z-[200] overflow-hidden md:hidden"
+          >
+            <div className="flex flex-col gap-0 p-2.5">
 
             {/* Dashboard */}
             {isAuthenticated && (
@@ -182,7 +179,9 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             )}
 
           </div>
-        </div>
+          </div>
+        </>,
+        document.body,
       )}
     </div>
   );
