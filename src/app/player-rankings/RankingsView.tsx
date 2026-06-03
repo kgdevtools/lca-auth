@@ -33,8 +33,15 @@ type SortField =
   | "currentRating"
 
 /** CDC selection mode for the current view — the criteria columns are only
- *  meaningful inside one cycle (the 2025 period) and for a single cohort. */
-type SelectionMode = "junior" | "senior" | null
+ *  meaningful inside one cycle (the 2025 period). "all" judges each player
+ *  against their own cohort's criteria; "junior"/"senior" pin a single cohort. */
+type SelectionMode = "junior" | "senior" | "all" | null
+
+/** In the all-players view each player is judged against their own cohort:
+ *  juniors by birth year, everyone else (incl. unknown) as senior. */
+function cohortFor(p: RankedSummary): "junior" | "senior" {
+  return p.birthYear != null && p.birthYear >= JUNIOR_MIN_BIRTH ? "junior" : "senior"
+}
 
 function verdictFor(p: RankedSummary, mode: Exclude<SelectionMode, null>): SelectionVerdict {
   const counts = {
@@ -43,7 +50,8 @@ function verdictFor(p: RankedSummary, mode: Exclude<SelectionMode, null>): Selec
     capricorn: p.capricornTournaments,
     hasCapricornOpen: p.hasCapricornOpen,
   }
-  return mode === "junior" ? juniorCriteria(counts) : seniorCriteria(counts)
+  const cohort = mode === "all" ? cohortFor(p) : mode
+  return cohort === "junior" ? juniorCriteria(counts) : seniorCriteria(counts)
 }
 
 interface Sort {
@@ -129,18 +137,14 @@ function SortTh({
 }
 
 function CritIcon({ meets }: { meets: boolean }) {
-  return (
-    <span className={styles.critBadge} data-meets={meets}>
-      {meets ? (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
-      ) : (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      )}
-    </span>
+  return meets ? (
+    <svg className={styles.critIcon} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ) : (
+    <svg className={styles.critIcon} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
   )
 }
 
@@ -198,9 +202,13 @@ function PlayerRow({
         <td className={cx(styles.numCell, styles.dim)}>{p.bestPerf}</td>
         {selectionMode ? (
           <>
-            <td className={cx(styles.numCell, styles.hideTablet)}>{p.juniorTournaments}</td>
+            <td className={cx(styles.numCell, styles.hideTablet)}>{p.juniorTournaments + p.openTournaments}</td>
+            <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.juniorTournaments}</td>
             <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.openTournaments}</td>
-            <td className={cx(styles.critCell, styles.hideMobile)}>
+            <td
+              className={cx(styles.critCell, styles.hideMobile)}
+              data-meets={verdict ? verdict.meets : undefined}
+            >
               {verdict ? <CritIcon meets={verdict.meets} /> : <span className={styles.naDash}>—</span>}
             </td>
             <td className={cx(styles.commentCell, styles.hideMobile)}>
@@ -284,7 +292,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
   }, [openKey, periodKey, historyKey, history])
 
   // CDC selection columns are only meaningful within a single cycle (the 2025
-  // period) and for one cohort (juniors or seniors).
+  // period). The all-players view judges each player against their own cohort.
   const selectionMode: SelectionMode =
     filters.period !== 2025
       ? null
@@ -292,7 +300,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
         ? "junior"
         : filters.category === "seniors"
           ? "senior"
-          : null
+          : "all"
 
   const players = useMemo(() => {
     const pool = pools[periodKey] ?? []
@@ -372,7 +380,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
         </p>
       ) : (
         <div className={styles.tableWrap}>
-          {selectionMode === "junior" && (
+          {(selectionMode === "junior" || selectionMode === "all") && (
             <div className={styles.legendBar} data-open={showCriteria}>
               <button
                 type="button"
@@ -412,8 +420,8 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                   <th colSpan={2}>Performance</th>
                   {selectionMode ? (
                     <>
-                      <th className={styles.hideTablet} colSpan={2}>No. Tournaments</th>
-                      <th className={styles.hideMobile} colSpan={2}>Selection</th>
+                      <th className={styles.hideTablet} colSpan={3}>No. Tournaments</th>
+                      <th className={cx(styles.selGroupHead, styles.hideMobile)} colSpan={2}>Selection</th>
                     </>
                   ) : (
                     <>
@@ -429,10 +437,11 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                   <SortTh field="bestPerf" label="Best" sort={sort} onSort={onSort} />
                   {selectionMode ? (
                     <>
+                      <th className={styles.hideTablet}>Total</th>
                       <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} className={styles.hideTablet} />
                       <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} className={styles.hideTablet} />
-                      <th className={cx(styles.critHead, styles.hideMobile)}>Meets</th>
-                      <th className={cx(styles.gl, styles.commentHead, styles.hideMobile)}>Comment</th>
+                      <th className={cx(styles.critHead, styles.hideMobile)}>Meets Requirements</th>
+                      <th className={cx(styles.gl, styles.commentHead, styles.hideMobile)}>Comments/Remarks</th>
                     </>
                   ) : (
                     <>

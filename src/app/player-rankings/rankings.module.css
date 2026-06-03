@@ -336,24 +336,24 @@
 .tri { font-size: 8px; margin-right: 2px; vertical-align: 1px; }
 
 /* ── Selection columns (Meets / Comment) ──────────────── */
+/* "Selection" group header spans both sub-columns (Meets + Comments), centered
+ * with the shaded header background filling the whole merged cell. NB: distinct
+ * from the .selHead flex container used in ExpandedPanel — don't merge them. */
+.selGroupHead { text-align: center !important; background: var(--rk-head-bg); }
 .critHead { text-align: center !important; }
-.commentHead { text-align: left !important; }
-.table tbody td.critCell { text-align: center; }
-.table tbody td.commentCell { text-align: left; }
+.commentHead { text-align: center !important; }
+.table tbody td.commentCell { text-align: center; }
 
-.critBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 22px;
-  border-radius: 6px;
-}
-.critBadge[data-meets="true"] {
+/* Meets cell: zero padding + the colour on the td itself so the status fill
+ * spans the entire cell — no top/bottom margin, no rounded inner block. The
+ * icon is a block element so it centres without inline baseline gaps. */
+.table tbody td.critCell { text-align: center; padding: 0; }
+.critIcon { display: block; margin: 0 auto; }
+.table tbody td.critCell[data-meets="true"] {
   background: color-mix(in srgb, var(--rk-pos) 20%, transparent);
   color: var(--rk-pos);
 }
-.critBadge[data-meets="false"] {
+.table tbody td.critCell[data-meets="false"] {
   background: color-mix(in srgb, var(--rk-neg) 16%, transparent);
   color: var(--rk-neg);
 }
