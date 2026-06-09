@@ -12,7 +12,12 @@
  *   GRANT SELECT ON public.rs_local_active_players, public.sd_tournaments TO anon;
  */
 import { createClient } from '@supabase/supabase-js';
-import type { RawTournament, RawViewRow } from './rankings';
+import type {
+  RawRosterRow,
+  RawTournament,
+  RawTournamentMeta,
+  RawViewRow,
+} from './rankings';
 
 const url = process.env.NEXT_PUBLIC_RATINGS_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_RATINGS_SUPABASE_ANON_KEY;
@@ -66,4 +71,57 @@ export async function fetchRankingData(): Promise<{
     fetchAll<RawTournament>('sd_tournaments', 'id, tournament_name, date'),
   ]);
   return { appearances, tournaments };
+}
+
+const ROSTER_COLUMNS =
+  'tournament_id, rank, name, federation, tournament_rating, points, rounds';
+
+/**
+ * Full roster (every player) for the given tournaments, read from
+ * `rs_local_active_players` — the same anon-readable view the rankings use, which
+ * also carries the parsed `rounds` tokens. Used by the player profile to resolve
+ * round tokens to real opponents by final-standings `rank`. (We deliberately do NOT
+ * read the base `sd_players` table: RLS there returns zero rows to anon.) Paginates
+ * past the 1000-row cap; ordered so pages are stable.
+ */
+export async function fetchTournamentPlayers(
+  tournamentIds: string[],
+): Promise<RawRosterRow[]> {
+  const ids = [...new Set(tournamentIds)].filter(Boolean);
+  if (ids.length === 0) return [];
+
+  const out: RawRosterRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await ratings
+      .from('rs_local_active_players')
+      .select(ROSTER_COLUMNS)
+      .in('tournament_id', ids)
+      .order('tournament_id', { ascending: true })
+      .order('rank', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(`rs_local_active_players roster: ${error.message}`);
+    if (!data || data.length === 0) break;
+    out.push(...(data as unknown as RawRosterRow[]));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return out;
+}
+
+/**
+ * Per-tournament metadata (location + arbiters) for the profile's Tournaments tab.
+ * Reads `sd_tournaments` (anon-readable). Best-effort: callers tolerate an empty result.
+ */
+export async function fetchTournamentMeta(
+  tournamentIds: string[],
+): Promise<RawTournamentMeta[]> {
+  const ids = [...new Set(tournamentIds)].filter(Boolean);
+  if (ids.length === 0) return [];
+  const { data, error } = await ratings
+    .from('sd_tournaments')
+    .select('id, location, chief_arbiter, arbiter')
+    .in('id', ids);
+  if (error) throw new Error(`sd_tournaments meta: ${error.message}`);
+  return (data ?? []) as unknown as RawTournamentMeta[];
 }

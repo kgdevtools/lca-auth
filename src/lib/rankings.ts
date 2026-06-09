@@ -40,6 +40,43 @@ export interface RawTournament {
   date: string | null;
 }
 
+/** Extra per-tournament metadata for the profile's Tournaments tab. */
+export interface RawTournamentMeta {
+  id: string;
+  location: string | null;
+  chief_arbiter: string | null;
+  arbiter: string | null;
+}
+
+/**
+ * A single parsed round result from `sd_players.rounds` (JSONB). `opponent` is the
+ * opponent's FINAL-STANDINGS rank as a string (e.g. "35" from a "35b1" token), so it
+ * indexes directly into a tournament's roster keyed by `rank`. `null` opponent +
+ * `result: "bye"` marks a bye/no-pairing. Shapes from both parser versions are
+ * compatible with this; fields may be absent on dirty rows, hence all-nullable.
+ */
+export interface RoundToken {
+  opponent: string | null;
+  color: 'white' | 'black' | null;
+  result: 'win' | 'loss' | 'draw' | 'bye' | null;
+  raw?: string;
+}
+
+/**
+ * One row of a tournament's full roster from `rs_local_active_players` — the profile
+ * page fetches these (incl. `rounds`, which the lean rankings pull omits) to resolve
+ * round tokens to real opponents by final-standings `rank`.
+ */
+export interface RawRosterRow {
+  tournament_id: string;
+  rank: number | string | null;
+  name: string;
+  federation: string | null;
+  tournament_rating: number | string | null;
+  points: number | string | null;
+  rounds: RoundToken[] | null;
+}
+
 export interface RegionEntry {
   province: string | null;
   district: string | null;

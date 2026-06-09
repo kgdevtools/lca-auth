@@ -1,0 +1,247 @@
+/* Player profile page. Reuses the rankings design tokens (so the shared PerfChart
+   resolves) and the app theme; dark mode comes free. Mobile-first. */
+
+.page {
+  /* local aliases → app tokens, mirrors rankings.module.css so children + the
+     shared chart classes resolve identically here */
+  --rk-surface: var(--card);
+  --rk-surface-2: var(--input);
+  --rk-text: var(--foreground);
+  --rk-muted: var(--muted-foreground);
+  --rk-faint: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  --rk-border: var(--border);
+  --rk-hover: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+  --rk-zebra: color-mix(in srgb, var(--muted-foreground) 5%, transparent);
+  --rk-head-bg: color-mix(in srgb, var(--muted-foreground) 11%, transparent);
+  --rk-accent: var(--primary);
+  --rk-accent-soft: color-mix(in srgb, var(--primary) 13%, transparent);
+  --rk-pos: var(--chart-2);
+  --rk-neg: var(--destructive);
+  --rk-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px 12px 72px;
+  color: var(--rk-text);
+}
+
+.mono { font-family: var(--rk-mono); font-variant-numeric: tabular-nums; }
+
+/* ── Back link + header ─────────────────────────────────── */
+.back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--rk-muted); text-decoration: none;
+  margin-bottom: 14px;
+}
+.back:hover { color: var(--rk-accent); }
+
+.header {
+  padding-bottom: 14px; border-bottom: 1px solid var(--rk-border); margin-bottom: 18px;
+}
+.headTop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 10px; }
+.name { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+@media (min-width: 560px) { .name { font-size: 26px; } }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tag {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--rk-head-bg); color: var(--rk-muted);
+}
+.tagAccent { color: var(--rk-accent); background: var(--rk-accent-soft); }
+
+/* Best-win highlight, pushed to the right of the name row */
+.bestTag {
+  margin-left: auto; font-size: 11px; font-weight: 700; white-space: nowrap;
+  color: var(--rk-accent); background: var(--rk-accent-soft);
+  padding: 3px 9px; border-radius: 3px; font-variant-numeric: tabular-nums;
+}
+
+/* FIDE / Chess-SA rating + id line under the name */
+.identityLine {
+  display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 9px;
+  font-size: 12px; color: var(--rk-muted); font-variant-numeric: tabular-nums;
+}
+.identityLine strong { color: var(--rk-text); font-weight: 650; }
+
+/* ── Stat blocks (flat — no card fill; thin divider only) ─── */
+.block { padding: 0; margin-bottom: 22px; }
+.blockHead {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--rk-faint); margin-bottom: 12px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--rk-border);
+}
+
+/* 40/60 two-column band — stacks on tablet/mobile. Used for Performance‖Trend
+   and Record (metrics ‖ table). */
+.band {
+  display: grid; grid-template-columns: 1fr; gap: 14px 28px; margin-bottom: 4px;
+}
+@media (min-width: 760px) { .band { grid-template-columns: 2fr 3fr; align-items: start; } }
+
+/* Metric grid: 2-up everywhere except very wide, where the 40% column gives 3-up */
+.metricGrid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 16px;
+}
+@media (min-width: 1180px) { .metricGrid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Value-first stat: headline value, micro caption beneath */
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.statV {
+  font-size: 18px; font-weight: 650; line-height: 1.15; letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums; text-wrap: balance;
+}
+.statL {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0 2px;
+  font-size: 10.5px; color: var(--rk-muted); letter-spacing: 0.01em;
+}
+.statSub { color: var(--rk-faint); font-variant-numeric: tabular-nums; }
+.pos { color: var(--rk-pos); }
+.neg { color: var(--rk-neg); }
+
+/* Info tooltip — tap to toggle, mobile-friendly */
+.tip { position: relative; display: inline-flex; }
+.tipBtn {
+  appearance: none; border: none; background: none; cursor: pointer;
+  color: var(--rk-faint); font-size: 11px; line-height: 1; padding: 0 0 0 3px;
+}
+.tipBtn:hover { color: var(--rk-accent); }
+.tipPop {
+  position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 30;
+  width: max-content; max-width: min(240px, 72vw);
+  background: var(--rk-text); color: var(--background);
+  font-size: 11px; line-height: 1.4; font-weight: 500; text-transform: none; letter-spacing: 0;
+  padding: 7px 9px; border-radius: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+/* Finishes (sport-table style): last 3 final standings */
+.finishes { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.finish { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.finishSep { color: var(--rk-faint); }
+.finishMuted { color: var(--rk-muted); font-weight: 600; }
+
+/* Top tournament ranking: best finish, with occurrence count */
+.topRank { font-size: 22px; font-weight: 750; letter-spacing: -0.02em; line-height: 1; }
+.topRankCount { font-size: 12px; font-weight: 650; color: var(--rk-accent); margin-left: 4px; }
+
+/* Record: metrics column (left 40%) ‖ W/L/D table (right 60%) */
+.recSummaryCol { display: flex; flex-direction: column; gap: 9px; }
+.recStat { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.recStat .statL { font-size: 12px; text-transform: none; }
+.recStat .statV { font-size: 15px; }
+
+/* W/L/D table — fit-content columns, not stretched */
+.wld { width: auto; border-collapse: collapse; font-size: 13px; }
+.wld th, .wld td {
+  padding: 5px 14px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.wld th:first-child, .wld td:first-child { text-align: left; color: var(--rk-muted); padding-left: 0; }
+.wld th:last-child, .wld td:last-child { padding-right: 0; }
+.wld thead th {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--rk-faint);
+}
+.wld tbody tr + tr td { border-top: 1px solid var(--rk-zebra); }
+.wldTotal td { font-weight: 650; }
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 4px; border-bottom: 1px solid var(--rk-border);
+  margin-bottom: 16px; overflow-x: auto;
+}
+.tab {
+  appearance: none; border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--rk-muted);
+  padding: 8px 12px; border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color .12s, border-color .12s;
+}
+.tab:hover { color: var(--rk-text); }
+.tab[data-active="true"] { color: var(--rk-accent); border-bottom-color: var(--rk-accent); }
+.tabCount { font-size: 11px; opacity: 0.7; margin-left: 4px; }
+
+/* ── Tables ─────────────────────────────────────────────── */
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th {
+  text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  text-transform: uppercase; color: var(--rk-faint);
+  padding: 8px 10px; border-bottom: 1px solid var(--rk-border); white-space: nowrap;
+}
+.table td { padding: 8px 10px; border-bottom: 1px solid var(--rk-border); vertical-align: middle; }
+.table tbody tr:hover { background: var(--rk-hover); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.center { text-align: center; }
+.dim { color: var(--rk-muted); }
+.evName { font-weight: 600; }
+.evLoc { font-size: 11px; color: var(--rk-muted); }
+.evMeta { font-size: 11px; color: var(--rk-faint); margin-top: 1px; }
+
+/* See-more pagination control */
+.seeMore {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+  appearance: none; cursor: pointer; background: none;
+  border: 1px solid var(--rk-border); border-radius: 3px;
+  font-size: 12px; font-weight: 600; color: var(--rk-muted);
+  padding: 6px 12px; transition: color .12s, border-color .12s;
+}
+.seeMore:hover { color: var(--rk-accent); border-color: var(--rk-accent); }
+.seeMoreCount { color: var(--rk-faint); font-weight: 500; }
+
+.pill {
+  display: inline-block; min-width: 20px; text-align: center;
+  font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+}
+.pillWin { color: var(--rk-pos); background: color-mix(in srgb, var(--chart-2) 16%, transparent); }
+.pillLoss { color: var(--rk-neg); background: color-mix(in srgb, var(--destructive) 14%, transparent); }
+.pillDraw { color: var(--rk-muted); background: var(--rk-head-bg); }
+.pillBye { color: var(--rk-faint); background: var(--rk-zebra); }
+
+/* ── Per-event games breakdown ──────────────────────────── */
+.event {
+  border: 1px solid var(--rk-border);
+  border-radius: 3px; padding: 12px 14px; margin-bottom: 10px;
+}
+.eventHead {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  margin-bottom: 8px;
+}
+.eventName { font-weight: 650; font-size: 14px; }
+.eventMeta { font-size: 12px; color: var(--rk-muted); }
+.rounds { display: flex; flex-direction: column; gap: 2px; }
+.round {
+  display: grid; grid-template-columns: 28px 18px 1fr auto; gap: 8px;
+  align-items: center; font-size: 13px; padding: 4px 2px;
+  border-top: 1px solid var(--rk-zebra);
+}
+.round:first-child { border-top: none; }
+.roundNo { font-size: 11px; color: var(--rk-faint); font-variant-numeric: tabular-nums; }
+.color { font-size: 12px; }
+.oppName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oppMeta { font-size: 11px; color: var(--rk-muted); }
+
+.empty {
+  text-align: center; color: var(--rk-muted); font-size: 13px;
+  padding: 28px 12px; border: 1px dashed var(--rk-border); border-radius: 3px;
+}
+.sectionNote { font-size: 12px; color: var(--rk-muted); margin: 0 0 12px; }
+.gamesWrap { margin-top: 14px; }
+
+/* ── Overview (typographic hierarchy) ───────────────────── */
+.overview { max-width: 68ch; }
+.overviewLead {
+  font-size: 15px; color: var(--rk-muted); line-height: 1.4; margin: 0 0 16px;
+}
+.overviewLead strong { color: var(--rk-text); font-weight: 650; }
+.overviewBig {
+  display: inline-block; font-size: 30px; font-weight: 750; color: var(--rk-text);
+  letter-spacing: -0.02em; margin-right: 8px; vertical-align: baseline;
+}
+.overviewPoints {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px;
+}
+.overviewPoints li {
+  font-size: 13px; color: var(--rk-text); line-height: 1.45;
+  padding-left: 17px; position: relative;
+}
+.overviewPoints li::before {
+  content: "▸"; position: absolute; left: 0; top: 0; color: var(--rk-accent);
+}
+.overviewPoints strong { font-weight: 650; }

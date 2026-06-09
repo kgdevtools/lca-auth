@@ -73,3 +73,16 @@ export async function getPlayerAppearances(
   const ranked = await getRanked(period);
   return ranked.find((p) => p.key === key)?.appearances ?? [];
 }
+
+/**
+ * The full ranked player (summary + appearances) for a key, from the cached pool —
+ * no extra aggregation cost. `null` when the key isn't in the period's pool. Used by
+ * the player profile page; defaults to the all-time pool when `period` is omitted.
+ */
+export async function getPlayer(
+  key: string,
+  period?: number,
+): Promise<RankedPlayer | null> {
+  const ranked = await getRanked(period);
+  return ranked.find((p) => p.key === key) ?? null;
+}
