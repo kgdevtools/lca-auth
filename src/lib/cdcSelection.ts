@@ -87,17 +87,14 @@ export function juniorCriteria(c: SelectionCounts): SelectionVerdict {
 }
 
 /**
- * Senior (non-junior) CDC open criteria: 6 counted tournaments, at least 4 played
- * in Capricorn, 2 anywhere.
+ * Senior (non-junior) CDC open criteria: a minimum of 6 counted tournaments
+ * played anywhere (no location restriction).
  */
 export function seniorCriteria(c: SelectionCounts): SelectionVerdict {
   const total = c.junior + c.open;
-  const meets = total >= 6 && c.capricorn >= 4;
-  if (meets) return { meets, comment: 'Meets 4 + 2' };
+  const meets = total >= 6;
+  if (meets) return { meets, comment: 'Meets (6+)' };
 
-  const needs: string[] = [];
-  if (c.capricorn < 4) needs.push(`${4 - c.capricorn} Capricorn`);
-  const more = Math.max(0, 6 - total);
-  if (more > 0) needs.push(`${more} more`);
-  return { meets, comment: needs.length ? `Needs ${needs.join(' / ')} for 4 + 2` : 'Needs more for 4 + 2' };
+  const more = 6 - total;
+  return { meets, comment: `Needs ${more} more` };
 }

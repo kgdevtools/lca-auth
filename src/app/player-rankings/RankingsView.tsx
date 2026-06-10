@@ -11,6 +11,7 @@ import FilterBar, {
   FILTER_DEFAULTS,
   JUNIOR_MIN_BIRTH,
   REF_YEAR,
+  ageGroupOf,
   type UiFilters,
 } from "./FilterBar"
 import ExpandedPanel from "./ExpandedPanel"
@@ -155,6 +156,7 @@ function PlayerRow({
   appearances,
   selectionMode,
   verdict,
+  colSpan,
   onToggle,
 }: {
   p: RankedSummary
@@ -166,8 +168,11 @@ function PlayerRow({
   selectionMode: SelectionMode
   /** CDC verdict for the active cohort, or null when selection doesn't apply. */
   verdict: SelectionVerdict | null
+  /** Full-width column span for the expanded panel (max columns for the mode). */
+  colSpan: number
   onToggle: () => void
 }) {
+  const age = ageGroupOf(p.birthYear)
   return (
     <Fragment>
       <tr
@@ -198,6 +203,15 @@ function PlayerRow({
             </div>
           </div>
         </td>
+        <td className={cx(styles.ageCell, styles.hideMobile)}>
+          {age === "—" ? (
+            <span className={styles.naDash}>—</span>
+          ) : (
+            <span className={styles.ageBadge} data-sen={age === "SEN"}>{age}</span>
+          )}
+        </td>
+        <td className={cx(styles.numCell, styles.hideMobile)}>{p.currentRating ?? "—"}</td>
+        <td className={cx(styles.numCell, styles.dim, styles.hideMobile)}>{p.fideRating ?? "—"}</td>
         <td className={cx(styles.numCell, styles.hero)}>{p.avgPerf}</td>
         <td className={cx(styles.numCell, styles.dim)}>{p.bestPerf}</td>
         {selectionMode ? (
@@ -223,14 +237,12 @@ function PlayerRow({
           <>
             <td className={cx(styles.numCell, styles.hideMobile)}>{p.juniorTournaments}</td>
             <td className={cx(styles.numCell, styles.dim, styles.hideMobile)}>{p.openTournaments}</td>
-            <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.fideRating ?? 0}</td>
-            <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.currentRating ?? 0}</td>
           </>
         )}
       </tr>
       {open && (
         <tr>
-          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} />
+          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} colSpan={colSpan} />
         </tr>
       )}
     </Fragment>
@@ -408,7 +420,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
           {selectionMode === "senior" && (
             <div className={styles.legendBar}>
               <span className={styles.legendText}>
-                Qualify: 6 counted tournaments, with at least 4 played in Capricorn.
+                Qualify: a minimum of 6 counted tournaments (any location).
               </span>
             </div>
           )}
@@ -417,6 +429,8 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
               <thead>
                 <tr className={styles.grp}>
                   <th className={cx(styles.gl, styles.spacer)} colSpan={2} />
+                  <th className={cx(styles.spacer, styles.hideMobile)} />
+                  <th className={styles.hideMobile} colSpan={2}>Rating</th>
                   <th colSpan={2}>Performance</th>
                   {selectionMode ? (
                     <>
@@ -426,13 +440,15 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                   ) : (
                     <>
                       <th className={styles.hideMobile} colSpan={2}>No. Tournaments</th>
-                      <th className={styles.hideTablet} colSpan={2}>Rating</th>
                     </>
                   )}
                 </tr>
                 <tr className={styles.col}>
                   <th className={cx(styles.gl, styles.cRank)}>#</th>
                   <SortTh field="name" label="Player" sort={sort} onSort={onSort} className={cx(styles.gl, styles.cName)} />
+                  <th className={cx(styles.ageHead, styles.hideMobile)}>Age</th>
+                  <SortTh field="currentRating" label="Chess SA" sort={sort} onSort={onSort} className={styles.hideMobile} />
+                  <SortTh field="fideRating" label="FIDE" sort={sort} onSort={onSort} className={styles.hideMobile} />
                   <SortTh field="avgPerf" label="Avg" sort={sort} onSort={onSort} />
                   <SortTh field="bestPerf" label="Best" sort={sort} onSort={onSort} />
                   {selectionMode ? (
@@ -447,8 +463,6 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                     <>
                       <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} className={styles.hideMobile} />
                       <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} className={styles.hideMobile} />
-                      <SortTh field="fideRating" label="FIDE" sort={sort} onSort={onSort} className={styles.hideTablet} />
-                      <SortTh field="currentRating" label="Chess SA" sort={sort} onSort={onSort} className={styles.hideTablet} />
                     </>
                   )}
                 </tr>
@@ -463,6 +477,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                     appearances={openKey === p.key ? history[`${periodKey}:${p.key}`] ?? null : null}
                     selectionMode={selectionMode}
                     verdict={selectionMode ? verdictFor(p, selectionMode) : null}
+                    colSpan={selectionMode ? 12 : 9}
                     onToggle={() => setOpenKey((k) => (k === p.key ? null : p.key))}
                   />
                 ))}

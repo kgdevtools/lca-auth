@@ -37,6 +37,22 @@ const AGE_GROUPS = ["U08", "U10", "U12", "U14", "U16", "U18", "U20"]
 export const REF_YEAR = 2026
 export const JUNIOR_MIN_BIRTH = 2006
 
+/**
+ * Age-group label for a birth year, matching the 2-year non-overlapping bands
+ * used by the category filter (`passesCategory`): UNN covers ages NN-1 and NN in
+ * REF_YEAR (e.g. U16 = born 2010–2011). Juniors are born >= JUNIOR_MIN_BIRTH;
+ * everyone else is SEN (no VET per client spec). Unknown birth year → "—".
+ */
+export function ageGroupOf(birthYear: number | null | undefined): string {
+  if (birthYear == null) return "—"
+  if (birthYear < JUNIOR_MIN_BIRTH) return "SEN"
+  const age = REF_YEAR - birthYear
+  let nn = age % 2 === 0 ? age : age + 1
+  if (nn < 8) nn = 8
+  if (nn > 20) nn = 20
+  return `U${String(nn).padStart(2, "0")}`
+}
+
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

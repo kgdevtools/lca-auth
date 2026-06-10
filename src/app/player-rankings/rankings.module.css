@@ -335,14 +335,35 @@
 .delta[data-sign="neg"] { color: var(--rk-neg); }
 .tri { font-size: 8px; margin-right: 2px; vertical-align: 1px; }
 
+/* Age-group cell — a compact pill, right-aligned to sit under its header and
+   read consistently with the numeric columns beside it. SEN renders muted. */
+.ageHead { text-align: right; }
+.table tbody td.ageCell { text-align: right; }
+.ageBadge {
+  display: inline-block;
+  font-family: var(--rk-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rk-accent) 13%, transparent);
+  color: var(--rk-accent);
+}
+.ageBadge[data-sen="true"] {
+  background: color-mix(in srgb, var(--rk-muted) 14%, transparent);
+  color: var(--rk-muted);
+}
+
 /* ── Selection columns (Meets / Comment) ──────────────── */
 /* "Selection" group header spans both sub-columns (Meets + Comments), centered
  * with the shaded header background filling the whole merged cell. NB: distinct
  * from the .selHead flex container used in ExpandedPanel — don't merge them. */
 .selGroupHead { text-align: center !important; background: var(--rk-head-bg); }
 .critHead { text-align: center !important; }
-.commentHead { text-align: center !important; }
-.table tbody td.commentCell { text-align: center; }
+.commentHead { text-align: left !important; }
+.table tbody td.commentCell { text-align: left; }
 
 /* Meets cell: zero padding + the colour on the td itself so the status fill
  * spans the entire cell — no top/bottom margin, no rounded inner block. The
@@ -421,21 +442,14 @@
 .legendPanel p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--rk-muted); }
 .legendPanel strong { color: var(--rk-accent); font-weight: 700; }
 
-/* CDC selection summary — shown inside the expanded player card (not the row). */
+/* CDC selection summary — de-carded: a flat, full-width block separated from the
+   stats above by a single divider (no border, radius or fill). Status reads from
+   the badge + comment colour, keeping a clean hierarchy. */
 .selBlock {
   width: 100%;
-  margin-top: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--rk-border);
-  border-radius: 8px;
-}
-.selBlock[data-meets="true"] {
-  border-color: color-mix(in srgb, var(--rk-pos) 45%, var(--rk-border));
-  background: color-mix(in srgb, var(--rk-pos) 8%, transparent);
-}
-.selBlock[data-meets="false"] {
-  border-color: color-mix(in srgb, var(--rk-neg) 38%, var(--rk-border));
-  background: color-mix(in srgb, var(--rk-neg) 7%, transparent);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rk-border);
 }
 .selHead { display: flex; align-items: center; gap: 8px; }
 .selBadge {

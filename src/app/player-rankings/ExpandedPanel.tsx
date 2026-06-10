@@ -21,12 +21,15 @@ export default function ExpandedPanel({
   p,
   appearances,
   verdict,
+  colSpan = 8,
 }: {
   p: RankedSummary
   /** Lazily fetched on expand; null while the request is in flight. */
   appearances: Appearance[] | null
   /** CDC verdict for the active cohort, or null when selection doesn't apply. */
   verdict?: SelectionVerdict | null
+  /** Columns to span so the panel fills the full table width (see RankingsView). */
+  colSpan?: number
 }) {
   const [region, setRegion] = useState<Region>("all")
 
@@ -50,7 +53,7 @@ export default function ExpandedPanel({
           : "Name only"
 
   return (
-    <td className={styles.expandCell} colSpan={8}>
+    <td className={styles.expandCell} colSpan={colSpan}>
       <div className={styles.expandPad}>
         {/* profile / summary */}
         <aside className={styles.profile}>
