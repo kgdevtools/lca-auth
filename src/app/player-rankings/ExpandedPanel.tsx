@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
 import styles from "./rankings.module.css"
@@ -57,14 +56,9 @@ export default function ExpandedPanel({
       <div className={styles.expandPad}>
         {/* profile / summary */}
         <aside className={styles.profile}>
-          <Link
-            href={`/player-rankings/${encodeURIComponent(p.key)}`}
-            className={styles.profileName}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {p.name}
-          </Link>
+          {/* Profile-page link disabled — the /player-rankings/[key] route is not
+              exposed yet, so the name renders as plain text (no navigation). */}
+          <span className={styles.profileName}>{p.name}</span>
           <div className={styles.profileSub}>
             {p.title && <span className={styles.pfTag} style={{ color: "var(--primary)" }}>{p.title}</span>}
             <span className={styles.pfTag}>{p.federation ?? "N/A"}</span>
