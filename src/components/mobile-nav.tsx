@@ -123,7 +123,7 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             {/* LCA DB */}
             <SectionLabel>LCA DB</SectionLabel>
             <div className="space-y-0.5 mb-1">
-              <MobileNavItem href="/view"            icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
+              <MobileNavItem href="/chess-games"            icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
               <MobileNavItem href="/player-rankings" icon={TrendingUp} onClick={close}>Rankings</MobileNavItem>
               <MobileNavItem href="/blog"            icon={Newspaper}  onClick={close}>Blog</MobileNavItem>
             </div>

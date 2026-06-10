@@ -52,6 +52,7 @@ nul
 
 # Supabase migrations (DB schema managed outside repo)
 /supabase/migrations/
+/supabase/
 
 # Internal docs / session notes (not for repo)
 /SESSION_SUMMARY.md
@@ -89,6 +90,7 @@ DOCS.ai/
 .gptml/
 .cursor/
 .qwen/
+.claude/
 
 # Scripts that im still working on
 /scripts
@@ -97,6 +99,9 @@ DOCS.ai/
 # Features still working on
 /academy/*
 /chess-puzzles/*
+
+# Other folders files that should not be commited
+/rankings-prompt
 
 # Null
 nul

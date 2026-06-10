@@ -3,7 +3,7 @@ import {
   listTournaments,
   type GameData,
   type TournamentMeta,
-} from "@/app/view/actions";
+} from "@/lib/chess-games/actions";
 import Link from "next/link";
 import { TournamentGamesCardClient } from "./TournamentGamesCardClient";
 import { cache } from "@/utils/cache";
@@ -67,7 +67,7 @@ export async function TournamentGamesCardServer() {
     if (!headerTournament) {
       return (
         <Link
-          href="/view"
+          href="/chess-games"
           className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center p-6"
         >
           <p className="text-muted-foreground">No tournaments available</p>
@@ -106,7 +106,7 @@ export async function TournamentGamesCardServer() {
     if (games.length === 0) {
       return (
         <Link
-          href="/view"
+          href="/chess-games"
           className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center p-6"
         >
           <p className="text-muted-foreground">No games available</p>
@@ -127,7 +127,7 @@ export async function TournamentGamesCardServer() {
     return (
       <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden flex flex-col items-center justify-center p-6">
         <p className="text-muted-foreground">Error loading games</p>
-        <Link href="/view" className="mt-2 text-primary hover:underline">
+        <Link href="/chess-games" className="mt-2 text-primary hover:underline">
           Try again
         </Link>
       </div>

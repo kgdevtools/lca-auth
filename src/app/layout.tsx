@@ -180,7 +180,7 @@ export default async function RootLayout({
                     label="LCA DB"
                     groupIcon="database"
                     items={[
-                      { href: "/view",            label: "View Games", icon: "gamepad"   },
+                      { href: "/chess-games",            label: "View Games", icon: "gamepad"   },
                       { href: "/player-rankings", label: "Rankings",   icon: "trending"  },
                       { href: "/blog",            label: "Blog",       icon: "newspaper" },
                     ]}

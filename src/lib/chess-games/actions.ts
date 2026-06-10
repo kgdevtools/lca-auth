@@ -1,4 +1,4 @@
-// src/app/view/actions.ts
+// src/lib/chess-games/actions.ts
 
 'use server'
 

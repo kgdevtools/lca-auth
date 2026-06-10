@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation"
 import { getPlayerProfile } from "@/lib/playerProfileServer"
-import { findPlayerGames } from "@/lib/playerGames"
 import ProfileView from "./ProfileView"
 
 // Mirror the rankings page's cache window — the underlying pool is cached per-period.
@@ -22,11 +21,10 @@ export default async function PlayerProfilePage({
   }
 
   // Defaults to the all-time pool; the profile shows the player's full history.
+  // Linked PGN games are fetched on demand by the Games tab (see /api/players/games)
+  // so the page doesn't block on the fuzzy PGN matching.
   const profile = await getPlayerProfile(key)
   if (!profile) notFound()
 
-  const tournamentNames = profile.player.appearances.map((a) => a.tournamentName)
-  const games = await findPlayerGames(profile.player.name, tournamentNames)
-
-  return <ProfileView profile={profile} games={games} />
+  return <ProfileView profile={profile} />
 }

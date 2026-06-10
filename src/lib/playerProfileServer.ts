@@ -46,6 +46,12 @@ export interface HeadToHead {
   losses: number;
   draws: number;
   events: number;
+  /** Opponent's most-recently-seen tournament rating, or null. */
+  rating: number | null;
+  /** Opponent's most-recently-seen federation code, or null. */
+  fed: string | null;
+  /** Each decisive/drawn meeting — result + the colour the player held. */
+  meetings: { result: 'win' | 'loss' | 'draw'; color: 'white' | 'black' | null }[];
 }
 
 /** Win/loss/draw tally for one slice (overall or a single colour). */
@@ -367,12 +373,19 @@ export async function getPlayerProfile(
         const k = norm(opponentName);
         let agg = h2h.get(k);
         if (!agg) {
-          agg = { name: opponentName, wins: 0, losses: 0, draws: 0, events: 0 };
+          agg = { name: opponentName, wins: 0, losses: 0, draws: 0, events: 0, rating: null, fed: null, meetings: [] };
           h2h.set(k, agg);
         }
-        if (tok.result === 'win') agg.wins += 1;
-        else if (tok.result === 'loss') agg.losses += 1;
-        else if (tok.result === 'draw') agg.draws += 1;
+        // appearances are newest-first, so the first non-null value seen is the
+        // opponent's most-recent rating / federation.
+        if (agg.rating === null) agg.rating = toNum(oppRow?.tournament_rating);
+        if (agg.fed === null && oppRow?.federation) agg.fed = oppRow.federation;
+        if (tok.result === 'win' || tok.result === 'loss' || tok.result === 'draw') {
+          if (tok.result === 'win') agg.wins += 1;
+          else if (tok.result === 'loss') agg.losses += 1;
+          else agg.draws += 1;
+          agg.meetings.push({ result: tok.result, color: tok.color });
+        }
         if (!seenOpponentsThisEvent.has(k)) {
           agg.events += 1;
           seenOpponentsThisEvent.add(k);

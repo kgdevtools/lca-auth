@@ -38,6 +38,7 @@
     "@supabase/supabase-js": "^2.54.0",
     "@tanstack/react-virtual": "^3.13.12",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@zoendev/react-chessboard": "^4.8.4",
     "cheerio": "^1.1.0",
     "chess.js": "^1.0.0-beta.6",
     "class-variance-authority": "^0.7.1",

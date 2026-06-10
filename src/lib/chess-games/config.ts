@@ -1,4 +1,4 @@
-// src/app/view/config.ts
+// src/lib/chess-games/config.ts
 
 // This is a shared configuration file that can be safely imported by both client and server components.
 

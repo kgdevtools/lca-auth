@@ -45,7 +45,7 @@ export default function NotFound() {
             Or try one of these pages:
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Link href="/view">
+            <Link href="/chess-games">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
                 Games Database
               </Button>

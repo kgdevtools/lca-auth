@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import Link from "next/link";
-import { type GameData, type TournamentMeta } from "@/app/view/actions";
+import { type GameData, type TournamentMeta } from "@/lib/chess-games/actions";
 
 const MAX_BOARD_WIDTH = 580;
 
@@ -86,7 +86,7 @@ export function TournamentGamesCardClient({
   if (games.length === 0) {
     return (
       <Link
-        href="/view"
+        href="/chess-games"
         className="rounded-lg border border-border/40 p-6 flex items-center justify-center"
       >
         <p className="text-muted-foreground">No games available</p>
@@ -117,7 +117,7 @@ export function TournamentGamesCardClient({
 
   return (
     <Link
-      href="/view"
+      href="/chess-games"
       className="flex flex-col group w-full overflow-hidden"
     >
       {/* Header – NO horizontal padding */}

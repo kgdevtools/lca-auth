@@ -156,6 +156,7 @@ function PlayerRow({
   appearances,
   selectionMode,
   verdict,
+  cohort,
   colSpan,
   onToggle,
 }: {
@@ -168,6 +169,8 @@ function PlayerRow({
   selectionMode: SelectionMode
   /** CDC verdict for the active cohort, or null when selection doesn't apply. */
   verdict: SelectionVerdict | null
+  /** Cohort the verdict was judged against (junior/senior), or undefined. */
+  cohort?: "junior" | "senior"
   /** Full-width column span for the expanded panel (max columns for the mode). */
   colSpan: number
   onToggle: () => void
@@ -242,7 +245,7 @@ function PlayerRow({
       </tr>
       {open && (
         <tr>
-          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} colSpan={colSpan} />
+          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} cohort={cohort} colSpan={colSpan} />
         </tr>
       )}
     </Fragment>
@@ -412,7 +415,10 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
               {showCriteria && (
                 <div className={styles.legendPanel}>
                   <p><strong>4 + 2</strong> = 4 Junior Qualifying + 2 Open. &nbsp; <strong>3 + 3</strong> = 3 Junior Qualifying + 3 Open.</p>
-                  <p>To qualify: 6 counted tournaments as 4 + 2 or 3 + 3, including at least one Open played in Capricorn.</p>
+                  <p>Juniors qualify on 6 counted tournaments as 4 + 2 or 3 + 3, including at least one Open played in Capricorn.</p>
+                  {selectionMode === "all" && (
+                    <p>Seniors qualify on a minimum of 6 counted tournaments (any location).</p>
+                  )}
                 </div>
               )}
             </div>
@@ -477,6 +483,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                     appearances={openKey === p.key ? history[`${periodKey}:${p.key}`] ?? null : null}
                     selectionMode={selectionMode}
                     verdict={selectionMode ? verdictFor(p, selectionMode) : null}
+                    cohort={selectionMode ? (selectionMode === "all" ? cohortFor(p) : selectionMode) : undefined}
                     colSpan={selectionMode ? 12 : 9}
                     onToggle={() => setOpenKey((k) => (k === p.key ? null : p.key))}
                   />

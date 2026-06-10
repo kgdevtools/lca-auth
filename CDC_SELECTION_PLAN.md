@@ -31,7 +31,7 @@ the public `/player-rankings` page, plus column changes and filter fixes.
 
 - **Junior:** 6 counted tournaments total, **(4 JQ + 2 Open)** or **(3 JQ + 3 Open)**,
   and **≥1 Open played in Capricorn**.
-- **Senior:** 6 counted tournaments total, **≥4 in Capricorn**, 2 anywhere.
+- **Senior:** 6 counted tournaments total, **Just six tournaments, qualifies(must have participated not just entered).
 - "Counted" tournament = classified `junior` or `open` (team/other excluded).
 
 ## Column changes (per notes)

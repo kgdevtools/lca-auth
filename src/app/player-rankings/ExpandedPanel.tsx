@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
 import styles from "./rankings.module.css"
@@ -20,6 +21,7 @@ export default function ExpandedPanel({
   p,
   appearances,
   verdict,
+  cohort,
   colSpan = 8,
 }: {
   p: RankedSummary
@@ -27,6 +29,8 @@ export default function ExpandedPanel({
   appearances: Appearance[] | null
   /** CDC verdict for the active cohort, or null when selection doesn't apply. */
   verdict?: SelectionVerdict | null
+  /** Cohort the verdict was judged against — frames the selection counts. */
+  cohort?: "junior" | "senior"
   /** Columns to span so the panel fills the full table width (see RankingsView). */
   colSpan?: number
 }) {
@@ -56,9 +60,30 @@ export default function ExpandedPanel({
       <div className={styles.expandPad}>
         {/* profile / summary */}
         <aside className={styles.profile}>
-          {/* Profile-page link disabled — the /player-rankings/[key] route is not
-              exposed yet, so the name renders as plain text (no navigation). */}
-          <span className={styles.profileName}>{p.name}</span>
+          <Link
+            href={`/player-rankings/${encodeURIComponent(p.key)}`}
+            className={styles.profileName}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>{p.name}</span>
+            <svg
+              className={styles.profileNameIcon}
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+          </Link>
           <div className={styles.profileSub}>
             {p.title && <span className={styles.pfTag} style={{ color: "var(--primary)" }}>{p.title}</span>}
             <span className={styles.pfTag}>{p.federation ?? "N/A"}</span>
@@ -87,9 +112,18 @@ export default function ExpandedPanel({
                 <span className={styles.selComment}>{verdict.comment}</span>
               </div>
               <div className={styles.selCounts}>
-                <span>JQ <strong>{p.juniorTournaments}</strong></span>
-                <span>Open <strong>{p.openTournaments}</strong></span>
-                <span>Capricorn <strong>{p.capricornTournaments}</strong></span>
+                {cohort === "senior" ? (
+                  <>
+                    <span>Counted <strong>{p.juniorTournaments + p.openTournaments}</strong></span>
+                    <span>Capricorn <strong>{p.capricornTournaments}</strong></span>
+                  </>
+                ) : (
+                  <>
+                    <span>JQ <strong>{p.juniorTournaments}</strong></span>
+                    <span>Open <strong>{p.openTournaments}</strong></span>
+                    <span>Capricorn <strong>{p.capricornTournaments}</strong></span>
+                  </>
+                )}
               </div>
             </div>
           )}

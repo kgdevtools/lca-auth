@@ -11,7 +11,7 @@
  * Returns an empty array for most players — that's the normal case, not a failure.
  * Fully isolated/defensive so a main-project hiccup never breaks the profile page.
  */
-import { fetchGames, listTournaments } from '@/app/view/actions';
+import { fetchGames, listTournaments } from '@/lib/chess-games/actions';
 
 /** The minimal game shape `GameViewer` consumes (title + pgn). */
 export interface LinkedGame {
@@ -98,18 +98,26 @@ export async function findPlayerGames(
       .sort((a, b) => b.score - a.score)
       .slice(0, MAX_TABLES);
 
-    const out: LinkedGame[] = [];
-    for (const c of candidates) {
-      try {
-        const { games, error: gErr } = await fetchGames(c.name);
-        if (gErr || !games) continue;
-        for (const g of games) {
-          if (g.pgn && pgnNamesMatch(g.pgn, playerNorm)) {
-            out.push({ title: g.title, pgn: g.pgn });
-          }
+    // Fetch the candidate tables concurrently — they're independent reads, so this
+    // turns ~6 sequential round-trips into one wave (the Games tab loads on demand).
+    const batches = await Promise.all(
+      candidates.map(async (c) => {
+        try {
+          const { games, error: gErr } = await fetchGames(c.name);
+          return gErr || !games ? [] : games;
+        } catch (err) {
+          console.error(`[playerGames] fetch ${c.name} failed:`, err);
+          return [];
         }
-      } catch (err) {
-        console.error(`[playerGames] fetch ${c.name} failed:`, err);
+      }),
+    );
+
+    const out: LinkedGame[] = [];
+    for (const games of batches) {
+      for (const g of games) {
+        if (g.pgn && pgnNamesMatch(g.pgn, playerNorm)) {
+          out.push({ title: g.title, pgn: g.pgn });
+        }
       }
     }
     return out;

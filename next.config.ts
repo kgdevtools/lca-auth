@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       {
         // Only apply COOP/COEP to the engine paths that need SharedArrayBuffer
         // Applying it globally blocks external images from loading
-        source: "/(view|engine)(.*)",
+        source: "/(view|chess-games|engine)(.*)",
         headers: [
           {
             key: "Cross-Origin-Opener-Policy",
@@ -21,6 +21,12 @@ const nextConfig: NextConfig = {
             value: "require-corp",
           },
         ],
+      },
+      {
+        // Serve the vendored Stockfish wasm with the correct MIME type so the
+        // worker can stream-compile it.
+        source: "/engine/:path*.wasm",
+        headers: [{ key: "Content-Type", value: "application/wasm" }],
       },
     ];
   },

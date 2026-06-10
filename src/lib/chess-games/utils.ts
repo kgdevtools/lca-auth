@@ -1,4 +1,4 @@
-// src/app/view/utils.ts
+// src/lib/chess-games/utils.ts
 // Client-side utility functions for the view page
 
 // Helper function to format tournament names from database format to display format
