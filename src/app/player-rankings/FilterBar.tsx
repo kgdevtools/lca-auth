@@ -31,6 +31,18 @@ export const FILTER_DEFAULTS: UiFilters = {
 
 const AGE_GROUPS = ["U08", "U10", "U12", "U14", "U16", "U18", "U20"]
 
+/** Senior sub-groups by age band (in REF_YEAR): ADT 20–49, SNR 50–59, VET 60+. */
+export const SENIOR_GROUPS = ["ADT", "SNR", "VET"] as const
+export const SENIOR_GROUP_LABELS: Record<string, string> = {
+  ADT: "Adults (ADT)",
+  SNR: "Senior (SNR)",
+  VET: "Veterans (VET)",
+}
+/** Is `g` one of the senior age-band codes (vs a junior UNN band)? */
+export function isSeniorGroup(g: string): boolean {
+  return g === "ADT" || g === "SNR" || g === "VET"
+}
+
 // Reference season — Juniors born >= 2006, UNN further requires born >=
 // REF_YEAR - NN. Used by the client-side category filter in RankingsView (the
 // period filter is applied server-side during aggregation).
@@ -38,15 +50,19 @@ export const REF_YEAR = 2026
 export const JUNIOR_MIN_BIRTH = 2006
 
 /**
- * Age-group label for a birth year, matching the 2-year non-overlapping bands
- * used by the category filter (`passesCategory`): UNN covers ages NN-1 and NN in
- * REF_YEAR (e.g. U16 = born 2010–2011). Juniors are born >= JUNIOR_MIN_BIRTH;
- * everyone else is SEN (no VET per client spec). Unknown birth year → "—".
+ * Age-group label for a birth year. Juniors (born >= JUNIOR_MIN_BIRTH) map to the
+ * 2-year non-overlapping UNN bands used by the category filter (`passesCategory`):
+ * UNN covers ages NN-1 and NN in REF_YEAR (e.g. U16 = born 2010–2011). Seniors map
+ * to age bands: ADT (20–49), SNR (50–59), VET (60+). Unknown birth year → "—".
  */
 export function ageGroupOf(birthYear: number | null | undefined): string {
   if (birthYear == null) return "—"
-  if (birthYear < JUNIOR_MIN_BIRTH) return "SEN"
   const age = REF_YEAR - birthYear
+  if (birthYear < JUNIOR_MIN_BIRTH) {
+    if (age >= 60) return "VET"
+    if (age >= 50) return "SNR"
+    return "ADT"
+  }
   let nn = age % 2 === 0 ? age : age + 1
   if (nn < 8) nn = 8
   if (nn > 20) nn = 20
@@ -77,6 +93,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
   }
 
   const isJuniors = filters.category === "juniors"
+  const isSeniors = filters.category === "seniors"
   const active =
     !!filters.search?.length ||
     filters.category !== "all" ||
@@ -109,10 +126,12 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             value={filters.category}
             onChange={(e) => {
               const v = e.target.value as Category
+              // Reset the sub-group to "all" when switching cohort so a stale
+              // junior band (e.g. U12) can't leak into the senior filter.
               set({
                 category: v,
-                ageGroup: v === "juniors" ? (filters.ageGroup ?? "all") : undefined,
-                qualifiedOnly: v === "all" ? undefined : filters.qualifiedOnly,
+                ageGroup: v === "all" ? undefined : "all",
+                qualifiedOnly: filters.qualifiedOnly,
               })
             }}
           >
@@ -134,6 +153,23 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
               <option value="all">All juniors</option>
               {AGE_GROUPS.map((g) => (
                 <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {isSeniors && (
+          <label className={styles.field}>
+            <span>Age group</span>
+            <select
+              className={styles.sel}
+              data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
+              value={filters.ageGroup ?? "all"}
+              onChange={(e) => set({ ageGroup: e.target.value })}
+            >
+              <option value="all">All seniors</option>
+              {SENIOR_GROUPS.map((g) => (
+                <option key={g} value={g}>{SENIOR_GROUP_LABELS[g]}</option>
               ))}
             </select>
           </label>
@@ -213,16 +249,17 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             onChange={(e) => numPatch("limit", e.target.value)}
           />
         </label>
-        {filters.category !== "all" && (
-          <label className={styles.fieldCheck} data-active={!!filters.qualifiedOnly}>
-            <input
-              type="checkbox"
-              checked={!!filters.qualifiedOnly}
-              onChange={(e) => set({ qualifiedOnly: e.target.checked || undefined })}
-            />
-            <span>Qualified only</span>
-          </label>
-        )}
+        {/* In the all-players view each player is judged against their own cohort's
+            CDC criteria; junior/senior pin a single cohort. Only acts within the
+            CDC cycle (the 2025 period) — see selectionMode in RankingsView. */}
+        <label className={styles.fieldCheck} data-active={!!filters.qualifiedOnly}>
+          <input
+            type="checkbox"
+            checked={!!filters.qualifiedOnly}
+            onChange={(e) => set({ qualifiedOnly: e.target.checked || undefined })}
+          />
+          <span>Qualified only</span>
+        </label>
         {active && (
           <button type="button" className={styles.clearBtn} onClick={() => onChange({ ...FILTER_DEFAULTS })}>
             Reset filters

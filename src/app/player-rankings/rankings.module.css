@@ -314,11 +314,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--rk-faint);
   font-family: var(--rk-mono);
 }
-.nameMeta .fed { color: var(--rk-muted); font-weight: 500; }
+.nameMeta .fed { color: var(--rk-muted); font-weight: 650; }
+.nameMeta .sex { color: var(--rk-muted); font-weight: 600; }
 .nameMeta .dot { opacity: 0.5; }
 
 /* numeric cells */
@@ -336,7 +337,7 @@
 .tri { font-size: 8px; margin-right: 2px; vertical-align: 1px; }
 
 /* Age-group cell — a compact pill, right-aligned to sit under its header and
-   read consistently with the numeric columns beside it. SEN renders muted. */
+   read consistently with the numeric columns beside it. Senior bands render muted. */
 .ageHead { text-align: right; }
 .table tbody td.ageCell { text-align: right; }
 .ageBadge {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import type { PlayerProfile, EventGames } from "@/lib/playerProfileServer"
-import { ageGroupOf } from "../FilterBar"
+import { ageGroupOf, isSeniorGroup } from "../FilterBar"
 import TrendChart from "./TrendChart"
 import { OverviewTab, TournamentsTab, OpponentsTab } from "./ProfileTabs"
 import styles from "./profile.module.css"
@@ -80,7 +80,7 @@ interface View {
   expectedDelta: number | null
   recentFinishes: (number | null)[]
   form: FormGame[]
-  chart: { date: string | null; perf: number; name?: string }[]
+  chart: { date: string | null; perf: number; name?: string; rank: number | null; points: number | null; seed: number | null }[]
   wins: number; losses: number; draws: number; byes: number; games: number
   scorePct: number | null
   white: { wins: number; losses: number; draws: number }
@@ -144,7 +144,7 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
   const chart = [...evs].reverse()
     .map((e) => e.appearance)
     .filter((a): a is typeof a & { perf: number } => a.perf !== null)
-    .map((a) => ({ date: a.date, perf: a.perf, name: a.tournamentName }))
+    .map((a) => ({ date: a.date, perf: a.perf, name: a.tournamentName, rank: a.rank, points: a.points, seed: a.seed }))
 
   const games = wins + losses + draws
   const am = mean(perfs)
@@ -357,7 +357,7 @@ export default function ProfileView({
         <div className={styles.nameRow}>
           <h1 className={styles.name}>{p.name}</h1>
           {p.title && <span className={styles.titleBadge}>{p.title}</span>}
-          {category !== "—" && <span className={styles.cat} data-sen={category === "SEN"}>{category}</span>}
+          {category !== "—" && <span className={styles.cat} data-sen={isSeniorGroup(category)}>{category}</span>}
           <span className={styles.headSpacer} />
           <FiltersMenu period={period} setPeriod={setPeriod} loc={loc} setLoc={setLoc} periods={periods} active={filterActive} />
         </div>

@@ -12,6 +12,7 @@ import FilterBar, {
   JUNIOR_MIN_BIRTH,
   REF_YEAR,
   ageGroupOf,
+  isSeniorGroup,
   type UiFilters,
 } from "./FilterBar"
 import ExpandedPanel from "./ExpandedPanel"
@@ -94,8 +95,16 @@ function passesCategory(p: RankedSummary, f: UiFilters): boolean {
     }
     return true
   }
-  // Senior = any non-junior player (unknown birth year counts as senior).
-  if (f.category === "seniors") return p.birthYear == null || p.birthYear < JUNIOR_MIN_BIRTH
+  // Senior = any non-junior player (unknown birth year counts as senior). An
+  // optional age band (ADT/SNR/VET) narrows further, and needs a known birth year.
+  if (f.category === "seniors") {
+    const isSenior = p.birthYear == null || p.birthYear < JUNIOR_MIN_BIRTH
+    if (!isSenior) return false
+    if (f.ageGroup && f.ageGroup !== "all") {
+      return p.birthYear != null && ageGroupOf(p.birthYear) === f.ageGroup
+    }
+    return true
+  }
   return true
 }
 
@@ -201,7 +210,7 @@ function PlayerRow({
               <div className={styles.nameMeta}>
                 <span className={styles.fed}>{p.federation ?? "N/A"}</span>
                 <span className={styles.dot}>·</span>
-                <span>{p.sex ?? "N/A"}</span>
+                <span className={styles.sex}>{p.sex ?? "N/A"}</span>
               </div>
             </div>
           </div>
@@ -210,7 +219,7 @@ function PlayerRow({
           {age === "—" ? (
             <span className={styles.naDash}>—</span>
           ) : (
-            <span className={styles.ageBadge} data-sen={age === "SEN"}>{age}</span>
+            <span className={styles.ageBadge} data-sen={isSeniorGroup(age)}>{age}</span>
           )}
         </td>
         <td className={cx(styles.numCell, styles.hideMobile)}>{p.currentRating ?? "—"}</td>

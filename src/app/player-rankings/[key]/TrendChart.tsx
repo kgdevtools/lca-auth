@@ -9,10 +9,24 @@ export interface TrendPoint {
   perf: number
   /** Event name, shown in the tap/hover callout. */
   name?: string
+  /** Final standing in the tournament. */
+  rank?: number | null
+  /** Points scored in the tournament. */
+  points?: number | null
+  /** The player's rating going into the tournament (tournament_rating / seed). */
+  seed?: number | null
 }
 
-/** Interactive performance trend — tap/hover a point for an event callout.
- *  Oldest → newest. Numbered Y axis + month X axis (year tagged on change). */
+const ordinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"]
+  const v = n % 100
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
+}
+const fmtPts = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
+
+/** Interactive performance trend — tap/hover a point for an event callout with
+ *  rank, points, tournament rating and performance. Oldest → newest. Numbered Y
+ *  axis + month X axis (year tagged on change), both with faint gridlines. */
 export default function TrendChart({ points, height = 150 }: { points: TrendPoint[]; height?: number }) {
   const [active, setActive] = useState<number | null>(null)
   if (points.length < 2) {
@@ -27,14 +41,17 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
   hi = Math.ceil((hi + padY) / 10) * 10
   if (hi === lo) hi = lo + 10
 
-  const TICKS = 4
+  // More Y gridlines for finer reading of the performance scale.
+  const TICKS = 6
   const yTicks = Array.from({ length: TICKS + 1 }, (_, k) => Math.round(lo + (k * (hi - lo)) / TICKS))
   const px = (i: number) => (points.length === 1 ? 50 : (i / (points.length - 1)) * 100)
   const py = (v: number) => (1 - (v - lo) / (hi - lo)) * 100
   const linePts = points.map((p, i) => `${px(i).toFixed(2)},${py(p.perf).toFixed(2)}`).join(" ")
   const areaPts = `0,100 ${linePts} 100,100`
 
-  const step = Math.max(1, Math.ceil(points.length / 6))
+  // Denser X axis: aim for ~9 labels, always tagging the last point and the year
+  // whenever it changes. Each labelled position also gets a faint vertical grid.
+  const step = Math.max(1, Math.ceil(points.length / 9))
   let lastYear = ""
   const xLabels = points
     .map((p, i) => {
@@ -54,6 +71,17 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
   const callTx =
     active == null ? "" : px(active) < 22 ? "translate(0,-100%)" : px(active) > 78 ? "translate(-100%,-100%)" : "translate(-50%,-100%)"
 
+  // Detail rows for the active callout (skip any value we don't have).
+  const details =
+    ap == null
+      ? []
+      : ([
+          ["Performance", String(ap.perf)],
+          ["Rank", ap.rank != null ? ordinal(ap.rank) : null],
+          ["Points", ap.points != null ? fmtPts(ap.points) : null],
+          ["Tourn. rating", ap.seed != null ? String(ap.seed) : null],
+        ].filter((r) => r[1] != null) as [string, string][])
+
   return (
     <div className={styles.chart} onMouseLeave={() => setActive(null)}>
       <div className={styles.chartBody}>
@@ -70,6 +98,9 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
             </defs>
             {yTicks.map((v) => (
               <line key={v} className={styles.grid} x1="0" y1={py(v)} x2="100" y2={py(v)} vectorEffect="non-scaling-stroke" />
+            ))}
+            {xLabels.map(({ i }) => (
+              <line key={"vg" + i} className={styles.vgrid} x1={px(i)} y1="0" x2={px(i)} y2="100" vectorEffect="non-scaling-stroke" />
             ))}
             <polygon className={styles.area} points={areaPts} />
             <polyline className={styles.line} points={linePts} vectorEffect="non-scaling-stroke" />
@@ -96,7 +127,15 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
           {ap && (
             <div className={styles.call} style={{ left: `${px(active!)}%`, top: `${py(ap.perf)}%`, transform: callTx }}>
               {ap.name && <div className={styles.ev}>{ap.name}</div>}
-              <div className={styles.fig}>{ap.perf} <span className={styles.dt}>· {monthOf(ap.date)} {yearOf(ap.date)}</span></div>
+              <div className={styles.dt}>{monthOf(ap.date)} {yearOf(ap.date)}</div>
+              <div className={styles.callGrid}>
+                {details.map(([k, v]) => (
+                  <span key={k} className={styles.callRow}>
+                    <span className={styles.callK}>{k}</span>
+                    <span className={styles.callV}>{v}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>
