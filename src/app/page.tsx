@@ -32,7 +32,7 @@ async function StatStrip() {
         <dl className="flex flex-wrap gap-x-8 gap-y-3">
           {items.map(([value, label]) => (
             <div key={label}>
-              <dd className="text-2xl font-bold tracking-tight tabular-nums font-mono">{value}</dd>
+              <dd className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums font-mono">{value}</dd>
               <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mt-0.5">
                 {label}
               </dt>
@@ -63,7 +63,9 @@ export default function Home() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start mb-10 sm:mb-12">
         <div className="space-y-6 lg:pt-2">
           <div className="space-y-4">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tightest text-balance">
+            {/* Fluid size + nowrap: scales with the viewport so the name always
+                sits on ONE line, from small phones up to desktop. */}
+            <h1 className="text-[clamp(1.5rem,7.8vw,3rem)] font-bold tracking-tighter whitespace-nowrap">
               Limpopo Chess Academy
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-prose">
@@ -73,7 +75,7 @@ export default function Home() {
               independent, structured thinking and bringing out that creative spark —
               to challenging, tournament-ready programs. Whether you&apos;re new to
               chess or want to deepen your understanding of the game, get in touch with one of our {" "}
-              <Link href="/forms/contact-us" className="font-bold text-primary-foreground no-underline hover:text-primary transition-colors">
+              <Link href="/forms/contact-us" className="font-bold text-primary no-underline hover:text-primary/80 transition-colors">
                 Coaches
               </Link>.
             </p>
