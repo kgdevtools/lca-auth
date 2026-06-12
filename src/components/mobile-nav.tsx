@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  Menu, X, TrendingUp, Gamepad2, Newspaper,
+  Menu, X, TrendingUp, Gamepad2,
   Calendar, FileText, Shield, Upload, LayoutDashboard, UserPlus,
   Info, Phone, LogOut,
 } from "lucide-react";
@@ -125,7 +125,6 @@ export function MobileNav({ isAuthenticated, isAdmin = false }: MobileNavProps) 
             <div className="space-y-0.5 mb-1">
               <MobileNavItem href="/chess-games"            icon={Gamepad2}   onClick={close}>View Games</MobileNavItem>
               <MobileNavItem href="/player-rankings" icon={TrendingUp} onClick={close}>Rankings</MobileNavItem>
-              <MobileNavItem href="/blog"            icon={Newspaper}  onClick={close}>Blog</MobileNavItem>
             </div>
 
             <div className="my-2 border-t border-border/50" />

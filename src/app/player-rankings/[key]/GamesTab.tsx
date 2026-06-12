@@ -36,7 +36,18 @@ export default function GamesTab({ playerKey }: { playerKey: string }) {
     return () => { alive = false }
   }, [playerKey])
 
-  if (games === null) return <div className={styles.empty}>Loading games…</div>
+  if (games === null) {
+    return (
+      <div className={styles.gameSkel} aria-hidden="true">
+        <div className={`${styles.skelShape} ${styles.skelBoard}`} />
+        <div className={styles.skelThumbs}>
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className={`${styles.skelShape} ${styles.skelThumb}`} />
+          ))}
+        </div>
+      </div>
+    )
+  }
   if (games.length === 0) return <div className={styles.empty}>No recorded PGN games matched this player yet.</div>
 
   const pick = (i: number) => { setSel(i); setMountKey((k) => k + 1) }

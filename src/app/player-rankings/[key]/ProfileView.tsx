@@ -3,17 +3,26 @@
 import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import type { PlayerProfile, EventGames } from "@/lib/playerProfileServer"
+import type { PlayerProfile, EventGames, HeadToHead } from "@/lib/playerProfileServer"
 import { ageGroupOf, isSeniorGroup } from "../FilterBar"
 import TrendChart from "./TrendChart"
-import { OverviewTab, TournamentsTab, OpponentsTab } from "./ProfileTabs"
+import { TournamentsTab, OpponentsTab } from "./ProfileTabs"
 import styles from "./profile.module.css"
 
 // The Games tab pulls in chess.js + the chessboard + the analysis board/engine.
 // Load it on demand so none of that ships in the profile's initial bundle.
 const GamesTab = dynamic(() => import("./GamesTab"), {
   ssr: false,
-  loading: () => <div className={styles.empty}>Loading…</div>,
+  loading: () => (
+    <div className={styles.gameSkel} aria-hidden="true">
+      <div className={`${styles.skelShape} ${styles.skelBoard}`} />
+      <div className={styles.skelThumbs}>
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className={`${styles.skelShape} ${styles.skelThumb}`} />
+        ))}
+      </div>
+    </div>
+  ),
 })
 
 const int = (n: number | null) => (n == null ? "—" : String(n))
@@ -27,15 +36,15 @@ const ordinal = (n: number) => {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
 }
 
-type Tab = "overview" | "tournaments" | "opponents" | "games"
+type Tab = "tournaments" | "opponents" | "games"
 type Tone = "pos" | "neg" | undefined
 type Loc = "all" | "limpopo" | "capricorn"
 
 const IDENTITY_LABEL: Record<string, string> = {
   unique_no: "Verified",
   fide_id: "Matched · FIDE",
-  "fuzzy-match": "Fuzzy match",
-  name: "Name only",
+  "fuzzy-match": "Unverified",
+  name: "Unverified",
 }
 
 const TIP = {
@@ -44,14 +53,27 @@ const TIP = {
   vsExpected: "Points scored versus expected points (xPoints) from the rating gaps in each game. Positive means they did better than their ratings predicted.",
   winPct: "Points scored as a share of games played — a draw counts as half.",
   podium: "Share of tournaments where they finished in the top three.",
+  scalp: "The highest-rated opponent they have beaten.",
+  trajectory: "How fast their tournament performances are rising or falling, in rating points per year.",
 }
 
 // ── Filtered view derivation ─────────────────────────────────────────────────
-// The top half of the page recomputes from the player's events under the active
-// Period + Location filter, so the average etc. always span the FULL filtered set
-// (never a fixed recent window). The bottom tabs keep the unfiltered full history.
+// The whole page recomputes from the player's events under the active Period +
+// Location filter — summary, stats, and the Tournaments/Opponents tabs all show
+// the same filtered set. (Games are PGN-matched and stay unfiltered, with a note.)
 
 const SCORE = { win: 1, draw: 0.5, loss: 0 } as const
+const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000
+
+/** Same normalisation the server uses to key opponents in head-to-head. */
+function norm(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+}
 
 /** Chess season for a date: period N = Oct N – Sep N+1. null on unparsable date. */
 function seasonOf(date: string | null): number | null {
@@ -60,6 +82,13 @@ function seasonOf(date: string | null): number | null {
   if (isNaN(d.getTime())) return null
   const y = d.getUTCFullYear()
   return d.getUTCMonth() >= 9 ? y : y - 1
+}
+
+/** Date → fractional years, for the trajectory fit. null on unparsable date. */
+function trendX(date: string | null): number | null {
+  if (!date) return null
+  const d = new Date(date.trim().replace(/\//g, "-") + "T00:00:00Z")
+  return isNaN(d.getTime()) ? null : d.getTime() / MS_PER_YEAR
 }
 
 function inLoc(a: EventGames["appearance"], loc: Loc): boolean {
@@ -71,10 +100,12 @@ function inLoc(a: EventGames["appearance"], loc: Loc): boolean {
 interface FormGame { result: string; rating: number | null; color: "white" | "black" | null }
 
 interface View {
+  events: EventGames[]
   rated: number
   avg: number | null
   best: number | null
-  worst: number | null
+  bestWin: number | null
+  trendSlope: number | null
   avgGap: number | null
   strengthOfSchedule: number | null
   expectedDelta: number | null
@@ -87,6 +118,7 @@ interface View {
   black: { wins: number; losses: number; draws: number }
   bestRank: number | null; bestRankCount: number
   podiumRate: number | null
+  h2h: HeadToHead[]
 }
 
 function mean(xs: number[]): number | null {
@@ -108,9 +140,12 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
   const black = { wins: 0, losses: 0, draws: 0 }
   const oppRatings: number[] = []
   let expSum = 0, actSum = 0, cGames = 0
+  let bestWin: number | null = null
+  const h2hMap = new Map<string, HeadToHead>()
 
   for (const e of evs) {
     const S = e.appearance.seed
+    const seenThisEvent = new Set<string>()
     for (const g of e.rounds) {
       const bye = g.opponentName === null && (g.result === "bye" || g.result === null)
       if (bye) { byes += 1; continue }
@@ -119,15 +154,44 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
         if (g.result === "win") { wins += 1; if (slice) slice.wins += 1 }
         else if (g.result === "loss") { losses += 1; if (slice) slice.losses += 1 }
         else { draws += 1; if (slice) slice.draws += 1 }
-        if (g.opponentRating != null) oppRatings.push(g.opponentRating)
+        if (g.opponentRating != null) {
+          oppRatings.push(g.opponentRating)
+          if (g.result === "win") bestWin = bestWin === null ? g.opponentRating : Math.max(bestWin, g.opponentRating)
+        }
         if (S != null && g.opponentRating != null) {
           expSum += 1 / (1 + 10 ** ((g.opponentRating - S) / 400))
           actSum += SCORE[g.result]
           cGames += 1
         }
       }
+      // Head-to-head under the same filter (mirrors the server's full-history build;
+      // evs is newest-first, so the first rating/fed seen is the most recent).
+      if (g.opponentName) {
+        const k = norm(g.opponentName)
+        let agg = h2hMap.get(k)
+        if (!agg) {
+          agg = { name: g.opponentName, wins: 0, losses: 0, draws: 0, events: 0, rating: null, fed: null, meetings: [] }
+          h2hMap.set(k, agg)
+        }
+        if (agg.rating === null) agg.rating = g.opponentRating
+        if (agg.fed === null && g.opponentFed) agg.fed = g.opponentFed
+        if (g.result === "win" || g.result === "loss" || g.result === "draw") {
+          if (g.result === "win") agg.wins += 1
+          else if (g.result === "loss") agg.losses += 1
+          else agg.draws += 1
+          agg.meetings.push({ result: g.result, color: g.color })
+        }
+        if (!seenThisEvent.has(k)) {
+          agg.events += 1
+          seenThisEvent.add(k)
+        }
+      }
     }
   }
+
+  const h2h = [...h2hMap.values()].sort(
+    (a, b) => b.wins + b.losses + b.draws - (a.wins + a.losses + a.draws) || a.name.localeCompare(b.name),
+  )
 
   // form: newest results first, up to 10 (byEvent is newest-first)
   const form: FormGame[] = []
@@ -146,6 +210,20 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
     .filter((a): a is typeof a & { perf: number } => a.perf !== null)
     .map((a) => ({ date: a.date, perf: a.perf, name: a.tournamentName, rank: a.rank, points: a.points, seed: a.seed }))
 
+  // Trajectory — OLS slope of performance over time, in rating points per year
+  // (same fit the server runs over the full history, here over the filtered set).
+  let trendSlope: number | null = null
+  const tpts = evs
+    .map((e) => ({ x: trendX(e.appearance.date), y: e.appearance.perf }))
+    .filter((p): p is { x: number; y: number } => p.x !== null && p.y !== null)
+  if (tpts.length >= 2) {
+    const xm = tpts.reduce((s, p) => s + p.x, 0) / tpts.length
+    const ym = tpts.reduce((s, p) => s + p.y, 0) / tpts.length
+    let num = 0, den = 0
+    for (const p of tpts) { num += (p.x - xm) * (p.y - ym); den += (p.x - xm) ** 2 }
+    if (den > 0) trendSlope = Math.round(num / den)
+  }
+
   const games = wins + losses + draws
   const am = mean(perfs)
   const gm = mean(gaps)
@@ -153,10 +231,12 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
   const bestRank = ranks.length ? Math.min(...ranks) : null
 
   return {
+    events: evs,
     rated: perfs.length,
     avg: am == null ? null : Math.round(am * 10) / 10,
     best: perfs.length ? Math.max(...perfs) : null,
-    worst: perfs.length ? Math.min(...perfs) : null,
+    bestWin,
+    trendSlope,
     avgGap: gm == null ? null : Math.round(gm),
     strengthOfSchedule: sos == null ? null : Math.round(sos),
     expectedDelta: cGames > 0 ? Math.round(((actSum - expSum) / cGames) * 1000) / 10 : null,
@@ -169,6 +249,7 @@ function deriveView(byEvent: EventGames[], period: number | null, loc: Loc): Vie
     bestRank,
     bestRankCount: bestRank === null ? 0 : ranks.filter((r) => r === bestRank).length,
     podiumRate: ranks.length ? Math.round((ranks.filter((r) => r <= 3).length / ranks.length) * 100) : null,
+    h2h,
   }
 }
 
@@ -328,8 +409,8 @@ export default function ProfileView({
 }: {
   profile: PlayerProfile
 }) {
-  const { player: p, byEvent, headToHead } = profile
-  const [tab, setTab] = useState<Tab>("overview")
+  const { player: p, byEvent } = profile
+  const [tab, setTab] = useState<Tab>("tournaments")
   const [period, setPeriod] = useState<number | null>(null)
   const [loc, setLoc] = useState<Loc>("all")
 
@@ -341,10 +422,31 @@ export default function ProfileView({
   const filterActive = period !== null || loc !== "all"
   const category = ageGroupOf(p.birthYear)
 
+  // Restore tab + filters from the URL on mount; keep the URL in sync after, so
+  // profile views are shareable and refresh-safe. replaceState avoids history spam.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const t = q.get("tab")
+    if (t === "tournaments" || t === "opponents" || t === "games") setTab(t)
+    const pp = Number(q.get("period"))
+    if (periods.includes(pp)) setPeriod(pp)
+    const l = q.get("loc")
+    if (l === "limpopo" || l === "capricorn") setLoc(l)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const put = (k: string, v: string | null) => (v == null ? q.delete(k) : q.set(k, v))
+    put("tab", tab === "tournaments" ? null : tab)
+    put("period", period == null ? null : String(period))
+    put("loc", loc === "all" ? null : loc)
+    const qs = q.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [tab, period, loc])
+
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "tournaments", label: "Tournaments", count: p.appearances.length },
-    { id: "opponents", label: "Opponents", count: headToHead.length },
+    { id: "tournaments", label: "Tournaments", count: view.events.length },
+    { id: "opponents", label: "Opponents", count: view.h2h.length },
     { id: "games", label: "Games" },
   ]
 
@@ -362,8 +464,13 @@ export default function ProfileView({
           <FiltersMenu period={period} setPeriod={setPeriod} loc={loc} setLoc={setLoc} periods={periods} active={filterActive} />
         </div>
         <div className={styles.meta}>
-          <span className={styles.chip} data-id="true">
-            <span className={styles.idDot} />{IDENTITY_LABEL[p.identityKind] ?? p.identityKind}
+          <span
+            className={styles.chip}
+            data-id="true"
+            title={p.identityKind === "unique_no" || p.identityKind === "fide_id" ? undefined : "Matched by name only — not confirmed against a federation ID."}
+          >
+            <span className={styles.idDot} data-v={p.identityKind === "unique_no" || p.identityKind === "fide_id"} />
+            {IDENTITY_LABEL[p.identityKind] ?? p.identityKind}
           </span>
           {p.federation && <span className={styles.metaItem}>{p.federation}</span>}
           {p.sex && <span className={styles.metaItem}>{p.sex === "M" ? "Male" : p.sex === "F" ? "Female" : p.sex}</span>}
@@ -389,10 +496,13 @@ export default function ProfileView({
       </header>
 
       {filterActive && (
-        <div className={styles.filterBanner}>
+        <div className={styles.filterLine}>
           Showing {period == null ? "all time" : `Oct ${period} – Sep ${period + 1}`}
           {loc !== "all" ? ` · ${loc === "limpopo" ? "Limpopo" : "Capricorn"}` : ""}
-          {" · "}{view.rated} rated event{view.rated === 1 ? "" : "s"}
+          {" · "}{view.rated} rated event{view.rated === 1 ? "" : "s"}{" · "}
+          <button type="button" className={styles.filterClear} onClick={() => { setPeriod(null); setLoc("all") }}>
+            Clear
+          </button>
         </div>
       )}
 
@@ -429,9 +539,15 @@ export default function ProfileView({
       {/* Grouped stats — no number repeats the hero */}
       <div className={styles.groups}>
         <div>
-          <div className={styles.groupTitle}>Range &amp; form</div>
+          <div className={styles.head}>Performance</div>
           <StatRow l="Best performance" v={int(view.best)} />
-          <StatRow l="Worst performance" v={int(view.worst)} />
+          <StatRow l="Biggest scalp" v={int(view.bestWin)} tip={["biggest scalp", TIP.scalp]} />
+          <StatRow
+            l="Trajectory"
+            v={view.trendSlope == null ? "—" : `${signed(view.trendSlope)}/yr`}
+            tone={toneOf(view.trendSlope)}
+            tip={["trajectory", TIP.trajectory]}
+          />
           <div className={styles.statRow}>
             <span className={styles.statL}>Last 3 finishes</span>
             <span className={styles.finish}>
@@ -450,10 +566,10 @@ export default function ProfileView({
           </div>
         </div>
         <div>
-          <div className={styles.groupTitle}>Versus the field</div>
-          <StatRow l="Avg Rating to Tourn Rating" v={signed(view.avgGap)} tone={toneOf(view.avgGap)} tip={["avg rating to tourn rating", TIP.avgDiff]} />
+          <div className={styles.head}>Versus the field</div>
+          <StatRow l="Outperforms rating by" v={signed(view.avgGap)} tone={toneOf(view.avgGap)} tip={["outperforms rating by", TIP.avgDiff]} />
           <StatRow l="Avg opponent" v={int(view.strengthOfSchedule)} tip={["avg opponent", TIP.avgOpp]} />
-          <StatRow l="Points vs xPoints" v={signedPct(view.expectedDelta)} tone={toneOf(view.expectedDelta)} tip={["points vs xpoints", TIP.vsExpected]} />
+          <StatRow l="Points vs expected" v={signedPct(view.expectedDelta)} tone={toneOf(view.expectedDelta)} tip={["points vs expected", TIP.vsExpected]} />
         </div>
       </div>
 
@@ -472,25 +588,17 @@ export default function ProfileView({
             </div>
           </div>
           <div className={styles.recList}>
+            <StatRow l="Win percentage" v={view.scorePct == null ? "—" : `${view.scorePct}%`} tip={["win %", TIP.winPct]} />
             <div className={styles.statRow}>
-              <span className={styles.statL}>Top tournament ranking</span>
+              <span className={styles.statL}>Best finish</span>
               <span className={styles.statV}>{view.bestRank == null ? "—" : ordinal(view.bestRank)}{view.bestRankCount > 1 && <span style={{ color: "var(--rk-accent)", fontSize: 12, marginLeft: 4 }}>×{view.bestRankCount}</span>}</span>
             </div>
-            <StatRow l="Win percentage" v={view.scorePct == null ? "—" : `${view.scorePct}%`} tip={["win %", TIP.winPct]} />
             <StatRow l="Top-3 finishes" v={pct(view.podiumRate)} tip={["podium", TIP.podium]} />
-            <StatRow l="Games played" v={String(view.games)} />
-            <StatRow l="Byes" v={String(view.byes)} />
           </div>
         </div>
       </section>
 
-      {/* Full history (unaffected by the filters above) */}
-      <div className={styles.fullHist}>
-        <h2 className={styles.fullHistTitle}>Full Tournament History</h2>
-        <p className={styles.fullHistSub}>Complete career record — not affected by the filters above.</p>
-      </div>
-
-      {/* Tabs */}
+      {/* Tabs — same filtered set as the summary above */}
       <div className={styles.tabsWrap}>
         <div className={styles.tabs}>
           {tabs.map((t) => (
@@ -501,10 +609,14 @@ export default function ProfileView({
         </div>
       </div>
 
-      {tab === "overview" && <OverviewTab profile={profile} />}
-      {tab === "tournaments" && <TournamentsTab byEvent={byEvent} />}
-      {tab === "opponents" && <OpponentsTab profile={profile} />}
-      {tab === "games" && <GamesTab playerKey={p.key} />}
+      {tab === "tournaments" && <TournamentsTab byEvent={view.events} />}
+      {tab === "opponents" && <OpponentsTab h2h={view.h2h} />}
+      {tab === "games" && (
+        <>
+          {filterActive && <p className={styles.note}>Showing all recorded games — the filters above don&apos;t apply here.</p>}
+          <GamesTab playerKey={p.key} />
+        </>
+      )}
     </div>
   )
 }

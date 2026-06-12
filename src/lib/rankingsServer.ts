@@ -9,7 +9,7 @@
  * Importing `next/cache` keeps this module server-side; it will not bundle into
  * a client component.
  */
-import { fetchRankingData } from "./ratingsClient";
+import { fetchRankingData, ratings } from "./ratingsClient";
 import {
   rankPlayers,
   type Appearance,
@@ -85,4 +85,42 @@ export async function getPlayer(
 ): Promise<RankedPlayer | null> {
   const ranked = await getRanked(period);
   return ranked.find((p) => p.key === key) ?? null;
+}
+
+export interface RankingStats {
+  players: number;
+  tournaments: number;
+  /** Most recently played tournament on record, for the hero strip. */
+  latest: { name: string; date: string | null } | null;
+}
+
+/**
+ * Headline figures for the home page's stat strip: distinct players in the
+ * all-time pool, total tournaments on record, and the most recent tournament.
+ * Piggybacks on the cached pool; the count query is head-only (no rows).
+ */
+let statsCache: { at: number; value: Promise<RankingStats> } | null = null;
+export async function getRankingStats(): Promise<RankingStats> {
+  if (statsCache && Date.now() - statsCache.at < TTL_MS) return statsCache.value;
+  const value = (async () => {
+    const [ranked, { count }, { data: latestRows }] = await Promise.all([
+      getRanked(),
+      ratings.from("sd_tournaments").select("id", { count: "exact", head: true }),
+      // nullsFirst:false — Postgres DESC otherwise ranks null-dated rows as "latest".
+      ratings.from("sd_tournaments").select("tournament_name, date").order("date", { ascending: false, nullsFirst: false }).limit(1),
+    ]);
+    const latestRow = latestRows?.[0] as { tournament_name: string | null; date: string | null } | undefined;
+    return {
+      players: ranked.length,
+      tournaments: count ?? 0,
+      latest: latestRow?.tournament_name
+        ? { name: latestRow.tournament_name, date: latestRow.date ? latestRow.date.trim().replace(/\//g, "-").slice(0, 10) : null }
+        : null,
+    };
+  })();
+  value.catch(() => {
+    if (statsCache?.value === value) statsCache = null;
+  });
+  statsCache = { at: Date.now(), value };
+  return value;
 }

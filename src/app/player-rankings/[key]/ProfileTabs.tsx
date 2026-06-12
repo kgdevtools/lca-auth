@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
-import type { PlayerProfile, EventGames, GameEntry, HeadToHead } from "@/lib/playerProfileServer"
-import { monthOf, yearOf } from "../PerfChart"
+import { useState } from "react"
+import type { EventGames, GameEntry, HeadToHead } from "@/lib/playerProfileServer"
 import styles from "./profile.module.css"
 
 const int = (n: number | null) => (n == null ? "—" : String(n))
@@ -12,7 +11,9 @@ const ordinal = (n: number) => {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
 }
 const ord = (n: number | null) => (n == null ? "—" : ordinal(n))
-const pctOf = (x: number) => `${Math.round(x * 100)}%`
+const fmtPts = (n: number | null) => (n == null ? "—" : Number.isInteger(n) ? String(n) : n.toFixed(1))
+/** "2025/03/01" / "2025-03-01" → "2025-03-01"; missing → "—". */
+const isoDate = (d: string | null) => (d ? d.trim().replace(/\//g, "-").slice(0, 10) : "—")
 
 const PAGE = 5
 function usePaged<T>(items: T[]) {
@@ -31,91 +32,6 @@ function SeeMore({ remaining, onClick }: { remaining: number; onClick: () => voi
 
 const place = (e: EventGames) =>
   e.location ?? [e.appearance.district, e.appearance.province].filter(Boolean).join(", ")
-
-// ── Overview: a concise scout report (no headline number — that's the hero) ──
-export function OverviewTab({ profile }: { profile: PlayerProfile }) {
-  const { player: p, record: r, metrics: m } = profile
-  const wg = r.white.wins + r.white.losses + r.white.draws
-  const bg = r.black.wins + r.black.losses + r.black.draws
-  const ws = wg ? (r.white.wins + r.white.draws / 2) / wg : null
-  const bs = bg ? (r.black.wins + r.black.draws / 2) / bg : null
-
-  let colour: string | null = null
-  if (ws != null && bs != null) {
-    if (Math.abs(ws - bs) < 0.05) colour = `scores evenly with both colours (${pctOf(ws)} White, ${pctOf(bs)} Black)`
-    else if (ws > bs) colour = `stronger with White (${pctOf(ws)} vs ${pctOf(bs)} as Black)`
-    else colour = `stronger with Black (${pctOf(bs)} vs ${pctOf(ws)} as White)`
-  }
-
-  const trajUp = m.trendSlope != null && m.trendSlope !== 0 ? m.trendSlope > 0 : null
-
-  // Each insight is a prominent figure + a label + supporting prose. The figure
-  // carries the stat; the prose stays muted so the two read at a glance.
-  const items: { fig: ReactNode; lab: string; note: ReactNode }[] = []
-  if (r.bestRank != null) {
-    items.push({
-      fig: ordinal(r.bestRank),
-      lab: "Best finish",
-      note: (
-        <>
-          {r.bestRankCount > 1 ? <>reached <strong>{r.bestRankCount} times</strong></> : "reached once"}
-          {m.podiumRate != null ? <> · top-3 in <strong>{m.podiumRate}%</strong> of events</> : null}
-        </>
-      ),
-    })
-  }
-  items.push({
-    fig: r.scorePct != null ? `${r.scorePct}%` : `${r.wins}–${r.losses}–${r.draws}`,
-    lab: "Game record",
-    note: (
-      <>
-        <strong>{r.wins}W · {r.losses}L · {r.draws}D</strong>{colour ? ` — ${colour}` : ""}
-      </>
-    ),
-  })
-  if (m.strengthOfSchedule != null) {
-    items.push({
-      fig: m.strengthOfSchedule,
-      lab: "Avg opposition",
-      note: (
-        <>
-          scored <strong>{m.expectedDelta == null ? "—" : `${m.expectedDelta >= 0 ? "+" : "−"}${Math.abs(m.expectedDelta)}%`}</strong> vs expected points
-        </>
-      ),
-    })
-  }
-  if (m.bestWin != null) {
-    items.push({ fig: m.bestWin, lab: "Biggest scalp", note: "highest-rated opponent beaten" })
-  }
-  if (trajUp != null) {
-    items.push({
-      fig: `${m.trendSlope! > 0 ? "+" : "−"}${Math.abs(m.trendSlope!)}`,
-      lab: "Trajectory",
-      note: <>rating/year — trending <strong>{trajUp ? "upward" : "downward"}</strong></>,
-    })
-  }
-
-  return (
-    <div className={styles.overview}>
-      <p className={styles.overviewLead}>
-        A snapshot of <strong>{p.name.split(" ")[0]}</strong>’s record across{" "}
-        <strong>{p.ratedTournaments}</strong> rated tournament{p.ratedTournaments === 1 ? "" : "s"}
-        {p.totalAppearances !== p.ratedTournaments ? ` (${p.totalAppearances} played in total)` : ""}.
-      </p>
-      <div className={styles.scout}>
-        {items.map((it, i) => (
-          <div className={styles.scoutItem} key={i}>
-            <span className={styles.scoutFig}>{it.fig}</span>
-            <span className={styles.scoutBody}>
-              <span className={styles.scoutLab}>{it.lab}</span>
-              <span className={styles.scoutNote}>{it.note}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ── Tournaments (accordion: expand a tournament to see its opponents) ─────────
 export function TournamentsTab({ byEvent }: { byEvent: EventGames[] }) {
@@ -140,11 +56,13 @@ export function TournamentsTab({ byEvent }: { byEvent: EventGames[] }) {
                 <span className={styles.accChev} data-open={isOpen} aria-hidden="true">›</span>
                 <span className={styles.accMain}>
                   <span className={styles.accName}>{a.tournamentName}</span>
-                  <span className={styles.accMeta}>{monthOf(a.date)} {yearOf(a.date)}{place(e) ? ` · ${place(e)}` : ""}</span>
+                  <span className={styles.accMeta}>{isoDate(a.date)}{place(e) ? ` · ${place(e)}` : ""}</span>
                 </span>
                 <span className={styles.accFigs}>
-                  <span className={styles.accFig}><b data-hero="true">{int(a.perf)}</b><i>perf</i></span>
                   <span className={styles.accFig}><b>{ord(a.rank)}</b><i>rank</i></span>
+                  <span className={styles.accFig}><b>{fmtPts(a.points)}</b><i>points</i></span>
+                  <span className={styles.accFig}><b>{int(a.seed)}</b><i>rating</i></span>
+                  <span className={styles.accFig}><b data-hero="true">{int(a.perf)}</b><i>perf</i></span>
                 </span>
               </button>
               {isOpen && (
@@ -165,28 +83,32 @@ export function TournamentsTab({ byEvent }: { byEvent: EventGames[] }) {
   )
 }
 
-// One opponent row inside an expanded tournament. Rating + federation share the
-// result's prominence; the colour disc marks the side the player held.
+// One opponent row inside an expanded tournament. The result is the chess score
+// (1 / ½ / 0) on a pill tinted by the colour the player held; grey marks a bye.
 function OppRow({ r }: { r: GameEntry }) {
   const isBye = r.opponentName === null && (r.result === "bye" || r.result === null)
-  const colour = r.color === "white" ? "○" : r.color === "black" ? "●" : "·"
+  const score = r.result === "win" ? "1" : r.result === "draw" ? "½" : r.result === "loss" ? "0" : "–"
   return (
     <div className={styles.opp}>
       <span className={styles.oppNo}>R{r.round}</span>
-      <span className={styles.oppClr} data-c={r.color ?? undefined} title={r.color ?? ""}>{colour}</span>
       <span className={styles.oppName}>
         {isBye ? <span className={styles.rDim}>Bye</span> : (r.opponentName ?? <span className={styles.rDim}>Opponent #{r.opponentRank}</span>)}
       </span>
       <span className={styles.oppRat}>{r.opponentRating ?? "—"}</span>
       <span className={styles.oppFed}>{r.opponentFed ?? "—"}</span>
-      <ResultPill result={r.result} bye={isBye} />
+      <span
+        className={styles.scorePill}
+        data-c={isBye ? "bye" : r.color ?? "none"}
+        title={isBye ? "Bye" : `${r.result ?? "?"}${r.color ? ` as ${r.color}` : ""}`}
+      >
+        {isBye ? "–" : score}
+      </span>
     </div>
   )
 }
 
 // ── Opponents (frequent opponents, most-played first) ────────────────────────
-export function OpponentsTab({ profile }: { profile: PlayerProfile }) {
-  const { headToHead: h2h } = profile
+export function OpponentsTab({ h2h }: { h2h: HeadToHead[] }) {
   const { visible, remaining, more } = usePaged(h2h)
 
   if (h2h.length === 0) {
@@ -201,6 +123,7 @@ export function OpponentsTab({ profile }: { profile: PlayerProfile }) {
       <div className={`${styles.cards} ${styles.onlyNarrow}`}>
         {visible.map((h) => {
           const g = h.wins + h.losses + h.draws
+          const score = h.wins + h.draws / 2
           const meta = [h.rating != null ? String(h.rating) : "unrated", h.fed ?? null, `${h.events} event${h.events === 1 ? "" : "s"}`]
             .filter(Boolean)
             .join(" · ")
@@ -224,7 +147,7 @@ export function OpponentsTab({ profile }: { profile: PlayerProfile }) {
                   <span className={`${styles.figV} ${styles.mono}`}>
                     <span className={styles.pos}>{h.wins}</span>–<span className={styles.neg}>{h.losses}</span>–{h.draws}
                   </span>
-                  <span className={styles.figL}>{g} game{g === 1 ? "" : "s"}</span>
+                  <span className={styles.figL}>{fmtPts(score)}/{g} pts</span>
                 </div>
               </div>
             </div>
@@ -240,7 +163,7 @@ export function OpponentsTab({ profile }: { profile: PlayerProfile }) {
               <th>Opponent</th>
               <th className={styles.num}>Rating</th><th>Fed</th>
               <th className={styles.num}>W</th><th className={styles.num}>L</th><th className={styles.num}>D</th>
-              <th className={styles.num}>Games</th><th className={styles.num}>Events</th>
+              <th className={styles.num}>Score</th><th className={styles.num}>Events</th>
             </tr>
           </thead>
           <tbody>
@@ -252,7 +175,7 @@ export function OpponentsTab({ profile }: { profile: PlayerProfile }) {
                 <td className={styles.num}><span className={`${styles.wld} ${styles.pos}`}>{h.wins}<Discs meetings={h.meetings} result="win" /></span></td>
                 <td className={styles.num}><span className={`${styles.wld} ${styles.neg}`}>{h.losses}<Discs meetings={h.meetings} result="loss" /></span></td>
                 <td className={styles.num}><span className={styles.wld}>{h.draws}<Discs meetings={h.meetings} result="draw" /></span></td>
-                <td className={styles.num}>{h.wins + h.losses + h.draws}</td>
+                <td className={styles.num}>{fmtPts(h.wins + h.draws / 2)}/{h.wins + h.losses + h.draws}</td>
                 <td className={styles.num}>{h.events}</td>
               </tr>
             ))}
@@ -277,8 +200,3 @@ function Discs({ meetings, result }: { meetings: HeadToHead["meetings"]; result:
   )
 }
 
-function ResultPill({ result, bye }: { result: GameEntry["result"]; bye: boolean }) {
-  const r = bye ? "bye" : result ?? "bye"
-  const label = r === "win" ? "W" : r === "loss" ? "L" : r === "draw" ? "D" : r === "bye" ? "BYE" : "·"
-  return <span className={styles.pill} data-r={r}>{label}</span>
-}

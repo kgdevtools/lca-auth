@@ -1,321 +1,138 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Trophy, Users, Calendar, Target, Award, BookOpen, Zap } from "lucide-react"
+import Link from "next/link"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "About",
-  description: "About Limpopo Chess Academy — services, mission and vision.",
+  description: "About Limpopo Chess Academy — who we are, our team, and what we offer.",
+}
+
+const SERVICES: [string, string][] = [
+  ["Chess coaching", "From 6 years to adults — personalised instruction for all skill levels."],
+  ["Arbiters training course", "Professional certification for tournament officials."],
+  ["Coaches / trainers course", "Develop the next generation of chess instructors."],
+  ["Tournament organising", "Professional tournament management and coordination."],
+  ["Swiss Manager training", "Master tournament pairing software and management systems."],
+  ["Capacity building", "Strengthen chess organisations and community programmes."],
+  ["Seminars & workshops", "Educational events and specialised training sessions."],
+]
+
+const TEAM = [
+  {
+    name: "Coach Kgaogelo",
+    photo: "https://i.ibb.co/GzyZvGj/20250512-215848.jpg",
+    cert: "https://i.ibb.co/Vck1JPrY/IMG-20250610-WA0012.jpg",
+  },
+  {
+    name: "Coach Tebogo",
+    photo: "https://i.ibb.co/kV317DXj/IMG-20250613-WA0001.jpg",
+    cert: "https://i.ibb.co/DHSHwH4B/IMG-20250610-WA0014.jpg",
+  },
+  {
+    name: "Coach Joe",
+    photo: "https://i.ibb.co/RTDZx7fc/Screenshot-20250609-224422-You-Tube.jpg",
+    cert: "https://i.ibb.co/Nnb9MXSF/IMG-20250610-WA0006.jpg",
+  },
+]
+
+function SectionHead({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 pb-2 mb-5 border-b border-border">
+      <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</h2>
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  )
 }
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground text-balance">About Limpopo Chess Academy</h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto text-pretty">
-            Developing chess excellence across Limpopo through professional coaching, tournaments, and community
-            building
+      <div className="max-w-4xl mx-auto px-4 py-10 space-y-12">
+        {/* Who we are */}
+        <header className="space-y-4">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tighter text-balance">
+            About Limpopo Chess Academy
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-prose">
+            Limpopo Chess Academy is a chess hub based in Polokwane, dedicated to growing
+            young minds into focused, exceptional future leaders. Our sessions range from
+            relaxed, interactive lessons — encouraging independent, structured thinking and
+            that creative spark — to challenging, tournament-ready programs, nurturing
+            talent from grassroots to elite levels across the province.
           </p>
-        </div>
+        </header>
 
-        {/* Services Section */}
-        <Card className="bg-card border-border">
-          <CardHeader className="border-b border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-md">
-                <Target className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-card-foreground text-2xl">Services Offered</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Comprehensive chess development programs for all levels
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <BookOpen className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Chess Coaching Lessons</h3>
-                    <p className="text-muted-foreground text-sm">
-                      From 6 years to adults - personalized instruction for all skill levels
-                    </p>
-                  </div>
+        {/* Our team — the page's real content: real names, faces, certificates */}
+        <section>
+          <SectionHead title="Our team" hint="Tap a badge to view the certificate" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {TEAM.map((coach) => (
+              <div key={coach.name} className="bg-card border border-border rounded overflow-hidden">
+                <div className="relative w-full aspect-square overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coach.photo}
+                    alt={coach.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <a
+                    href={coach.cert}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-2 right-2 w-16 h-16 rounded overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
+                    title="View certificate"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={coach.cert}
+                      alt={`${coach.name} certificate`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
                 </div>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Award className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Arbiters Training Course</h3>
-                    <p className="text-muted-foreground text-sm">Professional certification for tournament officials</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Users className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Coaches / Trainers Course</h3>
-                    <p className="text-muted-foreground text-sm">Develop the next generation of chess instructors</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Trophy className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Organising Tournaments</h3>
-                    <p className="text-muted-foreground text-sm">Professional tournament management and coordination</p>
-                  </div>
+                <div className="py-4 text-center">
+                  <h3 className="text-lg font-bold tracking-tighter text-foreground">{coach.name}</h3>
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Zap className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Swiss Manager Training</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Master tournament pairing software and management systems
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Target className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Capacity Building</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Strengthen chess organizations and community programs
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-secondary rounded-md mt-1">
-                    <Calendar className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Seminars / Workshops</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Educational events and specialized training sessions
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Mission & Vision */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader className="border-b border-border">
-              <CardTitle className="text-card-foreground text-xl">Our Mission</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground leading-relaxed">
-                To promote and develop chess excellence throughout Limpopo Province by providing high-quality coaching,
-                organizing competitive tournaments, and building a strong chess community that nurtures talent from
-                grassroots to elite levels.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader className="border-b border-border">
-              <CardTitle className="text-card-foreground text-xl">Our Vision</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground leading-relaxed">
-                To establish Limpopo as a leading chess province in South Africa, producing world-class players,
-                certified coaches, and tournament officials while making chess accessible to all communities regardless
-                of age or background.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Our Team */}
-        <div className="space-y-4">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">Our Team</h2>
-            <p className="text-muted-foreground">
-              Meet the passionate coaches dedicated to chess excellence
-            </p>
+            ))}
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Coach Kgaogelo */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
-              <div className="relative w-full aspect-square overflow-hidden">
-                <img
-                  src="https://i.ibb.co/GzyZvGj/20250512-215848.jpg"
-                  alt="Coach Kgaogelo"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                {/* Certificate Badge */}
-                <a
-                  href="https://i.ibb.co/Vck1JPrY/IMG-20250610-WA0012.jpg"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
-                  title="View Certificate"
-                >
-                  <img
-                    src="https://i.ibb.co/Vck1JPrY/IMG-20250610-WA0012.jpg"
-                    alt="Kgaogelo Certificate"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </a>
+        {/* What we offer — compact text list, no icon chrome */}
+        <section>
+          <SectionHead title="What we offer" />
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
+            {SERVICES.map(([title, blurb]) => (
+              <div key={title}>
+                <dt className="text-sm font-semibold text-foreground">{title}</dt>
+                <dd className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{blurb}</dd>
               </div>
-              <div className="py-6 text-center">
-                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
-                  Coach Kgaogelo
-                </h3>
-              </div>
-            </div>
+            ))}
+          </dl>
+        </section>
 
-            {/* Coach Tebogo */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
-              <div className="relative w-full aspect-square overflow-hidden">
-                <img
-                  src="https://i.ibb.co/kV317DXj/IMG-20250613-WA0001.jpg"
-                  alt="Coach Tebogo"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                {/* Certificate Badge */}
-                <a
-                  href="https://i.ibb.co/DHSHwH4B/IMG-20250610-WA0014.jpg"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
-                  title="View Certificate"
-                >
-                  <img
-                    src="https://i.ibb.co/DHSHwH4B/IMG-20250610-WA0014.jpg"
-                    alt="Tebogo Certificate"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </a>
-              </div>
-              <div className="py-6 text-center">
-                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
-                  Coach Tebogo
-                </h3>
-              </div>
-            </div>
-
-            {/* Coach Joe */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden group hover:border-primary/50 transition-all duration-300">
-              <div className="relative w-full aspect-square overflow-hidden">
-                <img
-                  src="https://i.ibb.co/RTDZx7fc/Screenshot-20250609-224422-You-Tube.jpg"
-                  alt="Coach Joe"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                {/* Certificate Badge */}
-                <a
-                  href="https://i.ibb.co/Nnb9MXSF/IMG-20250610-WA0006.jpg"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute top-2 right-2 w-16 h-16 rounded-lg overflow-hidden border-2 border-primary bg-card shadow-lg hover:scale-110 transition-transform duration-200 z-10"
-                  title="View Certificate"
-                >
-                  <img
-                    src="https://i.ibb.co/Nnb9MXSF/IMG-20250610-WA0006.jpg"
-                    alt="Joe Certificate"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </a>
-              </div>
-              <div className="py-6 text-center">
-                <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground">
-                  Coach Joe
-                </h3>
-              </div>
-            </div>
+        {/* One real CTA */}
+        <section className="border-t border-border pt-8">
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-prose mb-4">
+            Whether you&apos;re enrolling a beginner, preparing for tournaments, or
+            organising chess in your community — we&apos;d like to hear from you.
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/forms/contact-us"
+              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Get in touch
+            </Link>
+            <Link
+              href="/forms"
+              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold border border-border text-foreground hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
+            >
+              Join us
+            </Link>
           </div>
-        </div>
-
-        {/* Why Choose Us */}
-        <Card className="bg-card border-border">
-          <CardHeader className="border-b border-border">
-            <CardTitle className="text-card-foreground text-2xl">Why Choose Limpopo Chess Academy?</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              What sets us apart in chess education and development
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center space-y-3">
-                <div className="p-3 bg-primary/10 rounded-full w-fit mx-auto">
-                  <Award className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground">Professional Excellence</h3>
-                <p className="text-muted-foreground text-sm">
-                  Certified instructors with proven track records in competitive chess and coaching
-                </p>
-              </div>
-              <div className="text-center space-y-3">
-                <div className="p-3 bg-primary/10 rounded-full w-fit mx-auto">
-                  <Users className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground">Community Focus</h3>
-                <p className="text-muted-foreground text-sm">
-                  Building strong chess communities across Limpopo with inclusive programs for all ages
-                </p>
-              </div>
-              <div className="text-center space-y-3">
-                <div className="p-3 bg-primary/10 rounded-full w-fit mx-auto">
-                  <Trophy className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground">Competitive Success</h3>
-                <p className="text-muted-foreground text-sm">
-                  Regular tournaments and competitions to test skills and build competitive experience
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contact CTA */}
-        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="pt-6 text-center space-y-4">
-            <h2 className="text-2xl font-bold text-foreground">Ready to Start Your Chess Journey?</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Join the Limpopo Chess Academy community and take your chess skills to the next level with our
-              professional coaching and competitive programs.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2 pt-2">
-              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-                All Ages Welcome
-              </Badge>
-              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-                Professional Coaching
-              </Badge>
-              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-                Tournament Opportunities
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        </section>
       </div>
     </div>
   )

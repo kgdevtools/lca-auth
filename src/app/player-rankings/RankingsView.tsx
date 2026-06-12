@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useEffect, useMemo, useState } from "react"
+import { Fragment, useDeferredValue, useEffect, useMemo, useState } from "react"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import {
   juniorCriteria,
@@ -13,6 +13,7 @@ import FilterBar, {
   REF_YEAR,
   ageGroupOf,
   isSeniorGroup,
+  type Category,
   type UiFilters,
 } from "./FilterBar"
 import ExpandedPanel from "./ExpandedPanel"
@@ -141,7 +142,16 @@ function SortTh({
   return (
     <th className={cx(styles.sortable, className)} onClick={() => onSort(field)}>
       {label}
-      {active && <span className={styles.arr}>{sort.dir === "desc" ? "▼" : "▲"}</span>}
+      {active && (
+        <svg
+          className={styles.arr}
+          data-dir={sort.dir}
+          width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      )}
     </th>
   )
 }
@@ -239,7 +249,7 @@ function PlayerRow({
             </td>
             <td className={cx(styles.commentCell, styles.hideMobile)}>
               {verdict ? (
-                <span className={styles.commentText} data-meets={verdict.meets}>{verdict.comment}</span>
+                <span className={styles.commentText} data-meets={verdict.meets} title={verdict.comment}>{verdict.comment}</span>
               ) : (
                 <span className={styles.naDash}>—</span>
               )}
@@ -265,9 +275,44 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
   const [filters, setFilters] = useState<UiFilters>(FILTER_DEFAULTS)
   const [sort, setSort] = useState<Sort>({ field: "avgPerf", dir: "desc" })
   const [openKey, setOpenKey] = useState<string | null>(null)
-  // Collapsible info panels (tap to expand — works on touch, unlike hover).
-  const [showInfo, setShowInfo] = useState(false)
   const [showCriteria, setShowCriteria] = useState(false)
+
+  // Restore filters from the URL on mount, then keep the URL in sync — so a
+  // filtered view (a parent's search, an official's qualified list) is shareable
+  // and survives refresh. replaceState avoids history spam while typing.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const patch: Partial<UiFilters> = {}
+    if (q.get("q")) patch.search = q.get("q")!
+    const cat = q.get("category")
+    if (cat === "juniors" || cat === "seniors") patch.category = cat as Category
+    if (q.get("age")) patch.ageGroup = q.get("age")!
+    if (q.get("region")) patch.region = q.get("region")!
+    const sex = q.get("sex")
+    if (sex === "M" || sex === "F") patch.sex = sex
+    if (q.has("period")) {
+      const p = q.get("period")!
+      patch.period = p === "all" ? undefined : Number(p)
+    }
+    const min = Number(q.get("min"))
+    if (Number.isFinite(min) && min > 0) patch.minTournaments = min
+    if (q.get("qf") === "1") patch.qualifiedOnly = true
+    if (Object.keys(patch).length) setFilters((f) => ({ ...f, ...patch }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    const q = new URLSearchParams()
+    if (filters.search) q.set("q", filters.search)
+    if (filters.category !== "all") q.set("category", filters.category)
+    if (filters.ageGroup && filters.ageGroup !== "all") q.set("age", filters.ageGroup)
+    if ((filters.region ?? "all") !== FILTER_DEFAULTS.region) q.set("region", filters.region ?? "all")
+    if (filters.sex) q.set("sex", filters.sex)
+    if (filters.period !== FILTER_DEFAULTS.period) q.set("period", String(filters.period ?? "all"))
+    if ((filters.minTournaments ?? 1) !== FILTER_DEFAULTS.minTournaments) q.set("min", String(filters.minTournaments ?? 1))
+    if (filters.qualifiedOnly) q.set("qf", "1")
+    const qs = q.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, [filters])
 
   // Server-aggregated summary pools, cached per period (the only filter that
   // changes the stats). Seeded with the DEFAULT-period pool from the initial
@@ -277,27 +322,35 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
     [String(initialPeriod ?? "all")]: initialPlayers,
   })
   const [loadingPool, setLoadingPool] = useState(false)
+  const [poolError, setPoolError] = useState(false)
+  const [retryTick, setRetryTick] = useState(0)
   // Per-player history, fetched when a row is expanded. Keyed by period+playerKey.
   const [history, setHistory] = useState<Record<string, Appearance[]>>({})
 
-  // Fetch a period's pool on demand (all-time is already present).
+  // Fetch a period's pool on demand (the default period is already present).
   useEffect(() => {
     if (pools[periodKey]) return
     let cancelled = false
     setLoadingPool(true)
+    setPoolError(false)
     fetch(`/player-rankings/data?period=${periodKey}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status))
+        return r.json()
+      })
       .then((d: { players: RankedSummary[] }) => {
         if (!cancelled) setPools((prev) => ({ ...prev, [periodKey]: d.players }))
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setPoolError(true)
+      })
       .finally(() => {
         if (!cancelled) setLoadingPool(false)
       })
     return () => {
       cancelled = true
     }
-  }, [periodKey, pools])
+  }, [periodKey, pools, retryTick])
 
   // Fetch the open player's appearance history on demand.
   const historyKey = openKey ? `${periodKey}:${openKey}` : null
@@ -326,12 +379,19 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
           ? "senior"
           : "all"
 
-  const players = useMemo(() => {
+  // Deferred search: filtering+sorting lags a beat behind fast typing instead of
+  // blocking each keystroke (matters on low-end phones).
+  const deferredSearch = useDeferredValue(filters.search ?? "")
+
+  // One verdict per player per view — shared by the qualified-only filter and the
+  // row cells, so criteria never run twice for the same player.
+  const { players, totalMatches, verdicts } = useMemo(() => {
     const pool = pools[periodKey] ?? []
-    const q = (filters.search ?? "").trim().toLowerCase()
+    const q = deferredSearch.trim().toLowerCase()
     const region = filters.region ?? "all"
     const minT = filters.minTournaments ?? 1
     const sex = filters.sex
+    const verdicts = new Map<string, SelectionVerdict>()
     let list = pool.filter(
       (p) =>
         passesRegion(p, region) &&
@@ -340,13 +400,16 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
         p.ratedTournaments >= minT &&
         (!q || p.name.toLowerCase().includes(q)),
     )
-    // Qualified-only (QF): keep players meeting the active cohort's criteria.
-    if (filters.qualifiedOnly && selectionMode) {
-      list = list.filter((p) => verdictFor(p, selectionMode).meets)
+    if (selectionMode) {
+      for (const p of list) verdicts.set(p.key, verdictFor(p, selectionMode))
+      // Qualified-only (QF): keep players meeting the active cohort's criteria.
+      if (filters.qualifiedOnly) list = list.filter((p) => verdicts.get(p.key)!.meets)
     }
     list = sortPlayers(list, sort)
-    return list.slice(0, filters.limit ?? 50)
-  }, [pools, periodKey, filters, sort, selectionMode])
+    return { players: list.slice(0, filters.limit ?? 50), totalMatches: list.length, verdicts }
+  }, [pools, periodKey, filters, deferredSearch, sort, selectionMode])
+
+  const remaining = totalMatches - players.length
 
   const onSort = (field: SortField) =>
     setSort((s) =>
@@ -355,53 +418,62 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
         : { field, dir: field === "name" ? "asc" : "desc" },
     )
 
+  const regionActive = (filters.region ?? "all") !== "all"
+  const searching = !!deferredSearch.trim()
+
   return (
     <div className={styles.page}>
       <FilterBar filters={filters} onChange={setFilters} />
 
-      {/* Prominent, collapsible disclaimer + "can't find your name" guidance. */}
-      <div className={styles.notice} data-open={showInfo}>
-        <button
-          type="button"
-          className={styles.noticeHead}
-          onClick={() => setShowInfo((v) => !v)}
-          aria-expanded={showInfo}
-        >
-          <svg className={styles.noticeIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4M12 8h.01" />
-          </svg>
-          <span className={styles.noticeTitle}>About these rankings — please read</span>
-          <svg className={styles.noticeChevron} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        {showInfo && (
-          <div className={styles.noticeBody}>
-            <p>
-              These rankings are compiled independently for general information only. They
-              are <strong>not an official list, and are not endorsed or recognised by
-              Capricorn District Chess or Chess Limpopo</strong>.
-            </p>
-            <p>
-              <strong>Don&rsquo;t see your name?</strong> Players are grouped by the
-              federation recorded on their registration. If you are not yet registered
-              with Capricorn District Chess or Chess South Africa — or your profile still
-              carries a different or generic federation code — your name may not appear
-              under the <em>Limpopo</em> region. Set the <strong>Region</strong> filter to{" "}
-              <strong>&ldquo;All regions&rdquo;</strong> to locate your profile, which may
-              be listed under another federation code.
-            </p>
-          </div>
-        )}
-      </div>
+      {/* One quiet line — the legal scope, always visible, no ceremony. */}
+      <p className={styles.disclaimer}>
+        Compiled independently for general information — not an official list of, or
+        endorsed by, Capricorn District Chess or Chess Limpopo.
+      </p>
 
-      {players.length === 0 ? (
-        <p className={styles.empty}>
-          {loadingPool || !pools[periodKey]
-            ? "Loading rankings…"
-            : "No players match the current filters."}
-        </p>
+      {poolError && !pools[periodKey] ? (
+        <div className={styles.emptyBox}>
+          <p className={styles.emptyTitle}>Couldn&rsquo;t load the rankings.</p>
+          <p className={styles.emptyHint}>Check your connection and try again.</p>
+          <button type="button" className={styles.emptyAction} onClick={() => setRetryTick((t) => t + 1)}>
+            Retry
+          </button>
+        </div>
+      ) : loadingPool || !pools[periodKey] ? (
+        <div className={styles.skel} aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={styles.skelRow} />
+          ))}
+        </div>
+      ) : players.length === 0 ? (
+        <div className={styles.emptyBox}>
+          <p className={styles.emptyTitle}>
+            {searching
+              ? `No matches for “${deferredSearch.trim()}”${regionActive ? " in this region" : ""}.`
+              : "No players match this view."}
+          </p>
+          <p className={styles.emptyHint}>
+            Players are grouped by the federation on their registration, so a missing
+            name is often listed under another code{filters.period != null ? ", or played outside this period" : ""}.
+          </p>
+          <div className={styles.emptyActions}>
+            {regionActive && (
+              <button type="button" className={styles.emptyAction} onClick={() => setFilters((f) => ({ ...f, region: "all" }))}>
+                Search all regions
+              </button>
+            )}
+            {filters.period != null && (
+              <button type="button" className={styles.emptyAction} onClick={() => setFilters((f) => ({ ...f, period: undefined }))}>
+                Include all time
+              </button>
+            )}
+            {(filters.minTournaments ?? 1) > 1 && (
+              <button type="button" className={styles.emptyAction} onClick={() => setFilters((f) => ({ ...f, minTournaments: 1 }))}>
+                Include all event counts
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
         <div className={styles.tableWrap}>
           {(selectionMode === "junior" || selectionMode === "all") && (
@@ -424,7 +496,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
               {showCriteria && (
                 <div className={styles.legendPanel}>
                   <p><strong>4 + 2</strong> = 4 Junior Qualifying + 2 Open. &nbsp; <strong>3 + 3</strong> = 3 Junior Qualifying + 3 Open.</p>
-                  <p>Juniors qualify on 6 counted tournaments as 4 + 2 or 3 + 3, including at least one Open played in Capricorn.</p>
+                  <p>Juniors qualify on 6 counted tournaments as 4 + 2 or 3 + 3, including at least 2 Opens played in Capricorn.</p>
                   {selectionMode === "all" && (
                     <p>Seniors qualify on a minimum of 6 counted tournaments (any location).</p>
                   )}
@@ -491,7 +563,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                     open={openKey === p.key}
                     appearances={openKey === p.key ? history[`${periodKey}:${p.key}`] ?? null : null}
                     selectionMode={selectionMode}
-                    verdict={selectionMode ? verdictFor(p, selectionMode) : null}
+                    verdict={selectionMode ? verdicts.get(p.key) ?? null : null}
                     cohort={selectionMode ? (selectionMode === "all" ? cohortFor(p) : selectionMode) : undefined}
                     colSpan={selectionMode ? 12 : 9}
                     onToggle={() => setOpenKey((k) => (k === p.key ? null : p.key))}
@@ -500,6 +572,15 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
               </tbody>
             </table>
           </div>
+          {remaining > 0 && (
+            <button
+              type="button"
+              className={styles.showMore}
+              onClick={() => setFilters((f) => ({ ...f, limit: (f.limit ?? 50) + 50 }))}
+            >
+              Show more <span className={styles.showMoreC}>({remaining} more)</span>
+            </button>
+          )}
         </div>
       )}
     </div>

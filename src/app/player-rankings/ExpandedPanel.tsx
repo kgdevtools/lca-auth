@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
@@ -8,14 +7,6 @@ import styles from "./rankings.module.css"
 import PerfChart, { monthOf, yearOf } from "./PerfChart"
 
 const f1 = (n: number | null) => (n == null ? "0.0" : n.toFixed(1))
-
-type Region = "all" | "limpopo" | "capricorn"
-
-function inRegion(a: Appearance, region: Region): boolean {
-  if (region === "limpopo") return (a.province ?? "").toLowerCase() === "limpopo"
-  if (region === "capricorn") return (a.district ?? "").toLowerCase() === "capricorn"
-  return true
-}
 
 export default function ExpandedPanel({
   p,
@@ -34,11 +25,8 @@ export default function ExpandedPanel({
   /** Columns to span so the panel fills the full table width (see RankingsView). */
   colSpan?: number
 }) {
-  const [region, setRegion] = useState<Region>("all")
-
   const loading = appearances === null
-  const shown = (appearances ?? []).filter((a) => inRegion(a, region))
-  const ratedShown = shown.filter((a) => a.perf !== null).length
+  const shown = appearances ?? []
   // appearances are newest-first; chart wants oldest-first
   const chartPoints = [...shown]
     .reverse()
@@ -51,9 +39,7 @@ export default function ExpandedPanel({
       ? "Verified"
       : p.identityKind === "fide_id"
         ? "Matched · FIDE"
-        : p.identityKind === "fuzzy-match"
-          ? "Fuzzy match"
-          : "Name only"
+        : "Unverified"
 
   return (
     <td className={styles.expandCell} colSpan={colSpan}>
@@ -136,27 +122,14 @@ export default function ExpandedPanel({
 
         {/* history */}
         <div>
-          <div className={styles.historyHead}>
-            <span className={styles.historyTitle}>
-              {loading ? "Tournament history" : `Tournament history · ${ratedShown} rated`}
-            </span>
-            <div className={styles.regBar}>
-              {(["all", "limpopo", "capricorn"] as Region[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={styles.regBtn}
-                  data-active={region === r}
-                  disabled={loading}
-                  onClick={() => setRegion(r)}
-                >
-                  {r === "all" ? "All" : r === "limpopo" ? "Limpopo" : "Capricorn"}
-                </button>
+          {loading && (
+            <div className={styles.skel} aria-hidden="true">
+              <div className={styles.skelChart} />
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className={styles.skelRow} />
               ))}
             </div>
-          </div>
-
-          {loading && <div className={styles.chartEmpty}>Loading history…</div>}
+          )}
           {!loading && <PerfChart points={chartPoints} />}
 
           {!loading && (

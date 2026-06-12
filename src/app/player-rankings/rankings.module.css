@@ -53,7 +53,7 @@
 .filters {
   background: var(--rk-surface);
   border: 1px solid var(--rk-border);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -65,7 +65,7 @@
   gap: 9px;
   background: var(--rk-surface-2);
   border: 1px solid var(--rk-border);
-  border-radius: 7px;
+  border-radius: 5px;
   padding: 0 12px;
   height: 34px;
   transition: border-color .12s, box-shadow .12s;
@@ -128,24 +128,6 @@
   cursor: pointer;
 }
 .fieldCheck[data-active="true"] { color: var(--rk-accent); font-weight: 600; }
-.num {
-  width: 110px;
-  height: 34px;
-  border: 1px solid var(--rk-border);
-  background: var(--rk-surface-2);
-  border-radius: 7px;
-  padding: 0 11px;
-  font-family: var(--rk-mono);
-  font-size: 13px;
-  color: var(--rk-text);
-  outline: none;
-  transition: border-color .12s, box-shadow .12s;
-  -moz-appearance: textfield;
-}
-.num:hover { border-color: color-mix(in srgb, var(--rk-border) 50%, var(--rk-muted)); }
-.num:focus { border-color: var(--rk-accent); box-shadow: 0 0 0 3px var(--rk-accent-soft); }
-.num::-webkit-outer-spin-button,
-.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* Shaded, borderless controls — a light cyan/blue fill that deepens on
    hover/focus (no border or focus ring). */
@@ -155,7 +137,7 @@
   height: 34px;
   border: none;
   background-color: color-mix(in srgb, var(--rk-accent) 10%, var(--rk-surface-2));
-  border-radius: 7px;
+  border-radius: 5px;
   padding: 0 30px 0 11px;
   font: inherit;
   font-size: 13px;
@@ -194,21 +176,20 @@
   border: none;
   cursor: pointer;
   padding: 7px 12px;
-  border-radius: 7px;
+  border-radius: 5px;
   height: 34px;
   transition: background-color .12s, color .12s;
 }
 .clearBtn:hover { color: var(--rk-accent); background: color-mix(in srgb, var(--rk-accent) 18%, var(--rk-surface-2)); }
 
 /* ── Table ────────────────────────────────────────────── */
-.empty { margin-top: 32px; text-align: center; color: var(--rk-muted); font-size: 14px; }
 .tableWrap {
   margin-top: 14px;
   background: var(--rk-surface);
   border: 1px solid var(--rk-border);
-  border-radius: 10px;
+  border-radius: 4px;
 }
-.tableScroll { overflow-x: auto; border-radius: 10px; }
+.tableScroll { overflow-x: auto; border-radius: 6px; }
 .table {
   width: 100%;
   border-collapse: separate;
@@ -244,7 +225,8 @@
 .col th.gl { text-align: left; }
 .col th.sortable { cursor: pointer; user-select: none; }
 .col th.sortable:hover { color: var(--rk-text); }
-.arr { color: var(--rk-accent); font-size: 9px; margin-left: 3px; }
+.arr { color: var(--rk-accent); margin-left: 3px; vertical-align: -1px; transition: transform .12s; }
+.arr[data-dir="asc"] { transform: rotate(180deg); }
 
 .table tbody td {
   padding: var(--row-pad-y) var(--cell-pad-x);
@@ -348,7 +330,7 @@
   letter-spacing: 0.02em;
   line-height: 1;
   padding: 3px 7px;
-  border-radius: 999px;
+  border-radius: 5px;
   background: color-mix(in srgb, var(--rk-accent) 13%, transparent);
   color: var(--rk-accent);
 }
@@ -381,42 +363,18 @@
 }
 
 .commentText {
+  display: inline-block;
+  max-width: 260px;
   font-size: 12px;
   color: var(--rk-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 .commentText[data-meets="true"] { color: var(--rk-pos); font-weight: 500; }
 .naDash { color: var(--rk-faint); }
 
-/* Prominent, collapsible disclaimer / guidance notice (above the table). */
-.notice {
-  margin-top: 10px;
-  border: 1px solid color-mix(in srgb, var(--rk-accent) 32%, var(--rk-border));
-  background: color-mix(in srgb, var(--rk-accent) 6%, var(--rk-surface));
-  border-radius: 8px;
-  overflow: hidden;
-}
-.noticeHead {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  color: var(--rk-text);
-  text-align: left;
-}
-.noticeIcon { width: 14px; height: 14px; color: var(--rk-accent); flex-shrink: 0; }
-.noticeTitle { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
-.noticeChevron { width: 14px; height: 14px; margin-left: auto; color: var(--rk-muted); flex-shrink: 0; transition: transform .18s; }
-.notice[data-open="true"] .noticeChevron { transform: rotate(180deg); }
-.noticeBody { padding: 0 11px 10px; display: flex; flex-direction: column; gap: 6px; }
-.noticeBody p { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--rk-muted); }
-.noticeBody strong { color: var(--rk-text); font-weight: 600; }
-.noticeBody em { font-style: italic; }
 
 /* Selection-criteria legend — collapsible disclosure (tap-friendly). */
 .legendBar { border-bottom: 1px solid var(--rk-border); }
@@ -558,25 +516,6 @@
 .idDot[data-kind="fuzzy"] { background: oklch(0.72 0.13 78); }
 .idDot[data-kind="fide"] { background: oklch(0.62 0.1 250); }
 
-.historyHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
-.historyTitle { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rk-muted); }
-
-/* region toggle on the tournament list */
-.regBar { display: inline-flex; background: var(--rk-surface-2); border-radius: 2px; padding: 2px; gap: 2px; }
-.regBtn {
-  font: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--rk-muted);
-  background: none;
-  border: none;
-  padding: 4px 9px;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: color .12s, background .12s;
-}
-.regBtn:hover { color: var(--rk-text); }
-.regBtn[data-active="true"] { background: var(--rk-accent-soft); color: var(--rk-accent); }
 
 /* Fixed-height scroll area: long histories scroll instead of stretching the
    panel. The header stays pinned while rows scroll under it. */
@@ -722,3 +661,97 @@
   .hist th, .hist td { padding-left: 7px; padding-right: 7px; }
   .evLoc { display: none; }
 }
+
+/* ── Filter bar v2: search + disclosure + scope chips ─────── */
+.filterTop { display: flex; gap: 10px; align-items: stretch; }
+.filterTop .search { flex: 1; min-width: 0; }
+.filterToggle {
+  appearance: none; cursor: pointer; font: inherit;
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  font-size: 12.5px; font-weight: 600; color: var(--rk-muted);
+  background: var(--rk-surface-2); border: 1px solid var(--rk-border);
+  border-radius: 5px; padding: 0 12px; min-height: 34px;
+  transition: color .12s, border-color .12s;
+}
+.filterToggle:hover, .filterToggle[aria-expanded="true"] { color: var(--rk-accent); border-color: var(--rk-accent); }
+.toggleChev { transition: transform .15s; }
+.toggleChev[data-open="true"] { transform: rotate(180deg); }
+
+/* Scope chips — the active view at a glance, defaults included. */
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chipsLab {
+  font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--rk-faint); margin-right: 2px;
+}
+.chipBtn {
+  appearance: none; cursor: pointer; font: inherit;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--rk-accent);
+  background: var(--rk-accent-soft); border: none; border-radius: 5px;
+  padding: 4px 9px 4px 11px; line-height: 1.2; min-height: 26px;
+  transition: background-color .12s;
+}
+.chipBtn:hover { background: color-mix(in srgb, var(--rk-accent) 22%, transparent); }
+.chipX { font-size: 13px; line-height: 1; opacity: .65; }
+.chipBtn:hover .chipX { opacity: 1; }
+.chipReset {
+  appearance: none; cursor: pointer; font: inherit; border: none; background: none;
+  font-size: 12px; font-weight: 600; color: var(--rk-muted); padding: 4px 6px; min-height: 26px;
+}
+.chipReset:hover { color: var(--rk-accent); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Min-events presets (replaces the raw number input) */
+.segs { display: inline-flex; gap: 2px; background: var(--rk-surface-2); border-radius: 5px; padding: 3px; }
+.segBtn {
+  appearance: none; cursor: pointer; font: inherit; border: none; background: none;
+  font-size: 12px; font-weight: 600; color: var(--rk-muted);
+  padding: 5px 12px; border-radius: 6px; min-height: 28px;
+}
+.segBtn[data-active="true"] { background: var(--rk-surface); color: var(--rk-accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+
+/* Quiet always-visible scope disclaimer */
+.disclaimer { font-size: 11.5px; color: var(--rk-faint); margin: 10px 2px 0; line-height: 1.45; }
+
+/* Loading skeleton — mirrors the table's row rhythm */
+.skelChart {
+  height: 120px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--rk-zebra) 25%, var(--rk-hover) 50%, var(--rk-zebra) 75%);
+  background-size: 200% 100%;
+  animation: rk-shimmer 1.4s ease-in-out infinite;
+}
+.skel { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+.skelRow {
+  height: 38px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--rk-zebra) 25%, var(--rk-hover) 50%, var(--rk-zebra) 75%);
+  background-size: 200% 100%;
+  animation: rk-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes rk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Empty / error states with one-tap widening actions */
+.emptyBox {
+  margin-top: 22px; padding: 28px 16px; text-align: center;
+  border: 1px dashed var(--rk-border); border-radius: 5px;
+}
+.emptyTitle { margin: 0; font-size: 14px; font-weight: 600; color: var(--rk-text); }
+.emptyHint { margin: 7px auto 0; font-size: 12.5px; line-height: 1.5; color: var(--rk-muted); max-width: 52ch; }
+.emptyActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.emptyAction {
+  appearance: none; cursor: pointer; font: inherit; margin-top: 14px;
+  font-size: 12.5px; font-weight: 600; color: var(--rk-accent);
+  background: none; border: 1px solid color-mix(in srgb, var(--rk-accent) 45%, var(--rk-border));
+  border-radius: 5px; padding: 7px 14px; min-height: 34px;
+  transition: background-color .12s;
+}
+.emptyAction:hover { background: var(--rk-accent-soft); }
+.emptyActions .emptyAction { margin-top: 14px; }
+
+/* Show more (replaces the "Show rows" number input) */
+.showMore {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; min-height: 36px;
+  appearance: none; cursor: pointer; background: none; border: 1px solid var(--rk-border); border-radius: 5px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--rk-muted); padding: 7px 13px;
+  transition: color .12s, border-color .12s;
+}
+.showMore:hover { color: var(--rk-accent); border-color: var(--rk-accent); }
+.showMoreC { color: var(--rk-faint); font-weight: 500; }

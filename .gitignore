@@ -57,6 +57,7 @@ nul
 # Internal docs / session notes (not for repo)
 /SESSION_SUMMARY.md
 /RULES.md
+/DYNAMIC-RENDERING-REPORT.md
 /REFACTOR_PLAN.md
 /ADMIN_DASHBOARD_TODO.md
 /GAMIFICATION_DESIGN.md

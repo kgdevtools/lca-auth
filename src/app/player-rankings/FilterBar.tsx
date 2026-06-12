@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import styles from "./rankings.module.css"
 import { DEFAULT_PERIOD } from "./constants"
 
@@ -83,189 +84,253 @@ interface FilterBarProps {
   onChange: (next: UiFilters) => void
 }
 
-export default function FilterBar({ filters, onChange }: FilterBarProps) {
-  const set = (patch: Partial<UiFilters>) => onChange({ ...filters, ...patch })
+const REGION_LABEL: Record<string, string> = {
+  LIM: "Limpopo",
+  RSA: "RSA",
+  PLAYED_CAP: "Played in Capricorn",
+  PLAYED_LIM: "Played in Limpopo",
+}
 
-  const numPatch = (key: "minTournaments" | "limit", raw: string) => {
-    if (raw.trim() === "") return set({ [key]: undefined })
-    const n = Number(raw)
-    if (Number.isFinite(n)) set({ [key]: n })
+export const periodLabel = (p: number) => `Oct ${p} – Sep ${p + 1}`
+
+/** The current scope as removable chips — INCLUDING the defaults (Limpopo,
+ *  current period, min events), so the page never silently excludes someone.
+ *  Each chip's × widens the scope back out. */
+function scopeChips(filters: UiFilters, set: (patch: Partial<UiFilters>) => void) {
+  const chips: { label: string; clear: () => void }[] = []
+  const region = filters.region ?? "all"
+  if (region !== "all") chips.push({ label: REGION_LABEL[region] ?? region, clear: () => set({ region: "all" }) })
+  if (filters.period != null) {
+    const p = filters.period
+    chips.push({ label: periodLabel(p), clear: () => set({ period: undefined }) })
   }
+  if (filters.category !== "all") {
+    chips.push({
+      label: filters.category === "juniors" ? "Juniors" : "Seniors",
+      clear: () => set({ category: "all", ageGroup: undefined }),
+    })
+    if (filters.ageGroup && filters.ageGroup !== "all") {
+      chips.push({ label: SENIOR_GROUP_LABELS[filters.ageGroup] ?? filters.ageGroup, clear: () => set({ ageGroup: "all" }) })
+    }
+  }
+  if (filters.sex) chips.push({ label: filters.sex === "M" ? "Male" : "Female", clear: () => set({ sex: undefined }) })
+  if ((filters.minTournaments ?? 1) > 1) {
+    chips.push({ label: `${filters.minTournaments}+ events`, clear: () => set({ minTournaments: 1 }) })
+  }
+  if (filters.qualifiedOnly) chips.push({ label: "Qualified only", clear: () => set({ qualifiedOnly: undefined }) })
+  return chips
+}
+
+const MIN_EVENT_PRESETS = [1, 3, 6]
+
+export default function FilterBar({ filters, onChange }: FilterBarProps) {
+  const [open, setOpen] = useState(false)
+  const set = (patch: Partial<UiFilters>) => onChange({ ...filters, ...patch })
 
   const isJuniors = filters.category === "juniors"
   const isSeniors = filters.category === "seniors"
-  const active =
-    !!filters.search?.length ||
-    filters.category !== "all" ||
-    (!!filters.region && filters.region !== "all") ||
-    !!filters.sex ||
-    filters.period != null ||
-    (!!filters.ageGroup && filters.ageGroup !== "all") ||
-    !!filters.qualifiedOnly
+  const chips = scopeChips(filters, set)
+  const isDefault =
+    filters.category === FILTER_DEFAULTS.category &&
+    (filters.region ?? "all") === FILTER_DEFAULTS.region &&
+    filters.period === FILTER_DEFAULTS.period &&
+    (filters.minTournaments ?? 1) === FILTER_DEFAULTS.minTournaments &&
+    !filters.sex && !filters.qualifiedOnly && (!filters.ageGroup || filters.ageGroup === "all")
 
   return (
     <div className={styles.filters}>
-      {/* Primary control — search, full width and prominent. */}
-      <div className={styles.search}>
-        <SearchIcon />
-        <input
-          type="text"
-          placeholder="Search players…"
-          value={filters.search ?? ""}
-          onChange={(e) => set({ search: e.target.value })}
-        />
+      {/* Primary row — search is the 90% interaction; everything else discloses. */}
+      <div className={styles.filterTop}>
+        <div className={styles.search}>
+          <SearchIcon />
+          <input
+            type="text"
+            placeholder="Search players…"
+            value={filters.search ?? ""}
+            onChange={(e) => set({ search: e.target.value })}
+          />
+        </div>
+        <button
+          type="button"
+          className={styles.filterToggle}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 5h18M6 12h12M10 19h4" />
+          </svg>
+          Filters
+          <svg className={styles.toggleChev} data-open={open} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
       </div>
 
-      {/* Scope controls — stacked labels, responsive grid. */}
-      <div className={styles.filterGrid}>
-        <label className={styles.field}>
-          <span>Category</span>
-          <select
-            className={styles.sel}
-            data-active={filters.category !== "all"}
-            value={filters.category}
-            onChange={(e) => {
-              const v = e.target.value as Category
-              // Reset the sub-group to "all" when switching cohort so a stale
-              // junior band (e.g. U12) can't leak into the senior filter.
-              set({
-                category: v,
-                ageGroup: v === "all" ? undefined : "all",
-                qualifiedOnly: filters.qualifiedOnly,
-              })
-            }}
-          >
-            <option value="all">All players</option>
-            <option value="juniors">Juniors</option>
-            <option value="seniors">Seniors</option>
-          </select>
-        </label>
+      {/* Scope chips — the active view at a glance; × widens it back out. */}
+      {chips.length > 0 && (
+        <div className={styles.chips}>
+          <span className={styles.chipsLab}>Showing</span>
+          {chips.map((c) => (
+            <button key={c.label} type="button" className={styles.chipBtn} onClick={c.clear} title={`Remove: ${c.label}`}>
+              {c.label}
+              <span className={styles.chipX} aria-hidden="true">×</span>
+            </button>
+          ))}
+          {!isDefault && (
+            <button type="button" className={styles.chipReset} onClick={() => onChange({ ...FILTER_DEFAULTS, search: filters.search })}>
+              Reset
+            </button>
+          )}
+        </div>
+      )}
 
-        {isJuniors && (
-          <label className={styles.field}>
-            <span>Age group</span>
-            <select
-              className={styles.sel}
-              data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
-              value={filters.ageGroup ?? "all"}
-              onChange={(e) => set({ ageGroup: e.target.value })}
-            >
-              <option value="all">All juniors</option>
-              {AGE_GROUPS.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          </label>
-        )}
+      {open && (
+        <>
+          {/* Scope controls — stacked labels, responsive grid. */}
+          <div className={styles.filterGrid}>
+            <label className={styles.field}>
+              <span>Category</span>
+              <select
+                className={styles.sel}
+                data-active={filters.category !== "all"}
+                value={filters.category}
+                onChange={(e) => {
+                  const v = e.target.value as Category
+                  // Reset the sub-group to "all" when switching cohort so a stale
+                  // junior band (e.g. U12) can't leak into the senior filter.
+                  set({
+                    category: v,
+                    ageGroup: v === "all" ? undefined : "all",
+                    qualifiedOnly: filters.qualifiedOnly,
+                  })
+                }}
+              >
+                <option value="all">All players</option>
+                <option value="juniors">Juniors</option>
+                <option value="seniors">Seniors</option>
+              </select>
+            </label>
 
-        {isSeniors && (
-          <label className={styles.field}>
-            <span>Age group</span>
-            <select
-              className={styles.sel}
-              data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
-              value={filters.ageGroup ?? "all"}
-              onChange={(e) => set({ ageGroup: e.target.value })}
-            >
-              <option value="all">All seniors</option>
-              {SENIOR_GROUPS.map((g) => (
-                <option key={g} value={g}>{SENIOR_GROUP_LABELS[g]}</option>
-              ))}
-            </select>
-          </label>
-        )}
+            {isJuniors && (
+              <label className={styles.field}>
+                <span>Age group</span>
+                <select
+                  className={styles.sel}
+                  data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
+                  value={filters.ageGroup ?? "all"}
+                  onChange={(e) => set({ ageGroup: e.target.value })}
+                >
+                  <option value="all">All juniors</option>
+                  {AGE_GROUPS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-        <label className={styles.field}>
-          <span>Region</span>
-          <select
-            className={styles.sel}
-            data-active={(filters.region ?? "all") !== "all"}
-            value={filters.region ?? "all"}
-            onChange={(e) => set({ region: e.target.value })}
-          >
-            <option value="all">All regions</option>
-            <optgroup label="By federation">
-              <option value="LIM">Limpopo (LIM)</option>
-              <option value="RSA">RSA</option>
-            </optgroup>
-            <optgroup label="By tournaments played">
-              <option value="PLAYED_CAP">Played in Capricorn</option>
-              <option value="PLAYED_LIM">Played in Limpopo</option>
-            </optgroup>
-          </select>
-        </label>
+            {isSeniors && (
+              <label className={styles.field}>
+                <span>Age group</span>
+                <select
+                  className={styles.sel}
+                  data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
+                  value={filters.ageGroup ?? "all"}
+                  onChange={(e) => set({ ageGroup: e.target.value })}
+                >
+                  <option value="all">All seniors</option>
+                  {SENIOR_GROUPS.map((g) => (
+                    <option key={g} value={g}>{SENIOR_GROUP_LABELS[g]}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-        <label className={styles.field}>
-          <span>Gender</span>
-          <select
-            className={styles.sel}
-            data-active={!!filters.sex}
-            value={filters.sex ?? "all"}
-            onChange={(e) => set({ sex: e.target.value === "all" ? undefined : (e.target.value as "M" | "F") })}
-          >
-            <option value="all">All genders</option>
-            <option value="M">Male</option>
-            <option value="F">Female</option>
-          </select>
-        </label>
+            <label className={styles.field}>
+              <span>Region</span>
+              <select
+                className={styles.sel}
+                data-active={(filters.region ?? "all") !== "all"}
+                value={filters.region ?? "all"}
+                onChange={(e) => set({ region: e.target.value })}
+              >
+                <option value="all">All regions</option>
+                <optgroup label="By federation">
+                  <option value="LIM">Limpopo (LIM)</option>
+                  <option value="RSA">RSA</option>
+                </optgroup>
+                <optgroup label="By tournaments played">
+                  <option value="PLAYED_CAP">Played in Capricorn</option>
+                  <option value="PLAYED_LIM">Played in Limpopo</option>
+                </optgroup>
+              </select>
+            </label>
 
-        <label className={styles.field}>
-          <span>Period</span>
-          <select
-            className={styles.sel}
-            data-active={filters.period != null}
-            value={filters.period ?? "all"}
-            onChange={(e) => set({ period: e.target.value === "all" ? undefined : Number(e.target.value) })}
-          >
-            <option value="all">All time</option>
-            <option value="2024">Oct 2024 – Sep 2025</option>
-            <option value="2025">Oct 2025 – Sep 2026</option>
-          </select>
-        </label>
-      </div>
+            <label className={styles.field}>
+              <span>Gender</span>
+              <select
+                className={styles.sel}
+                data-active={!!filters.sex}
+                value={filters.sex ?? "all"}
+                onChange={(e) => set({ sex: e.target.value === "all" ? undefined : (e.target.value as "M" | "F") })}
+              >
+                <option value="all">All genders</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
+            </label>
 
-      {/* Display controls + reset. */}
-      <div className={styles.filterFoot}>
-        <label className={styles.fieldNum}>
-          <span>Min events</span>
-          <input
-            className={styles.num}
-            data-active={(filters.minTournaments ?? 1) !== 1}
-            type="number"
-            inputMode="numeric"
-            value={filters.minTournaments ?? ""}
-            placeholder="1"
-            onChange={(e) => numPatch("minTournaments", e.target.value)}
-          />
-        </label>
-        <label className={styles.fieldNum}>
-          <span>Show rows</span>
-          <input
-            className={styles.num}
-            type="number"
-            inputMode="numeric"
-            value={filters.limit ?? ""}
-            placeholder="50"
-            onChange={(e) => numPatch("limit", e.target.value)}
-          />
-        </label>
-        {/* In the all-players view each player is judged against their own cohort's
-            CDC criteria; junior/senior pin a single cohort. Only acts within the
-            CDC cycle (the 2025 period) — see selectionMode in RankingsView. */}
-        <label className={styles.fieldCheck} data-active={!!filters.qualifiedOnly}>
-          <input
-            type="checkbox"
-            checked={!!filters.qualifiedOnly}
-            onChange={(e) => set({ qualifiedOnly: e.target.checked || undefined })}
-          />
-          <span>Qualified only</span>
-        </label>
-        {active && (
-          <button type="button" className={styles.clearBtn} onClick={() => onChange({ ...FILTER_DEFAULTS })}>
-            Reset filters
-          </button>
-        )}
-      </div>
+            <label className={styles.field}>
+              <span>Period</span>
+              <select
+                className={styles.sel}
+                data-active={filters.period != null}
+                value={filters.period ?? "all"}
+                onChange={(e) => set({ period: e.target.value === "all" ? undefined : Number(e.target.value) })}
+              >
+                <option value="all">All time</option>
+                <option value="2024">Oct 2024 – Sep 2025</option>
+                <option value="2025">Oct 2025 – Sep 2026</option>
+              </select>
+            </label>
+          </div>
+
+          {/* Display controls + reset. */}
+          <div className={styles.filterFoot}>
+            <div className={styles.fieldNum}>
+              <span>Min events</span>
+              <div className={styles.segs}>
+                {MIN_EVENT_PRESETS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={styles.segBtn}
+                    data-active={(filters.minTournaments ?? 1) === n}
+                    onClick={() => set({ minTournaments: n })}
+                  >
+                    {n === 1 ? "All" : `${n}+`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* In the all-players view each player is judged against their own cohort's
+                CDC criteria; junior/senior pin a single cohort. Only acts within the
+                CDC cycle (the 2025 period) — see selectionMode in RankingsView. */}
+            <label className={styles.fieldCheck} data-active={!!filters.qualifiedOnly}>
+              <input
+                type="checkbox"
+                checked={!!filters.qualifiedOnly}
+                onChange={(e) => set({ qualifiedOnly: e.target.checked || undefined })}
+              />
+              <span>Qualified only</span>
+            </label>
+            {!isDefault && (
+              <button type="button" className={styles.clearBtn} onClick={() => onChange({ ...FILTER_DEFAULTS, search: filters.search })}>
+                Reset filters
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -1,86 +1,117 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import { BlogCardServer } from "@/components/home/BlogCardServer";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { UpcomingTournamentCardServer } from "@/components/home/UpcomingTournamentCard";
 import { RankingsCardServer } from "@/components/home/RankingsCardServer";
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer";
+import { getRankingStats, getSummaries } from "@/lib/rankingsServer";
+import { SEASON, SEASON_LABEL, isLocal, meetsCriteria } from "@/components/home/homeRankings";
 
 export const metadata: Metadata = {
   title: "Home",
-  description: "Limpopo Chess Academy — welcome page",
+  description:
+    "Limpopo Chess Academy — live tournament games, independent player rankings, puzzles and structured chess lessons.",
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Everything on this page tolerates being up to an hour stale (rankings refresh
+// hourly, games/blog daily), so regenerate statically instead of rendering per
+// request. The board ships client-side only (see TournamentGamesCardClient).
+export const revalidate = 3600;
+
+async function StatStrip() {
+  try {
+    const [stats, season] = await Promise.all([getRankingStats(), getSummaries(SEASON)]);
+    const qualified = season.filter((p) => isLocal(p) && meetsCriteria(p)).length;
+    const items: [string, string][] = [
+      [stats.players.toLocaleString("en-ZA"), "players tracked"],
+      [stats.tournaments.toLocaleString("en-ZA"), "tournaments covered"],
+      [qualified.toLocaleString("en-ZA"), `CDC-qualified ${SEASON_LABEL}`],
+    ];
+    return (
+      <div className="space-y-4">
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          {items.map(([value, label]) => (
+            <div key={label}>
+              <dd className="text-2xl font-bold tracking-tight tabular-nums font-mono">{value}</dd>
+              <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mt-0.5">
+                {label}
+              </dt>
+            </div>
+          ))}
+        </dl>
+        {stats.latest && (
+          <p className="text-xs text-muted-foreground">
+            <span className="text-[10px] font-semibold uppercase tracking-widest">Most recent tournament</span>
+            <br />
+            <Link href="/player-rankings" className="font-semibold text-foreground hover:text-primary transition-colors">
+              {stats.latest.name}
+            </Link>
+            {stats.latest.date && <span className="tabular-nums"> · {stats.latest.date}</span>}
+          </p>
+        )}
+      </div>
+    );
+  } catch {
+    return null; // the hero reads fine without numbers
+  }
+}
 
 export default function Home() {
   return (
-    <section className="relative min-h-dvh px-2 sm:px-4 lg:px-6 xl:px-8 py-6 sm:py-10 mx-auto max-w-7xl text-foreground bg-transparent">
-      {/* Background */}
-      <div className="fixed inset-0 -z-10">
-        <Image
-          src="/IMG-20250927-WA0006.jpg"
-          alt="Chess tournament"
-          fill
-          className="object-cover opacity-[0.25] dark:opacity-[0.10]"
-          priority
-          quality={75}
-        />
-      </div>
-
-      {/* Hero */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 lg:gap-10 items-center mb-8 sm:mb-12">
-        <div className="w-full md:col-span-2 bg-transparent">
-          <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] md:aspect-[2/1] lg:aspect-[16/9] md:min-h-[300px] lg:min-h-[360px] xl:min-h-[420px]">
-            <Image
-              src="/lca-logo-no-bg2-removebg-preview.png"
-              alt="Limpopo Chess Academy logo"
-              fill
-              priority
-              sizes="(min-width: 1024px) 40vw, (min-width: 768px) 50vw, 100vw"
-              className="object-contain block dark:hidden"
-            />
-            <Image
-              src="/lca-logo-no-bg2-removebg-preview.png"
-              alt="Limpopo Chess Academy logo"
-              fill
-              priority
-              sizes="(min-width: 1024px) 40vw, (min-width: 768px) 50vw, 100vw"
-              className="object-contain hidden dark:block"
-            />
+    <section className="min-h-dvh px-4 sm:px-6 lg:px-8 py-5 sm:py-7 mx-auto max-w-7xl text-foreground">
+      {/* Hero — copy + actions | live board */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start mb-10 sm:mb-12">
+        <div className="space-y-6 lg:pt-2">
+          <div className="space-y-4">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tightest text-balance">
+              Limpopo Chess Academy
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-prose">
+              Limpopo Chess Academy is a chess hub dedicated to growing young minds
+              into focused, exceptional future leaders. Based in Polokwane, our
+              sessions range from relaxed, interactive lessons — aimed at encouraging
+              independent, structured thinking and bringing out that creative spark —
+              to challenging, tournament-ready programs. Whether you&apos;re new to
+              chess or want to deepen your understanding of the game, get in touch with one of our {" "}
+              <Link href="/forms/contact-us" className="font-bold text-primary-foreground no-underline hover:text-primary transition-colors">
+                Coaches
+              </Link>.
+            </p>
           </div>
+
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/player-rankings"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              View rankings
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <Link
+              href="/events"
+              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold border border-border hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
+            >
+              Upcoming tournaments
+            </Link>
+            <Link
+              href="/academy"
+              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold border border-border hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
+            >
+              Learn at the academy
+            </Link>
+          </div>
+
+          <StatStrip />
         </div>
-        <div className="space-y-4 text-left md:col-span-3 flex flex-col justify-center">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight text-balance">
-            Welcome to{" "}
-            <span className="text-primary font-extrabold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Limpopo
-            </span>{" "}
-            <span className="text-muted-foreground">Chess Academy's</span> home
-            on the web
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            Join our community of chess enthusiasts and take your game to the
-            next level. Follow latest and upcoming chess tournaments.
-          </p>
-        </div>
+
+        {/* The live board IS the hero visual. */}
+        <TournamentGamesCardServer />
       </div>
 
-      {/* Cards grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-        {/* Left: board card — NO h-full, sizes to content so board never clips */}
-        <div className="flex flex-col">
-          <TournamentGamesCardServer />
-        </div>
-
-        {/* Right: info cards */}
-        <div className="flex flex-col gap-4 sm:gap-6">
-          <UpcomingTournamentCardServer />
-        </div>
-
-        {/* Bottom row */}
+      {/* What's happening — tournament + rankings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+        <UpcomingTournamentCardServer />
         <RankingsCardServer />
-        <BlogCardServer />
       </div>
     </section>
   );

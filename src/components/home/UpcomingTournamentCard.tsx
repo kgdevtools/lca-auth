@@ -2,37 +2,49 @@ import Link from "next/link";
 import { getNextUpcomingTournament } from "@/repositories/upcomingTournamentRepo";
 import type { UpcomingTournament } from "@/types/upcoming-tournament";
 
+/** Shared header row: title link + actions. Register renders only when a link exists. */
+function CardHeader({ registrationLink }: { registrationLink?: string | null }) {
+  const hasLink = Boolean(registrationLink?.trim());
+  return (
+    <div className="flex items-center justify-between gap-2 mb-2">
+      <Link
+        href="/events"
+        className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+      >
+        Upcoming Tournament
+      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/forms/upcoming-tournament"
+          className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide rounded-sm border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/60 transition-colors flex-shrink-0"
+        >
+          Organizer?
+        </Link>
+        {hasLink && (
+          <Link
+            href={registrationLink!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
+          >
+            Register
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export async function UpcomingTournamentCardServer() {
   try {
     const tournament = await getNextUpcomingTournament();
 
     if (!tournament) {
       return (
-        <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col h-full min-h-[280px] hover:border-primary/30 transition-colors">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <Link
-              href="/events"
-              className="font-geist-sans text-lg font-bold text-primary hover:text-primary/70 transition-colors group flex items-center gap-1.5"
-            >
-              <span className="group-hover:underline decoration-2 underline-offset-2">Upcoming Tournament</span>
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-xs">→</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/forms/upcoming-tournament"
-                className="px-2 py-1 text-[10px] font-bold uppercase rounded-sm bg-amber-500/90 text-black hover:bg-amber-500 hover:scale-105 active:scale-95 transition-all flex-shrink-0 shadow-sm hover:shadow-md"
-              >
-                Organizer?
-              </Link>
-              <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-sm bg-muted text-muted-foreground/40 select-none">
-                Register
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">
-              No upcoming tournaments
-            </p>
+        <div className="flex flex-col h-full min-h-[280px]">
+          <CardHeader />
+          <div className="rounded border border-border bg-card flex-1 flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">No upcoming tournaments</p>
           </div>
         </div>
       );
@@ -42,31 +54,10 @@ export async function UpcomingTournamentCardServer() {
   } catch (error) {
     console.error("Error in UpcomingTournamentCardServer:", error);
     return (
-      <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm p-4 flex flex-col h-full min-h-[280px] hover:border-destructive/30 transition-colors">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Link
-            href="/events"
-            className="font-geist-sans text-lg font-bold text-primary hover:text-primary/70 transition-colors group flex items-center gap-1.5"
-          >
-            <span className="group-hover:underline decoration-2 underline-offset-2">Upcoming Tournament</span>
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-xs">→</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/forms/upcoming-tournament"
-              className="px-2 py-1 text-[10px] font-bold uppercase rounded-sm bg-amber-500/90 text-black hover:bg-amber-500 hover:scale-105 active:scale-95 transition-all flex-shrink-0 shadow-sm hover:shadow-md"
-            >
-              Organizer?
-            </Link>
-            <span className="px-2 py-1 text-[10px] font-bold uppercase rounded-sm bg-muted text-muted-foreground/40 select-none">
-              Register
-            </span>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground text-sm">
-            Error loading tournament
-          </p>
+      <div className="flex flex-col h-full min-h-[280px]">
+        <CardHeader />
+        <div className="rounded border border-border bg-card flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground text-sm">Error loading tournament</p>
         </div>
       </div>
     );
@@ -92,20 +83,20 @@ function UpcomingTournamentCardClient({
     : null;
 
   const CardInner = (
-    <div className="rounded-lg border border-border overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-card/80 dark:bg-card/60 backdrop-blur-sm group/card flex-1 flex flex-col">
+    <div className="rounded border border-border overflow-hidden hover:border-primary/50 transition-colors bg-card flex-1 flex flex-col">
       {hasPoster ? (
         <div className="w-full flex-1 bg-black flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={tournament.poster_url!}
             alt={tournament.tournament_name}
-            className="w-full h-auto object-contain max-h-[600px] transition-transform duration-300 group-hover/card:scale-[1.02]"
+            className="w-full h-auto object-contain max-h-[440px]"
             loading="eager"
           />
         </div>
       ) : (
         <div className="p-4 space-y-2">
-          <h3 className="text-base sm:text-lg font-extrabold leading-snug text-foreground line-clamp-3 group-hover/card:text-primary/90 transition-colors">
+          <h3 className="text-base sm:text-lg font-extrabold leading-snug text-foreground line-clamp-3">
             {tournament.tournament_name}
           </h3>
           {formattedDate && (
@@ -140,39 +131,8 @@ function UpcomingTournamentCardClient({
   );
 
   return (
-    <div className="block group h-full flex flex-col">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <Link
-          href="/events"
-          className="font-geist-sans text-lg font-bold text-primary hover:text-primary/70 transition-colors group flex items-center gap-1.5"
-        >
-          <span className="group-hover:underline decoration-2 underline-offset-2">Upcoming Tournament</span>
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-xs">→</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/forms/upcoming-tournament"
-            className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-sm bg-amber-500/90 text-black hover:bg-amber-500 hover:scale-105 active:scale-95 transition-all flex-shrink-0 shadow-sm hover:shadow-md"
-          >
-            Organizer?
-          </Link>
-          {hasLink ? (
-            <Link
-              href={tournament.registration_form_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-sm bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex-shrink-0 shadow-sm hover:shadow-md"
-            >
-              Register
-            </Link>
-          ) : (
-            <span className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-sm bg-muted text-muted-foreground/40 select-none flex-shrink-0">
-              Register
-            </span>
-          )}
-        </div>
-      </div>
+    <div className="h-full flex flex-col">
+      <CardHeader registrationLink={tournament.registration_form_link} />
 
       {/* Card click target */}
       {hasPoster ? (
@@ -180,7 +140,7 @@ function UpcomingTournamentCardClient({
           href={tournament.poster_url!}
           target="_blank"
           rel="noopener noreferrer"
-          className="block"
+          className="flex-1 flex flex-col"
         >
           {CardInner}
         </Link>
@@ -189,12 +149,12 @@ function UpcomingTournamentCardClient({
           href={tournament.registration_form_link}
           target="_blank"
           rel="noopener noreferrer"
-          className="block"
+          className="flex-1 flex flex-col"
         >
           {CardInner}
         </Link>
       ) : (
-        <Link href="/events" className="block">
+        <Link href="/events" className="flex-1 flex flex-col">
           {CardInner}
         </Link>
       )}

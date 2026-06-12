@@ -54,7 +54,7 @@ OTHER DEALINGS IN THE SOFTWARE.`}
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-foreground">Educational Content – CC BY‑NC 4.0</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            All original teaching materials, chess lessons, articles, diagrams, puzzles, and blog posts are licensed under the{' '}
+            All original teaching materials, chess lessons, articles, diagrams, and puzzles are licensed under the{' '}
             <a 
               href="https://creativecommons.org/licenses/by-nc/4.0/legalcode" 
               target="_blank" 

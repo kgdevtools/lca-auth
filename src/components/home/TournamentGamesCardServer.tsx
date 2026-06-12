@@ -1,19 +1,10 @@
-import {
-  fetchGames,
-  listTournaments,
-  type GameData,
-  type TournamentMeta,
-} from "@/lib/chess-games/actions";
+import type { GameData, TournamentMeta } from "@/lib/chess-games/actions";
+import { fetchGamesPublic, listTournamentsPublic } from "@/lib/chess-games/publicData";
 import Link from "next/link";
 import { TournamentGamesCardClient } from "./TournamentGamesCardClient";
 import { cache } from "@/utils/cache";
 
-/**
- * TEMPORARY CONFIG — FORCE THIS TOURNAMENT IN HEADER + GAMES
- */
-const FORCED_TOURNAMENT_TABLE = "cdc_tournament_1_2026_games";
-const FORCED_TOURNAMENT_END = new Date("2026-02-16T23:59:59Z");
-
+/** Deterministic daily rotation — same tournament for everyone on a given day. */
 async function getTodaysTournament(): Promise<TournamentMeta | null> {
   try {
     const today = new Date();
@@ -23,7 +14,7 @@ async function getTodaysTournament(): Promise<TournamentMeta | null> {
     const cachedTournament = cache.get(cacheKey);
     if (cachedTournament) return cachedTournament;
 
-    const { tournaments } = await listTournaments();
+    const tournaments = await listTournamentsPublic();
     if (tournaments.length === 0) return null;
 
     const EXCLUDED_TABLES = ["cdc_jq_tournament_7_2025_u20_games"];
@@ -49,83 +40,45 @@ async function getTodaysTournament(): Promise<TournamentMeta | null> {
 
 export async function TournamentGamesCardServer() {
   try {
-    const now = new Date();
-    const withinForcedPeriod = now <= FORCED_TOURNAMENT_END;
-    const dailyTournament = await getTodaysTournament();
+    const tournament = await getTodaysTournament();
 
-    let headerTournament: TournamentMeta | null = dailyTournament;
-
-    if (withinForcedPeriod) {
-      headerTournament = {
-        name: FORCED_TOURNAMENT_TABLE,
-        alias: "CDC Tournament 1 — 2026",
-        display_name: "Capricorn District Chess Qualifier 1 — 2026",
-        created_at: "2026-02-10",
-      } as TournamentMeta;
-    }
-
-    if (!headerTournament) {
+    if (!tournament) {
       return (
         <Link
           href="/chess-games"
-          className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center p-6"
+          className="rounded border border-border flex flex-col items-center justify-center p-6 min-h-[280px]"
         >
           <p className="text-muted-foreground">No tournaments available</p>
         </Link>
       );
     }
 
-    const games: GameData[] = [];
-
-    if (withinForcedPeriod) {
-      const forcedCacheKey = `games-${FORCED_TOURNAMENT_TABLE}`;
-      let forcedGames: GameData[] | null = cache.get(forcedCacheKey);
-      if (!forcedGames) {
-        const result = await fetchGames(FORCED_TOURNAMENT_TABLE as any);
-        if (!result.error) {
-          forcedGames = [...result.games];
-          cache.set(forcedCacheKey, forcedGames, 86400);
-        }
+    const gamesCacheKey = `games-${tournament.name}`;
+    let games: GameData[] | null = cache.get(gamesCacheKey);
+    if (!games) {
+      const fetched = await fetchGamesPublic(tournament.name);
+      if (fetched.length > 0) {
+        games = fetched;
+        cache.set(gamesCacheKey, games, 86400);
       }
-      if (forcedGames?.length) games.push(...forcedGames);
     }
 
-    if (dailyTournament) {
-      const dailyCacheKey = `games-${dailyTournament.name}`;
-      let dailyGames: GameData[] | null = cache.get(dailyCacheKey);
-      if (!dailyGames) {
-        const result = await fetchGames(dailyTournament.name as any);
-        if (!result.error) {
-          dailyGames = [...result.games];
-          cache.set(dailyCacheKey, dailyGames, 86400);
-        }
-      }
-      if (dailyGames?.length) games.push(...dailyGames);
-    }
-
-    if (games.length === 0) {
+    if (!games || games.length === 0) {
       return (
         <Link
           href="/chess-games"
-          className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center p-6"
+          className="rounded border border-border flex flex-col items-center justify-center p-6 min-h-[280px]"
         >
           <p className="text-muted-foreground">No games available</p>
         </Link>
       );
     }
 
-    const shuffledGames = [...games].sort(() => 0.5 - Math.random());
-
-    return (
-      <TournamentGamesCardClient
-        games={shuffledGames}
-        selectedTournament={headerTournament}
-      />
-    );
+    return <TournamentGamesCardClient games={games} selectedTournament={tournament} />;
   } catch (error) {
     console.error("Error in TournamentGamesCardServer:", error);
     return (
-      <div className="rounded-lg border border-border bg-card/80 dark:bg-card/60 backdrop-blur-sm overflow-hidden flex flex-col items-center justify-center p-6">
+      <div className="rounded border border-border flex flex-col items-center justify-center p-6 min-h-[280px]">
         <p className="text-muted-foreground">Error loading games</p>
         <Link href="/chess-games" className="mt-2 text-primary hover:underline">
           Try again

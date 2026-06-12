@@ -46,8 +46,19 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
   const yTicks = Array.from({ length: TICKS + 1 }, (_, k) => Math.round(lo + (k * (hi - lo)) / TICKS))
   const px = (i: number) => (points.length === 1 ? 50 : (i / (points.length - 1)) * 100)
   const py = (v: number) => (1 - (v - lo) / (hi - lo)) * 100
-  const linePts = points.map((p, i) => `${px(i).toFixed(2)},${py(p.perf).toFixed(2)}`).join(" ")
-  const areaPts = `0,100 ${linePts} 100,100`
+
+  // Catmull-Rom → cubic-bézier smoothing; control-point Ys are clamped to the
+  // plot box so spikes can't overshoot it. Falls back to the same endpoints.
+  const xy = points.map((p, i) => ({ x: px(i), y: py(p.perf) }))
+  const cl = (v: number) => Math.min(100, Math.max(0, v))
+  let lineD = `M ${xy[0].x.toFixed(2)},${xy[0].y.toFixed(2)}`
+  for (let i = 0; i < xy.length - 1; i++) {
+    const p0 = xy[i - 1] ?? xy[i], p1 = xy[i], p2 = xy[i + 1], p3 = xy[i + 2] ?? p2
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = cl(p1.y + (p2.y - p0.y) / 6)
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = cl(p2.y - (p3.y - p1.y) / 6)
+    lineD += ` C ${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`
+  }
+  const areaD = `${lineD} L 100,100 L 0,100 Z`
 
   // Denser X axis: aim for ~9 labels, always tagging the last point and the year
   // whenever it changes. Each labelled position also gets a faint vertical grid.
@@ -102,8 +113,8 @@ export default function TrendChart({ points, height = 150 }: { points: TrendPoin
             {xLabels.map(({ i }) => (
               <line key={"vg" + i} className={styles.vgrid} x1={px(i)} y1="0" x2={px(i)} y2="100" vectorEffect="non-scaling-stroke" />
             ))}
-            <polygon className={styles.area} points={areaPts} />
-            <polyline className={styles.line} points={linePts} vectorEffect="non-scaling-stroke" />
+            <path className={styles.area} d={areaD} />
+            <path className={styles.line} d={lineD} vectorEffect="non-scaling-stroke" />
           </svg>
           {ap && <span className={styles.vline} style={{ left: `${px(active!)}%` }} />}
           {points.map((p, i) => (
