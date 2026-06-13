@@ -82,6 +82,9 @@ function SearchIcon() {
 interface FilterBarProps {
   filters: UiFilters
   onChange: (next: UiFilters) => void
+  /** Download the current view; the menu offers Excel and PDF. */
+  onExport?: (format: "xlsx" | "pdf") => void
+  exportDisabled?: boolean
 }
 
 const REGION_LABEL: Record<string, string> = {
@@ -121,11 +124,21 @@ function scopeChips(filters: UiFilters, set: (patch: Partial<UiFilters>) => void
   return chips
 }
 
+/** The current scope in words (chip labels) — used by the export file headers. */
+export function scopeLabels(filters: UiFilters): string[] {
+  return scopeChips(filters, () => {}).map((c) => c.label)
+}
+
 const MIN_EVENT_PRESETS = [1, 3, 6]
 
-export default function FilterBar({ filters, onChange }: FilterBarProps) {
+export default function FilterBar({ filters, onChange, onExport, exportDisabled }: FilterBarProps) {
   const [open, setOpen] = useState(false)
+  const [dlOpen, setDlOpen] = useState(false)
   const set = (patch: Partial<UiFilters>) => onChange({ ...filters, ...patch })
+  const pick = (format: "xlsx" | "pdf") => {
+    setDlOpen(false)
+    onExport?.(format)
+  }
 
   const isJuniors = filters.category === "juniors"
   const isSeniors = filters.category === "seniors"
@@ -164,6 +177,36 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
+        {onExport && (
+          <div className={styles.dlWrap}>
+            <button
+              type="button"
+              className={styles.filterToggle}
+              aria-label="Download rankings"
+              title="Download rankings"
+              aria-expanded={dlOpen}
+              disabled={exportDisabled}
+              onClick={() => setDlOpen((v) => !v)}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />
+              </svg>
+            </button>
+            {dlOpen && (
+              <>
+                <div className={styles.dlBackdrop} onClick={() => setDlOpen(false)} />
+                <div className={styles.dlMenu} role="menu">
+                  <button type="button" className={styles.dlItem} role="menuitem" onClick={() => pick("xlsx")}>
+                    Excel (.xlsx)
+                  </button>
+                  <button type="button" className={styles.dlItem} role="menuitem" onClick={() => pick("pdf")}>
+                    PDF
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Scope chips — the active view at a glance; × widens it back out. */}

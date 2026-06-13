@@ -13,9 +13,11 @@ import FilterBar, {
   REF_YEAR,
   ageGroupOf,
   isSeniorGroup,
+  scopeLabels,
   type Category,
   type UiFilters,
 } from "./FilterBar"
+import type { ExportFormat } from "./exportRankings"
 import ExpandedPanel from "./ExpandedPanel"
 import styles from "./rankings.module.css"
 
@@ -385,7 +387,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
 
   // One verdict per player per view — shared by the qualified-only filter and the
   // row cells, so criteria never run twice for the same player.
-  const { players, totalMatches, verdicts } = useMemo(() => {
+  const { players, allPlayers, totalMatches, verdicts } = useMemo(() => {
     const pool = pools[periodKey] ?? []
     const q = deferredSearch.trim().toLowerCase()
     const region = filters.region ?? "all"
@@ -406,7 +408,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
       if (filters.qualifiedOnly) list = list.filter((p) => verdicts.get(p.key)!.meets)
     }
     list = sortPlayers(list, sort)
-    return { players: list.slice(0, filters.limit ?? 50), totalMatches: list.length, verdicts }
+    return { players: list.slice(0, filters.limit ?? 50), allPlayers: list, totalMatches: list.length, verdicts }
   }, [pools, periodKey, filters, deferredSearch, sort, selectionMode])
 
   const remaining = totalMatches - players.length
@@ -421,9 +423,36 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
   const regionActive = (filters.region ?? "all") !== "all"
   const searching = !!deferredSearch.trim()
 
+  // Export downloads the FULL filtered list (not the visible-50 cap). Generators
+  // are dynamically imported so the libraries never load until requested.
+  const [exporting, setExporting] = useState(false)
+  const handleExport = async (format: ExportFormat) => {
+    if (exporting || allPlayers.length === 0) return
+    setExporting(true)
+    try {
+      const { exportRankings } = await import("./exportRankings")
+      const q = deferredSearch.trim()
+      await exportRankings(format, {
+        players: allPlayers,
+        selection: !!selectionMode,
+        verdicts,
+        scope: [...scopeLabels(filters), ...(q ? [`Search: “${q}”`] : [])],
+      })
+    } catch (e) {
+      console.error("Export failed", e)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className={styles.page}>
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        onExport={handleExport}
+        exportDisabled={exporting || loadingPool || !pools[periodKey] || allPlayers.length === 0}
+      />
 
       {/* One quiet line — the legal scope, always visible, no ceremony. */}
       <p className={styles.disclaimer}>
