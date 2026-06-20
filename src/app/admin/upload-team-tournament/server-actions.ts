@@ -2,6 +2,8 @@
 
 import { parseTeamTournamentExcel } from "@/services/teamTournamentParser"
 import { saveTeamTournamentRound } from "@/repositories/teamTournamentRepo"
+import { parseTeamSummaryExcel } from "@/services/teamSummaryParser"
+import { saveTeamSummary } from "@/repositories/teamSummaryRepo"
 
 export async function uploadTeamTournamentRoundAction(formData: FormData) {
   try {
@@ -67,5 +69,52 @@ export async function uploadTeamTournamentRoundAction(formData: FormData) {
       ok: false,
       error: e instanceof Error ? e.message : "Upload failed"
     }
+  }
+}
+
+/**
+ * Upload a team tournament from the two SUMMARY files (whole tournament):
+ * Team Composition with Points + Player Performance List. Parses, joins, and
+ * upserts team_tournaments + teams (standings) + team_player_performance (ratP).
+ */
+export async function uploadTeamSummaryAction(formData: FormData) {
+  try {
+    const composition = formData.get("composition") as File | null
+    const performance = formData.get("performance") as File | null
+
+    if (!composition || !performance) {
+      return { ok: false, error: "Both the Composition and Performance files are required." }
+    }
+    if (composition.size > 50 * 1024 * 1024 || performance.size > 50 * 1024 * 1024) {
+      return { ok: false, error: "File too large. Max 50MB" }
+    }
+
+    const compBuffer = Buffer.from(await composition.arrayBuffer())
+    const perfBuffer = Buffer.from(await performance.arrayBuffer())
+
+    const parsed = parseTeamSummaryExcel(compBuffer, perfBuffer)
+
+    if (!parsed.metadata.tournament_name) {
+      return { ok: false, error: "Could not read the tournament name from the Composition file." }
+    }
+    if (parsed.players.length === 0) {
+      return { ok: false, error: "No players parsed — check the file layout." }
+    }
+
+    const result = await saveTeamSummary(parsed)
+    const withPerf = parsed.players.filter((p) => p.performance_rating != null).length
+
+    return {
+      ok: true,
+      tournament_id: result.tournament_id,
+      tournament_name: parsed.metadata.tournament_name,
+      teams_count: result.teams_upserted,
+      players_count: result.players_upserted,
+      with_performance: withPerf,
+      parsed,
+    }
+  } catch (e) {
+    console.error("Summary upload error:", e)
+    return { ok: false, error: e instanceof Error ? e.message : "Upload failed" }
   }
 }

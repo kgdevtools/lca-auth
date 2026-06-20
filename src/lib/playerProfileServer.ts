@@ -12,6 +12,7 @@
  */
 import { fetchTournamentMeta, fetchTournamentPlayers } from './ratingsClient';
 import { getPlayer } from './rankingsServer';
+import { fetchTeamGamesForPlayer } from './teamGamesServer';
 import type { Appearance, RankedPlayer, RawRosterRow, RoundToken } from './rankings';
 
 // ── Output shapes ─────────────────────────────────────────────────────────────
@@ -308,6 +309,10 @@ export async function getPlayerProfile(
 
   const playerNameNorm = norm(player.name);
 
+  // Team-tournament events bridge in with no round tokens — resolve their
+  // opponents from the Academy team schema instead (Option B). Best-effort.
+  const teamGames = await fetchTeamGamesForPlayer(tournamentIds, player.name);
+
   const byEvent: EventGames[] = [];
   const h2h = new Map<string, HeadToHead>();
   let wins = 0;
@@ -318,80 +323,76 @@ export async function getPlayerProfile(
   const black: WLD = { wins: 0, losses: 0, draws: 0 };
 
   for (const appearance of player.appearances) {
-    const rankMap = byRank.get(appearance.tournamentId);
-    const rows = byTournament.get(appearance.tournamentId) ?? [];
+    // Build this event's games: team events come from the Academy team schema
+    // (no round tokens); everything else resolves from the roster's round tokens.
+    let rounds: GameEntry[];
+    const teamRounds = teamGames.get(appearance.tournamentId);
+    if (teamRounds) {
+      rounds = teamRounds;
+    } else {
+      const rankMap = byRank.get(appearance.tournamentId);
+      const rows = byTournament.get(appearance.tournamentId) ?? [];
+      // The player's own roster row: by final-standings rank, else by name.
+      let ownRow: RawRosterRow | undefined =
+        appearance.rank != null ? rankMap?.get(appearance.rank) : undefined;
+      if (!ownRow) ownRow = rows.find((r) => norm(r.name) === playerNameNorm);
 
-    // The player's own roster row: by final-standings rank, else by name.
-    let ownRow: RawRosterRow | undefined =
-      appearance.rank != null ? rankMap?.get(appearance.rank) : undefined;
-    if (!ownRow) ownRow = rows.find((r) => norm(r.name) === playerNameNorm);
-
-    const tokens = Array.isArray(ownRow?.rounds) ? ownRow!.rounds : [];
-    const seenOpponentsThisEvent = new Set<string>();
-    const rounds: GameEntry[] = [];
-
-    tokens.forEach((rawTok, i) => {
-      const tok = normaliseRound(rawTok);
-      if (!tok) return;
-
-      // Bye / no pairing.
-      if (tok.opponent === null) {
-        if (tok.result === 'bye' || tok.result === null) byes += 1;
+      const tokens = Array.isArray(ownRow?.rounds) ? ownRow!.rounds : [];
+      rounds = [];
+      tokens.forEach((rawTok, i) => {
+        const tok = normaliseRound(rawTok);
+        if (!tok) return;
+        if (tok.opponent === null) {
+          rounds.push({ round: i + 1, opponentName: null, opponentRank: null, opponentRating: null, opponentFed: null, color: tok.color, result: tok.result ?? 'bye' });
+          return;
+        }
+        const oppRank = Number(tok.opponent);
+        const oppRow = rankMap?.get(oppRank);
         rounds.push({
           round: i + 1,
-          opponentName: null,
-          opponentRank: null,
-          opponentRating: null,
-          opponentFed: null,
+          opponentName: oppRow?.name ?? null,
+          opponentRank: oppRank,
+          opponentRating: toNum(oppRow?.tournament_rating),
+          opponentFed: oppRow?.federation ?? null,
           color: tok.color,
-          result: tok.result ?? 'bye',
+          result: tok.result,
         });
-        return;
-      }
-
-      const oppRank = Number(tok.opponent);
-      const oppRow = rankMap?.get(oppRank);
-      const opponentName = oppRow?.name ?? null;
-
-      rounds.push({
-        round: i + 1,
-        opponentName,
-        opponentRank: oppRank,
-        opponentRating: toNum(oppRow?.tournament_rating),
-        opponentFed: oppRow?.federation ?? null,
-        color: tok.color,
-        result: tok.result,
       });
+    }
 
-      // Tally record + head-to-head (decisive/drawn games only).
-      const slice = tok.color === 'white' ? white : tok.color === 'black' ? black : null;
-      if (tok.result === 'win') { wins += 1; if (slice) slice.wins += 1; }
-      else if (tok.result === 'loss') { losses += 1; if (slice) slice.losses += 1; }
-      else if (tok.result === 'draw') { draws += 1; if (slice) slice.draws += 1; }
-
-      if (opponentName) {
-        const k = norm(opponentName);
-        let agg = h2h.get(k);
-        if (!agg) {
-          agg = { name: opponentName, wins: 0, losses: 0, draws: 0, events: 0, rating: null, fed: null, meetings: [] };
-          h2h.set(k, agg);
-        }
-        // appearances are newest-first, so the first non-null value seen is the
-        // opponent's most-recent rating / federation.
-        if (agg.rating === null) agg.rating = toNum(oppRow?.tournament_rating);
-        if (agg.fed === null && oppRow?.federation) agg.fed = oppRow.federation;
-        if (tok.result === 'win' || tok.result === 'loss' || tok.result === 'draw') {
-          if (tok.result === 'win') agg.wins += 1;
-          else if (tok.result === 'loss') agg.losses += 1;
-          else agg.draws += 1;
-          agg.meetings.push({ result: tok.result, color: tok.color });
-        }
-        if (!seenOpponentsThisEvent.has(k)) {
-          agg.events += 1;
-          seenOpponentsThisEvent.add(k);
-        }
+    // Shared tally — record + head-to-head — over the event's games.
+    const seenOpponentsThisEvent = new Set<string>();
+    for (const g of rounds) {
+      if (g.opponentName === null) {
+        if (g.result === 'bye' || g.result === null) byes += 1;
+        continue;
       }
-    });
+      const slice = g.color === 'white' ? white : g.color === 'black' ? black : null;
+      if (g.result === 'win') { wins += 1; if (slice) slice.wins += 1; }
+      else if (g.result === 'loss') { losses += 1; if (slice) slice.losses += 1; }
+      else if (g.result === 'draw') { draws += 1; if (slice) slice.draws += 1; }
+
+      const k = norm(g.opponentName);
+      let agg = h2h.get(k);
+      if (!agg) {
+        agg = { name: g.opponentName, wins: 0, losses: 0, draws: 0, events: 0, rating: null, fed: null, meetings: [] };
+        h2h.set(k, agg);
+      }
+      // appearances are newest-first, so the first non-null value seen is the
+      // opponent's most-recent rating / federation.
+      if (agg.rating === null) agg.rating = g.opponentRating;
+      if (agg.fed === null && g.opponentFed) agg.fed = g.opponentFed;
+      if (g.result === 'win' || g.result === 'loss' || g.result === 'draw') {
+        if (g.result === 'win') agg.wins += 1;
+        else if (g.result === 'loss') agg.losses += 1;
+        else agg.draws += 1;
+        agg.meetings.push({ result: g.result, color: g.color });
+      }
+      if (!seenOpponentsThisEvent.has(k)) {
+        agg.events += 1;
+        seenOpponentsThisEvent.add(k);
+      }
+    }
 
     const meta = metaMap.get(appearance.tournamentId);
     byEvent.push({
