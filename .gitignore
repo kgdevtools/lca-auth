@@ -68,6 +68,25 @@ nul
 /INTERACTIVE_STUDY_BUILD.md
 /INTERACTIVE_AND_PUZZLE_LESSON_UPDATES.md
 /CURL_LICHESS_API_TESTING.md
+/CDC_SELECTION_PLAN.md
+/PLAYER_RANKINGS_UPDATEs_20260609.md
+/RANKINGS_UPDATE_RUNBOOK.md
+/TOURNAMENT_REGISTRATION_V1.md
+/docs/player-profile-metrics.md
+/rankings-prompt/
+/STYLING_PROFILE_PAGE_FILES
+
+# Planning / execution / implementation docs — NEVER commit (any new ones too)
+*_PLAN.md
+*_PLANNING.md
+*_RUNBOOK.md
+*_TASKS.md
+*_TODO.md
+*_SUMMARY.md
+*_NOTES.md
+*_SPEC.md
+*_REPORT.md
+*_DESIGN.md
 
 #AI md files
 *.ai.md
