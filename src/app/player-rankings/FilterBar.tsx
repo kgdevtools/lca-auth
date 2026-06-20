@@ -141,8 +141,23 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
   }
 
   const isJuniors = filters.category === "juniors"
-  const isSeniors = filters.category === "seniors"
   const chips = scopeChips(filters, set)
+
+  // The Category dropdown now exposes the senior age bands (ADT/SNR/VET) as
+  // top-level choices instead of a second select, so users can find them. Each
+  // band maps to (category: "seniors", ageGroup: CODE); the umbrella "Seniors"
+  // keeps ageGroup "all". Encoded as "seniors:CODE" only for the <select> value.
+  const categoryValue =
+    filters.category === "seniors" && filters.ageGroup && filters.ageGroup !== "all"
+      ? `seniors:${filters.ageGroup}`
+      : filters.category
+  const onCategorySelect = (raw: string) => {
+    if (raw === "all") return set({ category: "all", ageGroup: undefined })
+    if (raw === "juniors") return set({ category: "juniors", ageGroup: "all" })
+    if (raw === "seniors") return set({ category: "seniors", ageGroup: "all" })
+    const code = raw.split(":")[1]
+    set({ category: "seniors", ageGroup: code })
+  }
   const isDefault =
     filters.category === FILTER_DEFAULTS.category &&
     (filters.region ?? "all") === FILTER_DEFAULTS.region &&
@@ -236,21 +251,17 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
               <select
                 className={styles.sel}
                 data-active={filters.category !== "all"}
-                value={filters.category}
-                onChange={(e) => {
-                  const v = e.target.value as Category
-                  // Reset the sub-group to "all" when switching cohort so a stale
-                  // junior band (e.g. U12) can't leak into the senior filter.
-                  set({
-                    category: v,
-                    ageGroup: v === "all" ? undefined : "all",
-                    qualifiedOnly: filters.qualifiedOnly,
-                  })
-                }}
+                value={categoryValue}
+                onChange={(e) => onCategorySelect(e.target.value)}
               >
                 <option value="all">All players</option>
                 <option value="juniors">Juniors</option>
                 <option value="seniors">Seniors</option>
+                <optgroup label="Senior bands">
+                  {SENIOR_GROUPS.map((g) => (
+                    <option key={g} value={`seniors:${g}`}>{SENIOR_GROUP_LABELS[g]}</option>
+                  ))}
+                </optgroup>
               </select>
             </label>
 
@@ -266,23 +277,6 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
                   <option value="all">All juniors</option>
                   {AGE_GROUPS.map((g) => (
                     <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-
-            {isSeniors && (
-              <label className={styles.field}>
-                <span>Age group</span>
-                <select
-                  className={styles.sel}
-                  data-active={!!filters.ageGroup && filters.ageGroup !== "all"}
-                  value={filters.ageGroup ?? "all"}
-                  onChange={(e) => set({ ageGroup: e.target.value })}
-                >
-                  <option value="all">All seniors</option>
-                  {SENIOR_GROUPS.map((g) => (
-                    <option key={g} value={g}>{SENIOR_GROUP_LABELS[g]}</option>
                   ))}
                 </select>
               </label>
