@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { STATIC_TOURNAMENTS } from "./config";
 import { formatTournamentName } from "./utils";
 import type { GameData, TournamentMeta } from "./actions";
+import { cache } from "@/utils/cache";
 
 export async function listTournamentsPublic(): Promise<TournamentMeta[]> {
   const supabase = createClient();
@@ -35,6 +36,54 @@ export async function listTournamentsPublic(): Promise<TournamentMeta[]> {
     }
   }
   return tournaments;
+}
+
+export interface GamesStats {
+  /** Total games across every tournament games table. */
+  games: number;
+  /** Number of tournament game collections in the DB. */
+  collections: number;
+  /** Most recently uploaded collection (tournaments_meta is ordered newest-first). */
+  latest: { name: string; date: string | null } | null;
+}
+
+/**
+ * Headline figures for the home page's chess-games stat strip. Games live in one
+ * table per tournament, so the total is a sum of head-only counts (no rows
+ * pulled) across the valid tables, run in parallel. Cached for a day in process
+ * memory (mirrors the games-card cache) so this fan-out runs at most once daily.
+ */
+export async function getGamesStats(): Promise<GamesStats> {
+  const cacheKey = "home-games-stats";
+  const cached = cache.get(cacheKey) as GamesStats | null;
+  if (cached) return cached;
+
+  const supabase = createClient();
+  const tournaments = await listTournamentsPublic();
+  // Same guard as fetchGamesPublic: table names are alphanumeric/underscore only.
+  const valid = tournaments.filter((t) => t.name && /^[a-z0-9_]+$/.test(t.name));
+
+  const counts = await Promise.all(
+    valid.map(async (t) => {
+      const { count, error } = await supabase
+        .from(t.name)
+        .select("id", { count: "exact", head: true });
+      return error ? 0 : count ?? 0;
+    }),
+  );
+  const games = counts.reduce((sum, n) => sum + n, 0);
+
+  const newest = tournaments[0] ?? null; // listTournamentsPublic orders newest-first
+  const latest = newest
+    ? {
+        name: newest.display_name || formatTournamentName(newest.name) || newest.name,
+        date: newest.created_at ? newest.created_at.slice(0, 10) : null,
+      }
+    : null;
+
+  const stats: GamesStats = { games, collections: valid.length, latest };
+  cache.set(cacheKey, stats, 86400);
+  return stats;
 }
 
 export async function fetchGamesPublic(tableName: string): Promise<GameData[]> {

@@ -4,7 +4,9 @@ import { ArrowRight } from "lucide-react";
 import { UpcomingTournamentCardServer } from "@/components/home/UpcomingTournamentCard";
 import { RankingsCardServer } from "@/components/home/RankingsCardServer";
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer";
+import { CountUp } from "@/components/home/CountUp";
 import { getRankingStats, getSummaries } from "@/lib/rankingsServer";
+import { getGamesStats } from "@/lib/chess-games/publicData";
 import { SEASON, SEASON_LABEL, isLocal, meetsCriteria } from "@/components/home/homeRankings";
 
 export const metadata: Metadata = {
@@ -22,17 +24,19 @@ async function StatStrip() {
   try {
     const [stats, season] = await Promise.all([getRankingStats(), getSummaries(SEASON)]);
     const qualified = season.filter((p) => isLocal(p) && meetsCriteria(p)).length;
-    const items: [string, string][] = [
-      [stats.players.toLocaleString("en-ZA"), "players tracked"],
-      [stats.tournaments.toLocaleString("en-ZA"), "tournaments covered"],
-      [qualified.toLocaleString("en-ZA"), `CDC-qualified ${SEASON_LABEL}`],
+    const items: [number, string][] = [
+      [stats.players, "players tracked"],
+      [stats.tournaments, "tournaments covered"],
+      [qualified, `CDC-qualified ${SEASON_LABEL}`],
     ];
     return (
       <div className="space-y-4">
         <dl className="flex flex-wrap gap-x-8 gap-y-3">
           {items.map(([value, label]) => (
             <div key={label}>
-              <dd className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums font-mono">{value}</dd>
+              <dd className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums font-mono">
+                <CountUp value={value} />
+              </dd>
               <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mt-0.5">
                 {label}
               </dt>
@@ -53,6 +57,45 @@ async function StatStrip() {
     );
   } catch {
     return null; // the hero reads fine without numbers
+  }
+}
+
+async function GamesStatStrip() {
+  try {
+    const stats = await getGamesStats();
+    if (stats.games === 0) return null;
+    const items: [number, string][] = [
+      [stats.games, "games in the database"],
+      [stats.collections, "tournament collections"],
+    ];
+    return (
+      <div className="space-y-3">
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          {items.map(([value, label]) => (
+            <div key={label}>
+              <dd className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums font-mono">
+                <CountUp value={value} />
+              </dd>
+              <dt className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mt-0.5">
+                {label}
+              </dt>
+            </div>
+          ))}
+        </dl>
+        {stats.latest && (
+          <p className="text-xs text-muted-foreground">
+            <span className="text-[10px] font-semibold uppercase tracking-widest">Recently uploaded</span>
+            <br />
+            <Link href="/chess-games" className="font-semibold text-foreground hover:text-primary transition-colors">
+              {stats.latest.name}
+            </Link>
+            {stats.latest.date && <span className="tabular-nums"> · {stats.latest.date}</span>}
+          </p>
+        )}
+      </div>
+    );
+  } catch {
+    return null; // the board above stands on its own
   }
 }
 
@@ -104,6 +147,7 @@ export default function Home() {
           </div>
 
           <StatStrip />
+          <GamesStatStrip />
         </div>
 
         {/* The live board IS the hero visual. */}
