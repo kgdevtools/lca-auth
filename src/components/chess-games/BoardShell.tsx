@@ -79,6 +79,24 @@ function GameInfoHeader({
   );
 }
 
+// ─── Icons ──────────────────────────────────────────────────────────────────────
+
+function FolderIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function pieceColor(piece: Piece): 'w' | 'b' {
@@ -157,6 +175,8 @@ export function BoardShell({ initialPgn, initialFen, games, initialIndex, onGame
   // The folder's games + current index, so the board can step game-to-game.
   const [playlist, setPlaylist] = useState<PlaylistGame[]>([]);
   const [playlistIndex, setPlaylistIndex] = useState(-1);
+  // Tournament display name for the breadcrumb (set when picked from the library).
+  const [playlistLabel, setPlaylistLabel] = useState<string | null>(null);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<string | null>(null);
@@ -183,8 +203,9 @@ export function BoardShell({ initialPgn, initialFen, games, initialIndex, onGame
     showToast(ok ? `Loaded: ${gameTitle(g)}` : 'Could not read that game');
   }, [game, showToast, gameTitle, onGameChange]);
 
-  const handleSelectGame = useCallback((games: PlaylistGame[], index: number) => {
+  const handleSelectGame = useCallback((games: PlaylistGame[], index: number, label?: string) => {
     setPlaylist(games);
+    if (label !== undefined) setPlaylistLabel(label);
     setShowLibrary(false);
     loadGameAt(games, index);
   }, [loadGameAt]);
@@ -443,13 +464,38 @@ export function BoardShell({ initialPgn, initialFen, games, initialIndex, onGame
       {/* ── Main layout: stacked on mobile, side-by-side on desktop ─────── */}
       <div className="flex flex-col lg:flex-row gap-3 lg:items-start">
 
-        {/* Eval bar + board */}
+        {/* Breadcrumb + eval bar + board */}
         {/* Outer wrapper has CSS-intrinsic dimensions so getBoundingClientRect()
             always returns a real value regardless of device or SSR state. */}
         <div
-          className="flex gap-1.5 items-start shrink-0"
+          className="flex flex-col gap-2 shrink-0"
           style={{ width: 'min(90vw, 90vh, 560px)', maxWidth: '100%' }}
         >
+          {/* Library breadcrumb — primary, always-visible entry point to the games
+              library, and a "you are here" cue once a game is loaded. */}
+          <button
+            onClick={() => setShowLibrary(true)}
+            title="Browse games library"
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-border bg-card hover:bg-accent transition-colors text-sm"
+          >
+            {playlistIndex >= 0 && playlist.length > 0 ? (
+              <span className="flex items-center gap-1.5 min-w-0">
+                <FolderIcon />
+                <span className="truncate font-medium">{playlistLabel ?? 'Games'}</span>
+                <span className="shrink-0 text-muted-foreground">
+                  ▸ Game {playlistIndex + 1}/{playlist.length}
+                </span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 font-medium">
+                <FolderIcon />
+                Browse games library
+              </span>
+            )}
+            <ChevronDownIcon />
+          </button>
+
+          <div className="flex gap-1.5 items-start">
           {boardWidth > 0 && (
             <EvalBar
               score={engine.evalScore}
@@ -486,6 +532,7 @@ export function BoardShell({ initialPgn, initialFen, games, initialIndex, onGame
               customArrows={allArrows}
               customSquareStyles={squareStyles}
             />}
+          </div>
           </div>
         </div>
 

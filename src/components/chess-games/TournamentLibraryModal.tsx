@@ -66,8 +66,9 @@ const NewBadge = () => (
 
 interface TournamentLibraryModalProps {
   // Receives the whole folder's game list + the chosen index so the board can
-  // cycle to the next / previous game without reopening the modal.
-  onSelectGame: (games: GameData[], index: number) => void;
+  // cycle to the next / previous game without reopening the modal. `label` is the
+  // tournament's display name, surfaced as the board breadcrumb.
+  onSelectGame: (games: GameData[], index: number, label: string) => void;
   onClose: () => void;
 }
 
@@ -190,7 +191,7 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
                 {games.map((g, i) => (
                   <li key={g.id}>
                     <button
-                      onClick={() => onSelectGame(games, i)}
+                      onClick={() => onSelectGame(games, i, folderLabel(folder))}
                       className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left transition-colors hover:bg-accent"
                     >
                       <FileIcon />

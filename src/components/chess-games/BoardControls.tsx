@@ -178,7 +178,16 @@ export function BoardControls({
 
   return (
     <div className="relative flex gap-0.5 pt-2 border-t border-border">
-      {/* Previous game (whole-game step) — first control */}
+      {/* Library — promoted out of the ··· menu so it's discoverable (the #1 task). */}
+      <button
+        className="flex-none flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
+        onClick={onOpenLibrary}
+        title="Browse games library"
+      >
+        <FolderIcon />
+        <span className="hidden sm:inline">Games</span>
+      </button>
+      {/* Previous game (whole-game step) */}
       <button className={`${btn} grid place-items-center`} onClick={onPrevGame} disabled={!canPrevGame} title="Previous game">
         <PrevGameIcon />
       </button>
@@ -216,15 +225,7 @@ export function BoardControls({
           ref={menuRef}
           className="absolute bottom-full right-0 mb-1 z-50 bg-popover border border-border rounded shadow-xl py-1 min-w-[210px] text-sm max-h-[70vh] overflow-y-auto"
         >
-          {/* ── Library ──────────────────────────────────────────── */}
-          <div className={sectionLabel}>Games</div>
-          <button className={menuItem} onClick={runAndClose(onOpenLibrary)}>
-            <FolderIcon />
-            Browse Games
-          </button>
-
           {/* ── Board ────────────────────────────────────────────── */}
-          <div className="my-1 border-t border-border" />
           <div className={sectionLabel}>Board</div>
           <button className={menuItem} onClick={runAndClose(onNewGame)}>
             <PlusIcon />
