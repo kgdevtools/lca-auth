@@ -76,6 +76,84 @@ export async function fetchGames(tournamentId: string): Promise<{ games: GameDat
   return { games, error: null }
 }
 
+// A search hit: a game plus the columns needed to render + sort a flat result
+// list. Extends GameData so it can be handed straight to the board playlist.
+export interface GameSearchResult extends GameData {
+  white_name: string | null;
+  black_name: string | null;
+  tournament_id: string | null;
+  tournament_name: string | null;
+  date: string | null;
+  result: string | null;
+}
+
+export interface GameSearchFilters {
+  /** ISO date (YYYY-MM-DD); keep games on/after this day. */
+  dateFrom?: string;
+  /** ISO date (YYYY-MM-DD); keep games on/before this day. */
+  dateTo?: string;
+}
+
+/**
+ * Fuzzy search across the unified `games` table by player name (White/Black) and
+ * tournament name, with an optional date range. Matching is case-insensitive
+ * substring (ILIKE), accelerated by the pg_trgm GIN indexes on those columns;
+ * separators in the query (commas/parens) become wildcards so "Mabasa, Jack" and
+ * "Mabasa Jack" both hit. Returns up to 200 games, newest first.
+ */
+export async function searchGames(
+  query: string,
+  filters: GameSearchFilters = {},
+): Promise<{ results: GameSearchResult[]; error: string | null }> {
+  const raw = (query || '').trim();
+  const hasDate = !!(filters.dateFrom || filters.dateTo);
+  // Need at least a 2-char term or a date filter — otherwise it's "everything".
+  if (raw.length < 2 && !hasDate) return { results: [], error: null };
+
+  const supabase = await createClient();
+  let q = supabase
+    .from('games')
+    .select('id, created_at, title, pgn, full_pgn, white_name, black_name, tournament_id, tournament_name, date, result');
+
+  if (raw.length >= 2) {
+    // Turn or()-breaking chars into wildcards so the term stays a single pattern.
+    const term = raw.replace(/[,()*]/g, '%');
+    const like = `%${term}%`;
+    q = q.or(`white_name.ilike.${like},black_name.ilike.${like},tournament_name.ilike.${like}`);
+  }
+  if (filters.dateFrom) q = q.gte('date', filters.dateFrom);
+  if (filters.dateTo) q = q.lte('date', filters.dateTo);
+
+  const { data, error } = await q
+    .order('date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('Error searching games:', error.message);
+    return { results: [], error: error.message };
+  }
+
+  const results: GameSearchResult[] = (data || []).map((g: {
+    id: string; created_at: string; title: string | null; pgn: string | null; full_pgn: string | null;
+    white_name: string | null; black_name: string | null; tournament_id: string | null;
+    tournament_name: string | null; date: string | null; result: string | null;
+  }) => ({
+    id: String(g.id),
+    created_at: g.created_at,
+    title: g.title ?? '',
+    pgn: g.full_pgn || g.pgn || '',
+    white_name: g.white_name,
+    black_name: g.black_name,
+    tournament_id: g.tournament_id,
+    tournament_name: g.tournament_name,
+    date: g.date,
+    result: g.result,
+  }));
+
+  return { results, error: null };
+}
+
 /** Delete a game from the unified table. */
 export async function deleteGame(gameId: string): Promise<{ success: boolean, error: string | null }> {
   if (!gameId) return { success: false, error: 'No game specified.' };
@@ -89,6 +167,7 @@ export async function deleteGame(gameId: string): Promise<{ success: boolean, er
   }
 
   revalidatePath('/chess-games')
+  revalidatePath('/')
   revalidatePath('/add-game')
   return { success: true, error: null }
 }
@@ -203,7 +282,8 @@ export async function createTournament(
   }
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, id: data.id as string, error: null };
 }
 
@@ -237,7 +317,8 @@ export async function renameTournament(
   await supabase.from('games').update({ tournament_name: newAlias }).eq('tournament_id', id);
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, error: null };
 }
 
@@ -257,7 +338,8 @@ export async function deleteTournament(id: string): Promise<{ success: boolean; 
   }
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, error: null };
 }
 
@@ -302,7 +384,8 @@ export async function addGame(
   }
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, error: null };
 }
 
@@ -334,7 +417,8 @@ export async function addMultipleGames(
   }
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, count: count ?? rows.length, error: null };
 }
 
@@ -363,6 +447,7 @@ export async function editGame(
   }
 
   revalidatePath('/add-game');
-  revalidatePath('/chess-games');
+  revalidatePath('/chess-games')
+  revalidatePath('/');
   return { success: true, error: null };
 }

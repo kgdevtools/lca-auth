@@ -3,8 +3,10 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   listTournaments,
   fetchGames,
+  searchGames,
   type TournamentMeta,
   type GameData,
+  type GameSearchResult,
 } from '@/lib/chess-games/actions';
 import { isNewItem } from '@/lib/chess-games/utils';
 
@@ -50,6 +52,14 @@ function BackIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground">
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
 function gamePlayers(pgn: string): string {
@@ -79,6 +89,31 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
   const [loadingFolders, setLoadingFolders] = useState(tournamentsCache === null);
   const [loadingGames, setLoadingGames] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Search (player / tournament name + optional date range) ─────────────────
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [results, setResults] = useState<GameSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const searchActive = search.trim().length >= 2 || !!dateFrom || !!dateTo;
+
+  // Debounced fuzzy search; reruns when the term or date range changes.
+  useEffect(() => {
+    if (!searchActive) { setResults([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const { results: hits, error } = await searchGames(search, { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
+      if (cancelled) return;
+      if (error) setError(error);
+      setResults(hits);
+      setSearching(false);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, dateFrom, dateTo, searchActive]);
 
   // Load tournament folders on mount — only hits the network on a cache miss.
   useEffect(() => {
@@ -142,13 +177,56 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
           </button>
         </div>
 
-        {/* Breadcrumb */}
-        <div className="border-b border-border px-4 py-1.5 text-[11px] text-muted-foreground">
-          <span className={folder ? 'cursor-pointer hover:text-foreground' : 'text-foreground'} onClick={() => { setFolder(null); setGames([]); }}>
-            Tournaments
-          </span>
-          {folder && <span> / {folderLabel(folder)}</span>}
+        {/* Search + filters */}
+        <div className="border-b border-border px-3 py-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center gap-2 rounded border border-border bg-background px-2.5 py-1.5">
+              <SearchIcon />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search player or tournament…"
+                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                autoFocus
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="text-muted-foreground hover:text-foreground" aria-label="Clear search">
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`rounded border px-2 py-1.5 text-[11px] ${dateFrom || dateTo ? 'border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+            >
+              Date
+            </button>
+          </div>
+          {showFilters && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <label className="flex items-center gap-1">From
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded border border-border bg-background px-1.5 py-1 text-foreground" />
+              </label>
+              <label className="flex items-center gap-1">To
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded border border-border bg-background px-1.5 py-1 text-foreground" />
+              </label>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="underline hover:text-foreground">clear</button>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Breadcrumb (browse mode only) */}
+        {!searchActive && (
+          <div className="border-b border-border px-4 py-1.5 text-[11px] text-muted-foreground">
+            <span className={folder ? 'cursor-pointer hover:text-foreground' : 'text-foreground'} onClick={() => { setFolder(null); setGames([]); }}>
+              Tournaments
+            </span>
+            {folder && <span> / {folderLabel(folder)}</span>}
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-2">
@@ -156,8 +234,40 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
             <p className="px-2 py-3 text-xs text-destructive">{error}</p>
           )}
 
+          {/* Search results */}
+          {searchActive && (
+            searching ? (
+              <p className="px-2 py-6 text-center text-xs text-muted-foreground">Searching…</p>
+            ) : results.length === 0 ? (
+              <p className="px-2 py-6 text-center text-xs text-muted-foreground">No games match.</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {results.map((g, i) => (
+                  <li key={g.id}>
+                    <button
+                      onClick={() => onSelectGame(results, i, search.trim() ? `Search: "${search.trim()}"` : 'Filtered games')}
+                      className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left transition-colors hover:bg-accent"
+                    >
+                      <FileIcon />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-foreground">
+                          {(g.white_name || '?')} vs {(g.black_name || '?')}
+                          {g.result && <span className="text-muted-foreground"> · {g.result}</span>}
+                        </span>
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {g.tournament_name || ''}{g.date ? ` · ${g.date}` : ''}
+                        </span>
+                      </span>
+                      {isNewItem(g.created_at) && <NewBadge />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+
           {/* Folder list */}
-          {!folder && (
+          {!searchActive && !folder && (
             loadingFolders ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">Loading tournaments…</p>
             ) : tournaments.length === 0 ? (
@@ -181,7 +291,7 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
           )}
 
           {/* Game list */}
-          {folder && (
+          {!searchActive && folder && (
             loadingGames ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">Loading games…</p>
             ) : games.length === 0 ? (

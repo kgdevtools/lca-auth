@@ -1,48 +1,16 @@
-import type { GameData, TournamentMeta } from "@/lib/chess-games/actions";
-import { fetchGamesPublic, listTournamentsPublic } from "@/lib/chess-games/publicData";
+import type { GameData } from "@/lib/chess-games/actions";
+import { fetchGamesPublic, listTournamentsPublic, getLatestGamesTournament } from "@/lib/chess-games/publicData";
 import Link from "next/link";
 import { TournamentGamesCardClient } from "./TournamentGamesCardClient";
 import { cache } from "@/utils/cache";
 
-/** Deterministic daily rotation — same tournament for everyone on a given day. */
-async function getTodaysTournament(): Promise<TournamentMeta | null> {
-  try {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const cacheKey = `tournament-${dateStr}`;
-
-    const cachedTournament = cache.get(cacheKey);
-    if (cachedTournament) return cachedTournament;
-
-    const tournaments = await listTournamentsPublic();
-    if (tournaments.length === 0) return null;
-
-    const EXCLUDED_TABLES = ["cdc_jq_tournament_7_2025_u20_games"];
-    const filtered = tournaments.filter(
-      (t) => t && t.name && !EXCLUDED_TABLES.includes(t.name),
-    );
-    if (filtered.length === 0) return null;
-
-    let hash = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      hash = (hash << 5) - hash + dateStr.charCodeAt(i);
-      hash |= 0;
-    }
-
-    const selected = filtered[Math.abs(hash) % filtered.length];
-    cache.set(cacheKey, selected, 86400);
-    return selected;
-  } catch (error) {
-    console.error("Error getting today's tournament:", error);
-    return null;
-  }
-}
+// Tournament intentionally kept out of the featured slot.
+const EXCLUDED_TABLES = ["cdc_jq_tournament_7_2025_u20_games"];
 
 export async function TournamentGamesCardServer() {
   try {
-    const tournament = await getTodaysTournament();
-
-    if (!tournament) {
+    const tournaments = await listTournamentsPublic();
+    if (tournaments.length === 0) {
       return (
         <Link
           href="/chess-games"
@@ -53,12 +21,31 @@ export async function TournamentGamesCardServer() {
       );
     }
 
-    const gamesCacheKey = `games-${tournament.id}`;
+    // Feature wherever games were most recently added (skip the excluded one).
+    const excludeIds = tournaments.filter((t) => t.name && EXCLUDED_TABLES.includes(t.name)).map((t) => t.id);
+    const latest = await getLatestGamesTournament(excludeIds);
+    const tournament = latest ? tournaments.find((t) => t.id === latest.tournamentId) ?? null : null;
+
+    if (!tournament) {
+      return (
+        <Link
+          href="/chess-games"
+          className="rounded border border-border flex flex-col items-center justify-center p-6 min-h-[280px]"
+        >
+          <p className="text-muted-foreground">No games available</p>
+        </Link>
+      );
+    }
+
+    // Cache key carries the latest add time, so a new upload busts it immediately
+    // (no stale featured set) while repeat views within the window stay cheap.
+    const gamesCacheKey = `home-games-${tournament.id}-${latest!.createdAt}`;
     let games: GameData[] | null = cache.get(gamesCacheKey);
     if (!games) {
       const fetched = await fetchGamesPublic(tournament.id);
       if (fetched.length > 0) {
-        games = fetched;
+        // Newest-added first so the card opens on the latest game.
+        games = [...fetched].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
         cache.set(gamesCacheKey, games, 86400);
       }
     }

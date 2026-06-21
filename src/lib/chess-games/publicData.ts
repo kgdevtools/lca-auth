@@ -27,6 +27,36 @@ export async function listTournamentsPublic(): Promise<TournamentMeta[]> {
   })) as TournamentMeta[];
 }
 
+/**
+ * The tournament whose most-recently-added game is newest — i.e. wherever games
+ * were last uploaded. Drives the home games card so it always features the latest
+ * additions instead of a fixed/rotating pick. Optionally skips excluded
+ * tournament ids. One indexed read (newest game), no per-tournament fan-out.
+ */
+export async function getLatestGamesTournament(
+  excludeIds: string[] = [],
+): Promise<{ tournamentId: string; createdAt: string } | null> {
+  const supabase = createClient();
+  const base = supabase
+    .from("games")
+    .select("tournament_id, created_at")
+    .not("tournament_id", "is", null);
+  const filtered = excludeIds.length > 0
+    ? base.not("tournament_id", "in", `(${excludeIds.join(",")})`)
+    : base;
+
+  const { data, error } = await filtered
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error("Error finding latest games tournament:", error.message);
+    return null;
+  }
+  const row = data?.[0] as { tournament_id: string | null; created_at: string } | undefined;
+  if (!row?.tournament_id) return null;
+  return { tournamentId: row.tournament_id, createdAt: row.created_at };
+}
+
 export async function fetchGamesPublic(tournamentId: string): Promise<GameData[]> {
   if (!tournamentId) return [];
 

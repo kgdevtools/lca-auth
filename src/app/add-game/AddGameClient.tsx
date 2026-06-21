@@ -5,12 +5,12 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Plus, Trash2, Pencil, Loader2, Lock } from "lucide-react";
+import { ChevronDown, Plus, Trash2, Pencil, Loader2, Lock, Search, X } from "lucide-react";
 import Link from "next/link";
 
 import { BoardShell } from "@/components/chess-games/BoardShell";
 import {
-  listTournaments, fetchGames, addGame, addMultipleGames, editGame, deleteGame,
+  listTournaments, fetchGames, searchGames, addGame, addMultipleGames, editGame, deleteGame,
   createTournament, renameTournament, deleteTournament,
   type GameData, type TournamentMeta,
 } from "@/lib/chess-games/actions";
@@ -67,6 +67,14 @@ export function AddGameClient({
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [selectedGameIndex, setSelectedGameIndex] = useState(-1);
 
+  // Cross-tournament search (player / tournament name + optional date range).
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [searchResults, setSearchResults] = useState<GameData[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchActive = search.trim().length >= 2 || !!dateFrom || !!dateTo;
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<GameForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof GameForm, string>>>({});
@@ -106,6 +114,23 @@ export function AddGameClient({
   }, []);
 
   useEffect(() => { loadGames(selectedId); }, [selectedId, loadGames]);
+
+  // Debounced cross-tournament search.
+  useEffect(() => {
+    if (!searchActive) { setSearchResults([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const { results } = await searchGames(search, { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
+      if (cancelled) return;
+      setSearchResults(results);
+      setSearching(false);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, dateFrom, dateTo, searchActive]);
+
+  // The list + board playlist reflect search results when a search is active.
+  const listGames: GameData[] = searchActive ? searchResults : games;
 
   const refreshTournaments = useCallback(async (selectId?: string | null) => {
     const { tournaments: list } = await listTournaments();
@@ -310,7 +335,9 @@ export function AddGameClient({
 
   // ── Board: live preview when a valid PGN is staged, else the tournament's games ──
   const showingPreview = isFormOpen && !!previewPgn;
-  const boardKey = showingPreview ? `preview:${previewPgn}` : `t:${selectedId}:${games.length}:${selectedGameIndex}`;
+  const boardKey = showingPreview
+    ? `preview:${previewPgn}`
+    : `${searchActive ? `s:${search}:${dateFrom}:${dateTo}` : `t:${selectedId}`}:${listGames.length}:${selectedGameIndex}`;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-2 sm:p-4 font-sans">
@@ -397,23 +424,59 @@ export function AddGameClient({
           </div>
         )}
 
-        {/* Games list */}
+        {/* Games list + cross-tournament search */}
         <div className="bg-card border border-border rounded-md p-4 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-muted-foreground">
-              Games {games.length > 0 && <span className="text-foreground">({games.length})</span>}
+              {searchActive ? "Search results" : "Games"}{" "}
+              {listGames.length > 0 && <span className="text-foreground">({listGames.length})</span>}
             </h3>
             {gamesError && <span className="text-xs text-destructive" title={gamesError}>Error loading games</span>}
           </div>
-          {isLoadingGames ? (
-            <div className="py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+
+          {/* Search controls */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-input px-2.5 py-1.5">
+                <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search player or tournament (all tournaments)…"
+                  className="w-full bg-transparent text-sm focus:outline-none"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground" aria-label="Clear search">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-          ) : games.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">No games in this tournament yet.</p>
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <label className="flex items-center gap-1">From
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded border border-border bg-input px-1.5 py-1 text-foreground" />
+              </label>
+              <label className="flex items-center gap-1">To
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded border border-border bg-input px-1.5 py-1 text-foreground" />
+              </label>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="underline hover:text-foreground">clear dates</button>
+              )}
+            </div>
+          </div>
+
+          {(searchActive ? searching : isLoadingGames) ? (
+            <div className="py-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> {searchActive ? "Searching…" : "Loading…"}
+            </div>
+          ) : listGames.length === 0 ? (
+            <p className="py-4 text-sm text-muted-foreground">
+              {searchActive ? "No games match." : "No games in this tournament yet."}
+            </p>
           ) : (
             <ul className="divide-y divide-border max-h-72 overflow-y-auto">
-              {games.map((g, i) => {
+              {listGames.map((g, i) => {
                 const h = parsePgnHeaders(g.pgn);
                 return (
                   <li key={g.id} className={`flex items-center gap-3 p-2 ${i === selectedGameIndex ? "bg-accent/40" : ""}`}>
@@ -421,7 +484,7 @@ export function AddGameClient({
                       <span className="w-6 text-right shrink-0 text-xs font-mono text-muted-foreground bg-muted rounded-full h-6 flex items-center justify-center">{i + 1}</span>
                       <div className="min-w-0">
                         <span className="block truncate font-medium">{(h.White || "?")} vs {(h.Black || "?")}</span>
-                        <span className="block text-xs text-muted-foreground truncate">{g.title || h.Event || ""}</span>
+                        <span className="block text-xs text-muted-foreground truncate">{g.title || h.Event || (searchActive ? (h.Site || "") : "")}</span>
                       </div>
                     </button>
                     {isAuthed && (
@@ -444,11 +507,11 @@ export function AddGameClient({
         </div>
 
         {/* Board preview / replay */}
-        {(showingPreview || games.length > 0) && (
+        {(showingPreview || listGames.length > 0) && (
           <BoardShell
             key={boardKey}
             initialPgn={showingPreview ? previewPgn : undefined}
-            games={showingPreview ? undefined : games.map((g) => ({ title: g.title, pgn: g.pgn }))}
+            games={showingPreview ? undefined : listGames.map((g) => ({ title: g.title, pgn: g.pgn }))}
             initialIndex={showingPreview ? undefined : Math.max(0, selectedGameIndex)}
             hideFenBar={showingPreview}
           />
