@@ -129,7 +129,7 @@ export function scopeLabels(filters: UiFilters): string[] {
   return scopeChips(filters, () => {}).map((c) => c.label)
 }
 
-const MIN_EVENT_PRESETS = [1, 3, 6]
+const MIN_EVENT_PRESETS = [1, 3, 4, 5, 6]
 
 export default function FilterBar({ filters, onChange, onExport, exportDisabled }: FilterBarProps) {
   const [open, setOpen] = useState(false)
