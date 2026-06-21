@@ -104,12 +104,12 @@ export function TournamentLibraryModal({ onSelectGame, onClose }: TournamentLibr
   const openFolder = useCallback(async (t: TournamentMeta) => {
     setFolder(t);
     setError(null);
-    const cached = gamesCache.get(t.name);
+    const cached = gamesCache.get(t.id);
     if (cached) { setGames(cached); return; }
     setLoadingGames(true);
-    const { games: fetched, error } = await fetchGames(t.name);
+    const { games: fetched, error } = await fetchGames(t.id);
     if (error) { setError(error); setGames([]); }
-    else { gamesCache.set(t.name, fetched); setGames(fetched); }
+    else { gamesCache.set(t.id, fetched); setGames(fetched); }
     setLoadingGames(false);
   }, []);
 

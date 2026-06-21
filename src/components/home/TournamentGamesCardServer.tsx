@@ -53,10 +53,10 @@ export async function TournamentGamesCardServer() {
       );
     }
 
-    const gamesCacheKey = `games-${tournament.name}`;
+    const gamesCacheKey = `games-${tournament.id}`;
     let games: GameData[] | null = cache.get(gamesCacheKey);
     if (!games) {
-      const fetched = await fetchGamesPublic(tournament.name);
+      const fetched = await fetchGamesPublic(tournament.id);
       if (fetched.length > 0) {
         games = fetched;
         cache.set(gamesCacheKey, games, 86400);

@@ -1,17 +1,17 @@
 /**
- * Best-effort linking of a player to actual PGN games. The move data lives only in
- * the MAIN project as per-tournament tables registered in `tournaments_meta`, NOT
- * keyed to any tournament_id/player_id — so linking is necessarily fuzzy:
+ * Best-effort linking of a player to actual PGN games. Games now live in the unified
+ * `games` table (one row per game, with white_name/black_name/tournament_name columns),
+ * but the link is still intentionally FUZZY — we guess by name, not by a hard key:
  *
- *   1. Narrow candidate game-tables by token-overlap between their alias/name and the
- *      player's tournament names (`tournaments_meta` is what makes this tractable).
- *   2. Within each candidate, keep games whose [White]/[Black] PGN tag matches the
- *      player's name.
+ *   1. Keep games whose `tournament_name` shares ≥1 significant token with the
+ *      player's tournament names.
+ *   2. Among those, keep games whose stored name column (or [White]/[Black] PGN tag,
+ *      as a fallback) matches the player's name.
  *
  * Returns an empty array for most players — that's the normal case, not a failure.
- * Fully isolated/defensive so a main-project hiccup never breaks the profile page.
+ * Fully isolated/defensive so a data hiccup never breaks the profile page.
  */
-import { fetchGames, listTournaments } from '@/lib/chess-games/actions';
+import { createClient } from '@/utils/supabase/server';
 
 /** The minimal game shape `GameViewer` consumes (title + pgn). */
 export interface LinkedGame {
@@ -63,12 +63,20 @@ function pgnNamesMatch(pgn: string, playerNorm: string): boolean {
   return false;
 }
 
-const MAX_TABLES = 6;
+interface GameRow {
+  title: string | null;
+  full_pgn: string | null;
+  white_name: string | null;
+  black_name: string | null;
+  tournament_name: string | null;
+}
 
 /**
- * Find PGN games for `playerName` across the tournaments they played, matching game
- * tables to `tournamentNames` and then PGN tags to the player. Best-effort: returns
- * `[]` on any error or when nothing matches.
+ * Find PGN games for `playerName` across the tournaments they played. Reads the
+ * unified `games` table once, then matches FUZZILY (unchanged behaviour): a game
+ * counts when its `tournament_name` shares ≥1 significant token with the player's
+ * tournaments AND the player's name matches a stored name column (falling back to
+ * the PGN [White]/[Black] tags). Best-effort: returns `[]` on error or no match.
  */
 export async function findPlayerGames(
   playerName: string,
@@ -77,48 +85,34 @@ export async function findPlayerGames(
   const playerNorm = norm(playerName);
   if (!playerNorm) return [];
 
+  // Token set across all of the player's tournaments (fuzzy tournament guess).
+  const wanted = new Set<string>();
+  for (const n of tournamentNames) for (const t of tokens(n)) wanted.add(t);
+  if (wanted.size === 0) return [];
+
   try {
-    const { tournaments, error } = await listTournaments();
-    if (error || tournaments.length === 0) return [];
-
-    // Token set across all of the player's tournaments.
-    const wanted = new Set<string>();
-    for (const n of tournamentNames) for (const t of tokens(n)) wanted.add(t);
-    if (wanted.size === 0) return [];
-
-    // Score each game-table by how well its alias/name overlaps the wanted tokens.
-    const candidates = tournaments
-      .map((t) => {
-        const label = `${t.alias ?? ''} ${t.display_name ?? ''} ${t.name}`;
-        let score = 0;
-        for (const tok of tokens(label)) if (wanted.has(tok)) score += 1;
-        return { name: t.name, score };
-      })
-      .filter((c) => c.score > 0 && /^[a-z0-9_]+$/.test(c.name))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_TABLES);
-
-    // Fetch the candidate tables concurrently — they're independent reads, so this
-    // turns ~6 sequential round-trips into one wave (the Games tab loads on demand).
-    const batches = await Promise.all(
-      candidates.map(async (c) => {
-        try {
-          const { games, error: gErr } = await fetchGames(c.name);
-          return gErr || !games ? [] : games;
-        } catch (err) {
-          console.error(`[playerGames] fetch ${c.name} failed:`, err);
-          return [];
-        }
-      }),
-    );
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('games')
+      .select('title, full_pgn, white_name, black_name, tournament_name');
+    if (error || !data) return [];
 
     const out: LinkedGame[] = [];
-    for (const games of batches) {
-      for (const g of games) {
-        if (g.pgn && pgnNamesMatch(g.pgn, playerNorm)) {
-          out.push({ title: g.title, pgn: g.pgn });
-        }
-      }
+    for (const g of data as GameRow[]) {
+      const pgn = g.full_pgn ?? '';
+      if (!pgn) continue;
+
+      // Fuzzy tournament match: any significant-token overlap.
+      let overlap = false;
+      for (const tok of tokens(g.tournament_name ?? '')) if (wanted.has(tok)) { overlap = true; break; }
+      if (!overlap) continue;
+
+      // Name match: stored columns first, PGN tags as a fallback.
+      const nameHit =
+        (g.white_name != null && norm(g.white_name) === playerNorm) ||
+        (g.black_name != null && norm(g.black_name) === playerNorm) ||
+        pgnNamesMatch(pgn, playerNorm);
+      if (nameHit) out.push({ title: g.title ?? '', pgn });
     }
     return out;
   } catch (err) {

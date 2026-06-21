@@ -1,10 +1,10 @@
 // Cookie-free, read-only access to the public games data. The home page is
 // statically regenerated (ISR), so it cannot go through actions.ts — that file's
 // cookie-based Supabase client forces a route dynamic. These reads mirror the
-// shapes in actions.ts using the anon client instead.
+// shapes in actions.ts using the anon client instead. All reads come from the
+// unified `games` table + `tournaments_meta` registry.
 
 import { createClient } from "@/utils/supabase/client";
-import { STATIC_TOURNAMENTS } from "./config";
 import { formatTournamentName } from "./utils";
 import type { GameData, TournamentMeta } from "./actions";
 import { cache } from "@/utils/cache";
@@ -18,40 +18,53 @@ export async function listTournamentsPublic(): Promise<TournamentMeta[]> {
 
   if (error) {
     console.error("Error loading tournaments_meta:", error.message);
-    return STATIC_TOURNAMENTS.map((t) => ({
-      id: t.id,
-      name: t.id,
-      display_name: formatTournamentName(t.id),
-    }));
+    return [];
   }
 
-  const tournaments = (data ?? []).map((t) => ({
+  return (data ?? []).map((t) => ({
     ...t,
-    display_name: t.alias || (typeof t.name === "string" ? formatTournamentName(t.name) : t.alias || t.name || t.id || "Unknown"),
+    display_name: t.alias || (typeof t.name === "string" ? formatTournamentName(t.name) : t.name || t.id),
   })) as TournamentMeta[];
+}
 
-  for (const staticT of STATIC_TOURNAMENTS) {
-    if (!tournaments.some((t) => t.name === staticT.id)) {
-      tournaments.push({ id: staticT.id, name: staticT.id, display_name: formatTournamentName(staticT.id) });
-    }
+export async function fetchGamesPublic(tournamentId: string): Promise<GameData[]> {
+  if (!tournamentId) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("games")
+    .select("id, created_at, title, pgn, full_pgn, date, round")
+    .eq("tournament_id", tournamentId)
+    .order("date", { ascending: true, nullsFirst: false })
+    .order("round", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(`Error fetching games for ${tournamentId}:`, error.message);
+    return [];
   }
-  return tournaments;
+
+  return (data ?? []).map((g: { id: string; created_at: string; title: string | null; pgn: string | null; full_pgn: string | null }) => ({
+    id: String(g.id),
+    created_at: g.created_at,
+    title: g.title ?? "",
+    pgn: g.full_pgn || g.pgn || "",
+  }));
 }
 
 export interface GamesStats {
-  /** Total games across every tournament games table. */
+  /** Total games across all tournaments. */
   games: number;
-  /** Number of tournament game collections in the DB. */
+  /** Number of tournament collections in the registry. */
   collections: number;
-  /** Most recently uploaded collection (tournaments_meta is ordered newest-first). */
+  /** Most recently added collection. */
   latest: { name: string; date: string | null } | null;
 }
 
 /**
- * Headline figures for the home page's chess-games stat strip. Games live in one
- * table per tournament, so the total is a sum of head-only counts (no rows
- * pulled) across the valid tables, run in parallel. Cached for a day in process
- * memory (mirrors the games-card cache) so this fan-out runs at most once daily.
+ * Headline figures for the home page's chess-games stat strip. With the unified
+ * table this is a single head-only count plus the newest registry row — no more
+ * per-table fan-out. Cached for a day in process memory.
  */
 export async function getGamesStats(): Promise<GamesStats> {
   const cacheKey = "home-games-stats";
@@ -59,51 +72,21 @@ export async function getGamesStats(): Promise<GamesStats> {
   if (cached) return cached;
 
   const supabase = createClient();
-  const tournaments = await listTournamentsPublic();
-  // Same guard as fetchGamesPublic: table names are alphanumeric/underscore only.
-  const valid = tournaments.filter((t) => t.name && /^[a-z0-9_]+$/.test(t.name));
+  const [{ count: games }, { count: collections }, { data: newestRows }] = await Promise.all([
+    supabase.from("games").select("id", { count: "exact", head: true }),
+    supabase.from("tournaments_meta").select("id", { count: "exact", head: true }),
+    supabase.from("tournaments_meta").select("name, alias, created_at").order("created_at", { ascending: false }).limit(1),
+  ]);
 
-  const counts = await Promise.all(
-    valid.map(async (t) => {
-      const { count, error } = await supabase
-        .from(t.name)
-        .select("id", { count: "exact", head: true });
-      return error ? 0 : count ?? 0;
-    }),
-  );
-  const games = counts.reduce((sum, n) => sum + n, 0);
-
-  const newest = tournaments[0] ?? null; // listTournamentsPublic orders newest-first
+  const newest = newestRows?.[0] as { name: string; alias: string | null; created_at: string | null } | undefined;
   const latest = newest
     ? {
-        name: newest.display_name || formatTournamentName(newest.name) || newest.name,
+        name: newest.alias || formatTournamentName(newest.name),
         date: newest.created_at ? newest.created_at.slice(0, 10) : null,
       }
     : null;
 
-  const stats: GamesStats = { games, collections: valid.length, latest };
+  const stats: GamesStats = { games: games ?? 0, collections: collections ?? 0, latest };
   cache.set(cacheKey, stats, 86400);
   return stats;
-}
-
-export async function fetchGamesPublic(tableName: string): Promise<GameData[]> {
-  // Same guard as actions.ts: table names are alphanumeric/underscore only.
-  if (!tableName || !/^[a-z0-9_]+$/.test(tableName)) return [];
-
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from(tableName)
-    .select("id, created_at, title, pgn")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error(`Error fetching games from ${tableName}:`, error);
-    return [];
-  }
-
-  // PGN may come back as a JSON object — chess.js needs a string.
-  return (data ?? []).map((game) => ({
-    ...game,
-    pgn: game.pgn ? (typeof game.pgn === "string" ? game.pgn : JSON.stringify(game.pgn)) : "",
-  }));
 }
