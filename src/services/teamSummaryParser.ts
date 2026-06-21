@@ -131,14 +131,20 @@ function parseMetadata(rows: any[][]): TeamSummaryMetadata {
 
 // ── 1. Team Composition with Points ──────────────────────────────────────────
 
-const TEAM_HEADER = /^(\d+)\.\s*(.+?)\s*\(\s*([\d½]+)\s*MP\s*\/\s*([\d½]+)\s*Pts/i
+// Team header line, e.g. "1. Western Cape A (10 MP/25 Pts.)" or "1. BOJANALA OPEN
+// (15 Pts./6 MP)" — the MP/Pts order varies, so we read each by its label.
+const TEAM_HEADER = /^(\d+)\.\s*(.+?)\s*\(([^)]*)\)\s*$/
 
 function parseComposition(rows: any[][]): { teams: TeamStanding[]; players: TeamPlayerPerformance[] } {
   const teams: TeamStanding[] = []
   const players: TeamPlayerPerformance[] = []
 
   let currentTeam: string | null = null
-  // Column layout from the most recent "Bo." header (round count varies per event).
+  // Column indices from the most recent "Bo." header — the layout varies (a title
+  // column may sit between Bo. and Name; round count differs), so resolve by label.
+  let nameIdx = -1
+  let rtgIdx = -1
+  let fedIdx = -1
   let roundStart = -1
   let ptsIdx = -1
   let gamIdx = -1
@@ -151,47 +157,54 @@ function parseComposition(rows: any[][]): { teams: TeamStanding[]; players: Team
     if (!first) continue
 
     const teamMatch = first.match(TEAM_HEADER)
-    if (teamMatch) {
+    // Only a team header if the parens carry both MP and Pts (order-independent).
+    const mp = teamMatch?.[3].match(/([\d½]+)\s*MP/i)
+    const pts = teamMatch?.[3].match(/([\d½]+)\s*Pts/i)
+    if (teamMatch && mp && pts) {
       currentTeam = cleanCell(teamMatch[2])
       teams.push({
         rank: parseInt(teamMatch[1], 10),
         team_name: currentTeam,
-        match_points: parseScore(teamMatch[3]) ?? 0,
-        game_points: parseScore(teamMatch[4]) ?? 0,
+        match_points: parseScore(mp[1]) ?? 0,
+        game_points: parseScore(pts[1]) ?? 0,
       })
       continue
     }
 
-    // Board table header: locate the summary columns (round count is variable).
+    // Board table header: resolve every column by its label (handles the optional
+    // title column + variable round count).
     if (/^bo\.?$/i.test(first)) {
+      nameIdx = row.findIndex((c) => /^name$/i.test(cleanCell(c)))
+      rtgIdx = row.findIndex((c) => /^rtg$/i.test(cleanCell(c))) // player's own Rtg
+      fedIdx = row.findIndex((c) => /^fed$/i.test(cleanCell(c)))
       ptsIdx = row.findIndex((c) => /^pts/i.test(cleanCell(c)))
       gamIdx = row.findIndex((c) => /^gam/i.test(cleanCell(c)))
       pctIdx = row.findIndex((c) => cleanCell(c) === "%")
-      // The LAST "Rtg" column is Rtg-Ø (avg opponent); index 2 is the player's own Rtg.
+      // The LAST "Rtg" column is Rtg-Ø (avg opponent), distinct from the player's Rtg.
       rtgAvgIdx = -1
       row.forEach((c, i) => { if (/rtg/i.test(cleanCell(c))) rtgAvgIdx = i })
-      roundStart = 4 // Bo. | Name | Rtg | FED | <rounds…>
+      roundStart = fedIdx >= 0 ? fedIdx + 1 : 4 // rounds sit between FED and Pts
       continue
     }
 
     // Board row: a numeric board within the current team.
     const board = parseIntOrNull(first)
-    if (currentTeam && board !== null && ptsIdx > 0) {
+    if (currentTeam && board !== null && ptsIdx > 0 && nameIdx >= 0) {
       const perRound = roundStart >= 0 && ptsIdx > roundStart
         ? row.slice(roundStart, ptsIdx).map((c) => cleanCell(c) || null)
         : []
       players.push({
         team_name: currentTeam,
         board,
-        name: cleanCell(row[1]),
-        federation: cleanCell(row[3]) || null,
-        rating: parseIntOrNull(row[2]),
+        name: cleanCell(row[nameIdx]),
+        federation: fedIdx >= 0 ? cleanCell(row[fedIdx]) || null : null,
+        rating: rtgIdx >= 0 ? parseIntOrNull(row[rtgIdx]) : null,
         points: parseScore(row[ptsIdx]),
-        games: parseIntOrNull(row[gamIdx]),
+        games: gamIdx >= 0 ? parseIntOrNull(row[gamIdx]) : null,
         wins: null,
         performance_rating: null,
-        pct: parsePercent(row[pctIdx]),
-        rtg_avg: parseIntOrNull(row[rtgAvgIdx]),
+        pct: pctIdx >= 0 ? parsePercent(row[pctIdx]) : null,
+        rtg_avg: rtgAvgIdx >= 0 ? parseIntOrNull(row[rtgAvgIdx]) : null,
         per_round: perRound,
       })
     }
