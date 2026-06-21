@@ -279,9 +279,11 @@
   font-size: 13.5px;
   font-weight: 600;
   color: var(--rk-text);
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* wrap long names onto new lines (no crop): tightest tracking + tight leading */
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .titleBadge {
   font-family: var(--rk-mono);
@@ -365,11 +367,13 @@
 .commentText {
   display: inline-block;
   max-width: 260px;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--rk-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* wrap the full criteria comment (e.g. "Needs 1 JQ / 1 Open …") — no crop */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   vertical-align: middle;
 }
 .commentText[data-meets="true"] { color: var(--rk-pos); font-weight: 500; }
@@ -561,21 +565,22 @@
   white-space: nowrap;
 }
 .hist tr:last-child td { border-bottom: none; }
-.hist td.l { text-align: left; }
+/* Event cell: wrap the full name/location onto new lines (no crop). */
+.hist td.l { text-align: left; white-space: normal; overflow: visible; text-overflow: clip; }
 .hist tr:hover td { background: var(--rk-hover); }
 /* Fixed widths for the data columns (they must always read in full); Event is
-   the only flexible column, so it absorbs the slack and is the only one that
-   ellipsises. Widened slightly here vs. before to give the numbers more room. */
+   the only flexible column, so it absorbs the slack and wraps to fit. Widened
+   slightly here vs. before to give the numbers more room. */
 .hist col.histDate { width: 54px; }
 .hist col.histRank { width: 48px; }
 .hist col.histPts { width: 52px; }
 .hist col.histRating { width: 64px; }
 .hist col.histPerf { width: 60px; }
 .hist col.histGap { width: 64px; }
-/* Only the Event cell crops; data cells never do. */
+/* Data cells never wrap (numbers read in full); the Event cell wraps instead. */
 .hist td:not(.l) { overflow: visible; text-overflow: clip; }
-.evName { font-family: var(--font-geist-sans), sans-serif; font-weight: 500; color: var(--rk-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.evLoc { font-family: var(--font-geist-sans), sans-serif; font-size: 11px; color: var(--rk-faint); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evName { font-family: var(--font-geist-sans), sans-serif; font-weight: 500; color: var(--rk-text); white-space: normal; overflow-wrap: anywhere; letter-spacing: -0.02em; line-height: 1.2; }
+.evLoc { font-family: var(--font-geist-sans), sans-serif; font-size: 11px; color: var(--rk-faint); margin-top: 1px; white-space: normal; overflow-wrap: anywhere; letter-spacing: -0.02em; line-height: 1.2; }
 .evDate { color: var(--rk-muted); }
 .evPerf { font-weight: 600; color: var(--rk-text); }
 /* stacked date: month on top, year small underneath (no ellipsis) */
