@@ -1356,5 +1356,243 @@
     "confidence": 0.82,
     "method": "organizer",
     "matchedOn": "capricorn district"
+  },
+  "8b0ddea0-b381-4391-b417-ff69f7758c63": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "9cda6915-95ba-4798-a280-9fc5ea65f565": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "04f8dfdd-fb63-4aa4-beea-f3b66c2f4efa": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "f1bfa1ca-30fc-4ee4-a17c-6fd4b1f0b011": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "8320282e-f35c-40e4-a233-f69ad6c53957": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "74876a38-eece-45bc-8308-a7b165ab7509": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "7000dc9c-1269-4117-a0ec-23547dcdbde8": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "7135a7c0-86d5-461b-9a06-9a8bd4c6d90b": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "857ea495-9689-4c90-8f50-a8fef5ba712a": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "764ffb3b-ef60-486f-9891-1d300961ce54": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "77eaf381-e165-4111-a432-b9cb4e1d8976": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "56f24f19-e05a-47c9-b8ea-1e533996d1d3": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "13097d58-c0db-4902-945e-796f55d5e97d": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "110c255e-b3a0-436e-b7ac-5a8370b12a89": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "fe76f644-b942-4f02-9916-f8674625a131": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "7375ebe3-637b-434c-ad2e-3f486bc0fde7": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "5fc3dd02-7500-4450-b271-5030938a50d6": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "561d86fa-074b-41af-ba69-c60a3c7fa059": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "658537b4-8e03-4140-961f-187110132f99": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "e8aac026-40fe-479b-ac05-d91afc27a25f": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "4f854291-6d05-4c9d-8b37-798ee1faced0": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "0d601346-db5f-4f01-9974-00556a1b5fa3": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "bf4e1df1-64e0-4817-9dbf-78ba89e7d6ca": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "49f29256-f5a9-4039-a93c-c269ea7b1f88": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "b24d6af6-b357-4d6b-a13c-a08b11bf57e9": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "d32a1d70-ca2e-4492-9ba6-3e167c9eb0f2": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "2a8445c6-7c6a-4029-8a97-c6a529bf198b": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "04d83361-5808-444f-bc6d-be6ee84b1780": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "4f5adb0c-a3a5-4606-ac7a-61704939ed14": {
+    "province": "Eastern Cape",
+    "district": null,
+    "confidence": 0.9,
+    "method": "location-exact",
+    "matchedOn": "eastern cape"
+  },
+  "573477f3-7f90-4c77-b630-0f31cf395c9c": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "c10d9206-00dc-474b-9084-f192837a64c0": {
+    "province": "Eastern Cape",
+    "district": null,
+    "confidence": 0.9,
+    "method": "location-exact",
+    "matchedOn": "eastern cape"
+  },
+  "5624a14c-82bd-48b0-a052-c372284e8e1f": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "a6f9f9f5-a0d3-476b-871d-6799dc1b4ea5": {
+    "province": "Eastern Cape",
+    "district": null,
+    "confidence": 0.9,
+    "method": "location-exact",
+    "matchedOn": "eastern cape"
+  },
+  "3396316c-c2a6-4578-adf6-461ce6a8d323": {
+    "province": "Eastern Cape",
+    "district": null,
+    "confidence": 0.9,
+    "method": "location-exact",
+    "matchedOn": "eastern cape"
   }
 }
