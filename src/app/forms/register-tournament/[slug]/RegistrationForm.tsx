@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Loader2, Upload, CheckCircle2, X } from "lucide-react";
-import { registerForTournament } from "./server-actions";
+import { registerForTournament, getTournamentPlayers } from "./server-actions";
 import type { RegTournament } from "../tournaments";
+import type { PlayerRegistration } from "./server-actions";
 
 // Kept in sync with /api/registration/player-search (defined locally to avoid
 // pulling the server route's module graph into the client bundle).
@@ -147,10 +148,25 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
   const [popName, setPopName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    player: PlayerRegistration;
+    players: PlayerRegistration[];
+  } | null>(null);
+  const [sectionFilter, setSectionFilter] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const contactTouched = useRef(false);
 
   const set = useCallback((k: keyof FormState, v: string) => setForm((f) => ({ ...f, [k]: v })), []);
+
+  // Auto-fill contactName from player name (unless manually edited)
+  useEffect(() => {
+    if (!contactTouched.current) {
+      const fullName = [form.names, form.surname].filter(Boolean).join(" ");
+      if (fullName && form.contactName !== fullName) {
+        setForm((f) => ({ ...f, contactName: fullName }));
+      }
+    }
+  }, [form.names, form.surname, form.contactName]);
 
   const onPick = useCallback((s: PlayerSuggestion) => {
     setForm((f) => ({
@@ -160,6 +176,7 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
       gender: s.gender || f.gender,
       chessaId: s.chessaId || "",
       rating: s.rating != null ? String(s.rating) : "",
+      contactName: [s.names, s.surname].filter(Boolean).join(" ") || f.contactName,
     }));
     setSourceUniqueNo(s.uniqueNo || "");
   }, []);
@@ -205,9 +222,19 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
 
     setSubmitting(true);
     const res = await registerForTournament(fd);
+    if (res.error) {
+      setSubmitting(false);
+      setMessage({ text: res.error, error: true });
+      return;
+    }
+    if (!res.player) {
+      setSubmitting(false);
+      setMessage({ text: "Registration failed. Please try again.", error: true });
+      return;
+    }
+    const allPlayers = await getTournamentPlayers(tournament.slug);
     setSubmitting(false);
-    if (res.error) setMessage({ text: res.error, error: true });
-    else setSuccess(true);
+    setSuccessData({ player: res.player, players: allPlayers });
   };
 
   return (
@@ -215,7 +242,7 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
       <Backdrop />
 
       <div className="mx-auto w-full max-w-[560px] px-3 pt-5 pb-16">
-        {/* ── Header: flat poster, theme-swapped (no card) ── */}
+        {/* ── Poster ── */}
         <div className="w-full">
           <Image src={tournament.posterLight} alt={tournament.name} width={794} height={1123}
             priority className="block dark:hidden w-full h-auto" />
@@ -223,27 +250,90 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
             priority className="hidden dark:block w-full h-auto" />
         </div>
 
-        {/* ── Form panel overlapping the poster's bottom ── */}
-        <div className="relative z-10 -mt-10 sm:-mt-16">
-          <div className="rounded-xl border border-border bg-card/80 backdrop-blur-md shadow-xl">
-            {/* translucent top strip — poster shows through here */}
-            <div className="rounded-t-xl bg-gradient-to-b from-transparent to-card/90 px-5 pt-6 pb-3">
+        {/* ── Form panel (below poster, no overlap) ── */}
+        <div className="relative z-10 mt-6">
+          <div className="rounded-xl border border-border bg-card shadow-xl">
+            <div className="px-5 pt-6 pb-3 border-b border-border">
               <h1 className="text-xl font-bold tracking-tight">Register Online</h1>
               <p className="text-sm text-muted-foreground">{tournament.name} · {tournament.dateLabel}</p>
               <p className="text-xs text-muted-foreground mt-0.5">Registration closes {tournament.regDeadline}</p>
             </div>
 
-            {success ? (
-              <div className="px-5 py-10 text-center">
-                <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-600 dark:text-green-400" />
-                <h2 className="text-lg font-semibold">You&apos;re registered!</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Thanks {form.names} {form.surname} — we&apos;ve received your entry for {tournament.name}.
-                  Please complete your EFT payment if you haven&apos;t.
-                </p>
+            {successData ? (
+              <div className="px-5 pb-6 pt-5">
+                <div className="text-center mb-6">
+                  <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-green-600 dark:text-green-400" />
+                  <h2 className="text-lg font-semibold">You&apos;re registered!</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Thanks {form.names} {form.surname} — we&apos;ve received your entry for {tournament.name}.
+                    Please complete your EFT payment if you haven&apos;t.
+                  </p>
+                </div>
+
+                {/* Section filter */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  <button onClick={() => setSectionFilter("")}
+                    className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
+                      sectionFilter === ""
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent text-muted-foreground border-border hover:border-muted-foreground"
+                    }`}>All</button>
+                  {tournament.sections.map((s) => (
+                    <button key={s.code} onClick={() => setSectionFilter(s.code)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
+                        sectionFilter === s.code
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-transparent text-muted-foreground border-border hover:border-muted-foreground"
+                      }`}>{s.label}</button>
+                  ))}
+                </div>
+
+                {/* Chess.com flat table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-primary/20">
+                        <th className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 pb-2 w-8">#</th>
+                        <th className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 pb-2">Name</th>
+                        <th className="text-right text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 pb-2 w-14">Rating</th>
+                        <th className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 pb-2 w-12 hidden sm:table-cell">Fed</th>
+                        <th className="text-right text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 pb-2 w-16">Sect.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sectionFilter
+                        ? successData.players.filter((p) => p.section === sectionFilter)
+                        : successData.players
+                      ).length > 0 ? (
+                        (sectionFilter
+                          ? successData.players.filter((p) => p.section === sectionFilter)
+                          : successData.players
+                        ).map((player, i) => (
+                          <tr key={player.id} className="border-b border-border/40">
+                            <td className="py-1.5 text-sm text-muted-foreground align-middle w-8">{i + 1}</td>
+                            <td className="py-1.5 text-sm text-foreground break-words align-middle pr-2">
+                              <span>{player.surname}, {player.names}</span>
+                              {player.id === successData.player.id && (
+                                <span className="ml-1.5 text-[10px] font-medium text-primary bg-primary/10 px-1 py-0.5 rounded-sm">You</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 text-sm text-muted-foreground text-right align-middle whitespace-nowrap w-14">{player.rating ?? "–"}</td>
+                            <td className="py-1.5 text-sm text-muted-foreground text-center align-middle whitespace-nowrap w-12 hidden sm:table-cell">RSA</td>
+                            <td className="py-1.5 text-sm text-muted-foreground text-right align-middle whitespace-nowrap w-16">{player.section}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-sm text-muted-foreground text-center">No players in this section yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  <p className="text-[10px] text-muted-foreground/60 mt-2 text-right">{successData.players.length} registered player{successData.players.length !== 1 ? "s" : ""}</p>
+                </div>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="px-5 pb-6 pt-1 space-y-4">
+              <form onSubmit={onSubmit} className="px-5 pb-6 pt-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <SmartField id="surname" label="Surname" required value={form.surname}
                     placeholder="Start typing…" onChange={(v) => set("surname", v)} onPick={onPick} />
@@ -274,8 +364,8 @@ export function RegistrationForm({ tournament }: { tournament: RegTournament }) 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="contactName" className="block text-sm font-medium mb-1">Contact Name <span className="text-destructive">*</span></label>
-                    <input id="contactName" type="text" value={form.contactName} placeholder="Who do we contact?"
-                      onChange={(e) => set("contactName", e.target.value)} className={inputClass} />
+                    <input id="contactName" type="text" value={form.contactName} placeholder="Auto-filled from player name"
+                      onChange={(e) => { contactTouched.current = true; set("contactName", e.target.value); }} className={inputClass} />
                   </div>
                   <div>
                     <label htmlFor="contactNumber" className="block text-sm font-medium mb-1">Contact Number <span className="text-destructive">*</span></label>

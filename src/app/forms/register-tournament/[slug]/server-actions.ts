@@ -5,9 +5,22 @@ import { revalidatePath } from "next/cache";
 import { sendRegistrationNotification } from "@/services/email.service";
 import { getTournament } from "../tournaments";
 
+export interface PlayerRegistration {
+  id: string;
+  surname: string;
+  names: string;
+  section: string;
+  chessa_id: string | null;
+  rating: number | null;
+  created_at: string;
+  contact_name: string | null;
+  contact_number: string | null;
+}
+
 export interface RegisterResult {
   success?: boolean;
   error?: string;
+  player?: PlayerRegistration;
 }
 
 const MAX_POP_BYTES = 5 * 1024 * 1024;
@@ -72,7 +85,7 @@ export async function registerForTournament(formData: FormData): Promise<Registe
   }
 
   // ── Insert ───────────────────────────────────────────────────────────────────
-  const { error } = await supabase.from("tournament_registrations").insert({
+  const { data, error } = await supabase.from("tournament_registrations").insert({
     tournament_slug: slug,
     surname,
     names,
@@ -84,11 +97,15 @@ export async function registerForTournament(formData: FormData): Promise<Registe
     contact_number: contactNumber,
     pop_url: popUrl,
     source_unique_no: sourceUniqueNo,
-  });
+  }).select();
   if (error) {
     if (error.code === "23505") return { error: "You are already registered for this tournament." };
     console.error("[registerForTournament] insert error:", error.message, error.code, error.details, error.hint);
     return { error: "Could not save your registration. Please try again." };
+  }
+
+  if (!data || !data[0]) {
+    return { error: "Registration failed: no data returned." };
   }
 
   // ── Notify organiser (best-effort) ───────────────────────────────────────────
@@ -110,5 +127,21 @@ export async function registerForTournament(formData: FormData): Promise<Registe
   }
 
   revalidatePath(`/forms/register-tournament/${slug}`);
-  return { success: true };
+  return { success: true, player: data[0] as PlayerRegistration };
+}
+
+export async function getTournamentPlayers(slug: string): Promise<PlayerRegistration[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("tournament_registrations")
+    .select("*")
+    .eq("tournament_slug", slug)
+    .order("rating", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    console.error("[getTournamentPlayers] Fetch error:", error);
+    return [];
+  }
+
+  return data || [];
 }
