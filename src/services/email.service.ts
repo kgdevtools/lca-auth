@@ -58,4 +58,54 @@ export async function sendContactNotification(data: ContactFormData) {
   }
 }
 
+interface RegistrationNotice {
+  tournament: string;
+  slug: string;
+  surname: string;
+  names: string;
+  section: string;
+  count: number; // total registrations for this tournament after this insert
+}
+
+/**
+ * Notify the organiser of a new tournament registration. Sends one email per
+ * registration; the subject is louder at every 10th (milestone). Reuses the same
+ * SMTP transport as the contact form. Best-effort: callers log + swallow errors.
+ */
+export async function sendRegistrationNotification(data: RegistrationNotice) {
+  const to = process.env.REGISTRATION_NOTIFY_EMAIL || process.env.CONTACT_NOTIFY_EMAIL;
+  if (!to) {
+    console.warn("REGISTRATION_NOTIFY_EMAIL / CONTACT_NOTIFY_EMAIL not set, skipping registration notification");
+    return;
+  }
+  const from = process.env.FROM_EMAIL || to;
+  const milestone = data.count > 0 && data.count % 10 === 0;
+
+  const subject = milestone
+    ? `🎯 ${data.count} registrations — ${data.tournament}`
+    : `New registration: ${data.surname} ${data.names} (Section ${data.section}) — ${data.tournament}`;
+
+  const text =
+    `Tournament: ${data.tournament} (${data.slug})\n` +
+    `Player: ${data.surname} ${data.names}\n` +
+    `Section: ${data.section}\n` +
+    `Total registrations: ${data.count}\n`;
+
+  const html = `
+    <p><strong>${data.tournament}</strong> <span style="color:#888">(${data.slug})</span></p>
+    <p><strong>Player:</strong> ${data.surname} ${data.names}<br/>
+       <strong>Section:</strong> ${data.section}<br/>
+       <strong>Total registrations:</strong> ${data.count}</p>
+    ${milestone ? `<p style="font-size:18px"><strong>🎯 Milestone: ${data.count} registrations!</strong></p>` : ""}
+  `;
+
+  try {
+    const transporter = nodemailer.createTransport(getSmtpConfig());
+    await transporter.sendMail({ from, to, subject, text, html });
+  } catch (err) {
+    console.error("Failed to send registration notification:", err);
+    throw err;
+  }
+}
+
 export default sendContactNotification

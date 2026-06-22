@@ -134,3 +134,6 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Marketing/brand asset workspace — never commit
+/brand/

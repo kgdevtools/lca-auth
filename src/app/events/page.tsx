@@ -1,13 +1,39 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Clock, User, Trophy, ChevronLeft, ChevronRight, Download } from "lucide-react"
 import tournamentsData from "@/data/tournaments.json"
+import { getAllUpcomingTournaments } from "@/repositories/upcomingTournamentRepo"
+import type { UpcomingTournament } from "@/types/upcoming-tournament"
 
-type Tournament = typeof tournamentsData[0]
+// Static Capricorn calendar shape, plus optional links for dynamic (DB) events.
+type Tournament = (typeof tournamentsData)[0] & { registrationLink?: string; posterUrl?: string }
+
+/** Map a dynamic upcoming_tournaments row into the calendar's Tournament shape. */
+function upcomingToEvent(u: UpcomingTournament, idx: number): Tournament {
+  const date = (u.tournament_date || "").slice(0, 10)
+  const locParts = (u.location || "").split(",").map((s) => s.trim())
+  const tc = u.sections?.find((s) => /time/i.test(s.title))?.content || ""
+  return {
+    id: -(idx + 1), // negative ids never collide with the positive JSON ids
+    name: u.tournament_name,
+    startDate: date,
+    endDate: date,
+    days: 1,
+    rounds: 0,
+    timeControl: tc,
+    venue: locParts[0] || u.location || "",
+    town: locParts[1] || "",
+    district: "",
+    organiser: u.organizer_name || "",
+    status: "Open",
+    registrationLink: u.registration_form_link?.trim() || undefined,
+    posterUrl: u.poster_url?.trim() || undefined,
+  }
+}
 
 const CALENDAR_PDF_URL = "https://nkghcjulymuadpilvjhw.supabase.co/storage/v1/object/public/capricorn-district-calender-2026/Adjusted_2026_Capricorn_Chess_Calendar.pdf"
 
@@ -221,6 +247,17 @@ function TournamentModal({
               <span className="font-medium">{tournament.district}</span>
             </div>
           </div>
+
+          {tournament.registrationLink && (
+            <a
+              href={tournament.registrationLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Trophy className="w-4 h-4" /> Register / View details
+            </a>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -288,22 +325,38 @@ export default function ChessCalendar() {
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfMonth(year, month)
 
+  // Dynamic events from upcoming_tournaments (merged with the static calendar).
+  const [dynamicEvents, setDynamicEvents] = useState<Tournament[]>([])
+  useEffect(() => {
+    let active = true
+    getAllUpcomingTournaments()
+      .then((list) => { if (active) setDynamicEvents(list.map(upcomingToEvent)) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  const allTournaments = useMemo<Tournament[]>(() => {
+    const seen = new Set(dynamicEvents.map((d) => `${d.name}|${d.startDate}`))
+    const statics = (tournamentsData as Tournament[]).filter((t) => !seen.has(`${t.name}|${t.startDate}`))
+    return [...statics, ...dynamicEvents]
+  }, [dynamicEvents])
+
   const tournamentsByDate = useMemo(() => {
     const map = new Map<string, Tournament[]>()
-    tournamentsData.forEach((tournament) => {
+    allTournaments.forEach((tournament) => {
       const date = tournament.startDate
       if (!map.has(date)) map.set(date, [])
       map.get(date)!.push(tournament)
     })
     return map
-  }, [])
+  }, [allTournaments])
 
   const monthTournaments = useMemo(() => {
-    return tournamentsData.filter((t) => {
+    return allTournaments.filter((t) => {
       const startDate = new Date(t.startDate)
       return startDate.getFullYear() === year && startDate.getMonth() === month
     })
-  }, [year, month])
+  }, [year, month, allTournaments])
 
   const handleTournamentClick = (tournament: Tournament) => {
     setSelectedTournament(tournament)

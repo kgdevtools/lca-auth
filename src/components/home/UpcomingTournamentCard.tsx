@@ -1,6 +1,20 @@
 import Link from "next/link";
-import { getNextUpcomingTournament } from "@/repositories/upcomingTournamentRepo";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { getCarouselTournaments } from "@/repositories/upcomingTournamentRepo";
 import type { UpcomingTournament } from "@/types/upcoming-tournament";
+import { UpcomingTournamentCarousel } from "./UpcomingTournamentCarousel";
+
+/** Drop poster_url when the referenced local file doesn't exist, so the carousel
+ *  shows the data layout instead of a broken image. Remote URLs pass through. */
+function resolvePosters(items: UpcomingTournament[]): UpcomingTournament[] {
+  return items.map((t) => {
+    const url = t.poster_url?.trim();
+    if (!url || /^https?:\/\//.test(url)) return t;
+    const local = join(process.cwd(), "public", url.replace(/^\//, ""));
+    return existsSync(local) ? t : { ...t, poster_url: undefined };
+  });
+}
 
 /** Shared header row: title link + actions. Register renders only when a link exists. */
 function CardHeader({ registrationLink }: { registrationLink?: string | null }) {
@@ -35,129 +49,30 @@ function CardHeader({ registrationLink }: { registrationLink?: string | null }) 
   );
 }
 
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col h-full min-h-[360px]">
+      <CardHeader />
+      <div className="rounded border border-border bg-card flex-1 flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export async function UpcomingTournamentCardServer() {
   try {
-    const tournament = await getNextUpcomingTournament();
+    const items = resolvePosters(await getCarouselTournaments());
+    if (!items.length) return <EmptyState label="No upcoming tournaments" />;
 
-    if (!tournament) {
-      return (
-        <div className="flex flex-col h-full min-h-[280px]">
-          <CardHeader />
-          <div className="rounded border border-border bg-card flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">No upcoming tournaments</p>
-          </div>
-        </div>
-      );
-    }
-
-    return <UpcomingTournamentCardClient tournament={tournament} />;
-  } catch (error) {
-    console.error("Error in UpcomingTournamentCardServer:", error);
     return (
-      <div className="flex flex-col h-full min-h-[280px]">
-        <CardHeader />
-        <div className="rounded border border-border bg-card flex-1 flex items-center justify-center">
-          <p className="text-muted-foreground text-sm">Error loading tournament</p>
-        </div>
+      <div className="h-full flex flex-col">
+        <CardHeader registrationLink={items[0].registration_form_link} />
+        <UpcomingTournamentCarousel items={items} />
       </div>
     );
+  } catch (error) {
+    console.error("Error in UpcomingTournamentCardServer:", error);
+    return <EmptyState label="Error loading tournament" />;
   }
-}
-
-interface UpcomingTournamentCardClientProps {
-  tournament: UpcomingTournament;
-}
-
-function UpcomingTournamentCardClient({
-  tournament,
-}: UpcomingTournamentCardClientProps) {
-  const hasLink = Boolean(tournament.registration_form_link?.trim());
-  const hasPoster = Boolean(tournament.poster_url?.trim());
-
-  const formattedDate = tournament.tournament_date
-    ? new Date(tournament.tournament_date).toLocaleDateString("en-ZA", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : null;
-
-  const CardInner = (
-    <div className="rounded border border-border overflow-hidden hover:border-primary/50 transition-colors bg-card flex-1 flex flex-col">
-      {hasPoster ? (
-        <div className="w-full flex-1 bg-black flex items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={tournament.poster_url!}
-            alt={tournament.tournament_name}
-            className="w-full h-auto object-contain max-h-[440px]"
-            loading="eager"
-          />
-        </div>
-      ) : (
-        <div className="p-4 space-y-2">
-          <h3 className="text-base sm:text-lg font-extrabold leading-snug text-foreground line-clamp-3">
-            {tournament.tournament_name}
-          </h3>
-          {formattedDate && (
-            <p className="text-sm font-semibold text-primary">
-              {formattedDate}
-            </p>
-          )}
-          {tournament.location && (
-            <p className="text-sm text-foreground/80">
-              📍 {tournament.location}
-            </p>
-          )}
-          {tournament.organizer_contact && (
-            <p className="text-sm text-foreground/70">
-              📞 {tournament.organizer_contact}
-            </p>
-          )}
-          {tournament.organizer_name && (
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/60">Organiser:</span>{" "}
-              {tournament.organizer_name}
-            </p>
-          )}
-          {tournament.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {tournament.description}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="h-full flex flex-col">
-      <CardHeader registrationLink={tournament.registration_form_link} />
-
-      {/* Card click target */}
-      {hasPoster ? (
-        <Link
-          href={tournament.poster_url!}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex flex-col"
-        >
-          {CardInner}
-        </Link>
-      ) : hasLink ? (
-        <Link
-          href={tournament.registration_form_link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex flex-col"
-        >
-          {CardInner}
-        </Link>
-      ) : (
-        <Link href="/events" className="flex-1 flex flex-col">
-          {CardInner}
-        </Link>
-      )}
-    </div>
-  );
 }
