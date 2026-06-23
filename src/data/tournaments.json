@@ -211,14 +211,14 @@
   },
   {
     "id": 33,
-    "name": "Limpopo Open",
+    "name": "Limpopo Open 2026",
     "startDate": "2026-07-17",
     "endDate": "2026-07-18",
     "days": 2,
     "rounds": 6,
     "timeControl": "60'+5\"",
-    "venue": "NA",
-    "town": "Polokwane",
+    "venue": "University of Limpopo",
+    "town": "Mankweng, Limpopo",
     "district": "Capricorn",
     "organiser": "Joe Mahomole",
     "status": "Open"
