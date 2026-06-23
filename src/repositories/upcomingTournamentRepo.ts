@@ -127,14 +127,18 @@ export async function getCarouselTournaments(): Promise<UpcomingTournament[]> {
     ];
 
     const time = (t: UpcomingTournament) => new Date(t.tournament_date).getTime();
+    const day = (t: UpcomingTournament) => {
+      const d = new Date(t.tournament_date);
+      return Number.isFinite(d.getTime()) ? d.setUTCHours(0, 0, 0, 0) : NaN;
+    };
     const now = Date.now();
     const upcoming = merged
       .filter((t) => Number.isFinite(time(t)) && time(t) >= now)
-      .sort((a, b) => time(a) - time(b))
+      .sort((a, b) => day(a) - day(b))
       .slice(0, 3);
     const past = merged
       .filter((t) => Number.isFinite(time(t)) && time(t) < now)
-      .sort((a, b) => time(b) - time(a))
+      .sort((a, b) => day(b) - day(a))
       .slice(0, 1);
 
     const items = [...upcoming, ...past];
