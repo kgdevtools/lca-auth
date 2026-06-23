@@ -12,7 +12,7 @@ import { SEASON, SEASON_LABEL, isLocal, meetsCriteria } from "@/components/home/
 export const metadata: Metadata = {
   title: "Home",
   description:
-    "Limpopo Chess Academy — live tournament games, independent player rankings, puzzles and structured chess lessons.",
+    "Limpopo Chess Academy — view tournament games, independent player rankings, puzzles and structured chess lessons.",
 };
 
 // Everything on this page tolerates being up to an hour stale (rankings refresh
