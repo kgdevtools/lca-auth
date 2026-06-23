@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/client"
+import { createClient } from "@/utils/supabase/server"
 import type { UpcomingTournament, CreateUpcomingTournamentPayload } from "@/types/upcoming-tournament"
 import { cache } from "@/utils/cache"
 import tournamentsData from "@/data/tournaments.json"
@@ -109,7 +109,12 @@ export async function getCarouselTournaments(): Promise<UpcomingTournament[]> {
     if (cached) return cached;
 
     const supabase = await createClient();
-    const { data: db } = await supabase.from("upcoming_tournaments").select("*");
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: db } = await supabase
+      .from("upcoming_tournaments")
+      .select("*")
+      .eq("is_active", true)
+      .gte("tournament_date", today);
     const dbItems = (db ?? []) as UpcomingTournament[];
 
     // Static calendar mapped into the same shape (no posters/links on these).
