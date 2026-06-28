@@ -2,7 +2,8 @@
 
 import '@livekit/components-styles'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -12,7 +13,7 @@ import {
   TrackToggle,
 } from '@livekit/components-react'
 import { Track, type RemoteParticipant } from 'livekit-client'
-import { MonitorPlay, Mic, Video, Monitor, LogOut, VolumeX } from 'lucide-react'
+import { MonitorPlay, Mic, Video, Monitor, LogOut, VolumeX, GripVertical, Minus, Square as SquareIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -91,7 +92,7 @@ function VideoGrid({ isCoach, roomName }: { isCoach: boolean; roomName: string }
 
 function VideoControls({ isCoach, onLeave }: { isCoach: boolean; onLeave: () => void }) {
   return (
-    <div className="flex items-center justify-center gap-2 px-2 py-2 border-t border-border">
+    <div className="flex items-center justify-center gap-2 px-2 py-2 border-t border-border bg-card">
       <TrackToggle source={Track.Source.Microphone} className="p-1.5 rounded-sm hover:bg-muted transition-colors" showIcon title="Toggle microphone">
         <Mic className="w-3.5 h-3.5" />
       </TrackToggle>
@@ -114,20 +115,121 @@ function VideoControls({ isCoach, onLeave }: { isCoach: boolean; onLeave: () => 
   )
 }
 
-function JoinedView({ isCoach, roomName, onLeave }: { isCoach: boolean; roomName: string; onLeave: () => void }) {
+// ── Floating, draggable + resizable Picture-in-Picture shell ──────────────────
+// Rendered via a portal to <body> so it escapes the panel's overflow/hidden and
+// can be moved anywhere on screen. Mounts once per call (no remount on drag) so
+// the LiveKit connection is never interrupted.
+
+const PIP_MIN_W = 200
+const PIP_MAX_W = 560
+
+function FloatingPiP({ isCoach, roomName, onLeave }: { isCoach: boolean; roomName: string; onLeave: () => void }) {
+  const [pos, setPos]   = useState<{ x: number; y: number } | null>(null)
+  const [width, setW]   = useState(300)
+  const [minimised, setMin] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const drag   = useRef<{ dx: number; dy: number } | null>(null)
+  const resize = useRef<{ startX: number; startW: number } | null>(null)
+
+  // Initial placement: bottom-right, clamped to viewport.
+  useEffect(() => {
+    const w = Math.min(width, window.innerWidth - 24)
+    setPos({ x: window.innerWidth - w - 16, y: window.innerHeight - 16 - 220 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const clamp = useCallback((x: number, y: number) => {
+    const el = boxRef.current
+    const w = el?.offsetWidth ?? width
+    const h = el?.offsetHeight ?? 200
+    return {
+      x: Math.max(8, Math.min(x, window.innerWidth  - w - 8)),
+      y: Math.max(8, Math.min(y, window.innerHeight - h - 8)),
+    }
+  }, [width])
+
+  const onDragDown = useCallback((e: React.PointerEvent) => {
+    if (!pos) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
+  }, [pos])
+
+  const onResizeDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    resize.current = { startX: e.clientX, startW: width }
+  }, [width])
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (drag.current) {
+      setPos(clamp(e.clientX - drag.current.dx, e.clientY - drag.current.dy))
+    } else if (resize.current) {
+      const next = resize.current.startW + (e.clientX - resize.current.startX)
+      setW(Math.max(PIP_MIN_W, Math.min(next, Math.min(PIP_MAX_W, window.innerWidth - 24))))
+    }
+  }, [clamp])
+
+  const endGesture = useCallback(() => { drag.current = null; resize.current = null }, [])
+
+  const dockCorner = useCallback(() => {
+    const el = boxRef.current
+    const w = el?.offsetWidth ?? width
+    const h = el?.offsetHeight ?? 200
+    setPos({ x: window.innerWidth - w - 16, y: window.innerHeight - h - 16 })
+  }, [width])
+
+  if (!pos) return null
+
   return (
-    <div className="flex flex-col">
-      <RoomAudioRenderer />
-      <VideoGrid isCoach={isCoach} roomName={roomName} />
-      <VideoControls isCoach={isCoach} onLeave={onLeave} />
+    <div
+      ref={boxRef}
+      className="fixed z-[60] rounded-md border border-border bg-card shadow-2xl overflow-hidden select-none"
+      style={{ left: pos.x, top: pos.y, width }}
+      onPointerMove={onPointerMove}
+      onPointerUp={endGesture}
+      onPointerCancel={endGesture}
+    >
+      {/* Drag handle / title bar */}
+      <div
+        onPointerDown={onDragDown}
+        className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/60 border-b border-border cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">Video</span>
+        <button onClick={() => setMin(m => !m)} title={minimised ? 'Expand' : 'Minimise'}
+          className="p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          {minimised ? <SquareIcon className="w-3 h-3" /> : <Minus className="w-3.5 h-3.5" />}
+        </button>
+        <button onClick={dockCorner} title="Dock to corner"
+          className="p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <Monitor className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {!minimised && (
+        <>
+          <VideoGrid isCoach={isCoach} roomName={roomName} />
+          <VideoControls isCoach={isCoach} onLeave={onLeave} />
+          {/* Resize handle (bottom-right) */}
+          <div
+            onPointerDown={onResizeDown}
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize touch-none"
+            style={{ background: 'linear-gradient(135deg, transparent 50%, var(--color-border, #94a3b8) 50%)' }}
+            title="Drag to resize"
+          />
+        </>
+      )}
     </div>
   )
 }
 
 export default function VideoPanel({ sessionId, isCoach, sessionActive }: VideoPanelProps) {
-  const [token,    setToken]    = useState<string | null>(null)
-  const [joining,  setJoining]  = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [token,   setToken]   = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const roomName = `classroom-${sessionId}`
   const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL ?? ''
@@ -160,10 +262,10 @@ export default function VideoPanel({ sessionId, isCoach, sessionActive }: VideoP
 
   return (
     <div className="flex-shrink-0 border-b border-border">
-      {/* Header row */}
+      {/* Header row — stays docked in the panel */}
       <div className="flex items-center justify-between px-3 py-2">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Video</p>
-        {!token && (
+        {!token ? (
           <Button
             size="sm"
             variant="outline"
@@ -174,6 +276,8 @@ export default function VideoPanel({ sessionId, isCoach, sessionActive }: VideoP
             <MonitorPlay className="w-3 h-3" />
             {joining ? 'Joining…' : 'Join'}
           </Button>
+        ) : (
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">In call ↗ floating</span>
         )}
       </div>
 
@@ -181,7 +285,14 @@ export default function VideoPanel({ sessionId, isCoach, sessionActive }: VideoP
         <p className="px-3 pb-2 text-[11px] text-destructive">{error}</p>
       )}
 
-      {token && (
+      {!token && (
+        <p className="px-3 pb-2 text-[10px] text-muted-foreground/70 leading-snug">
+          Join to open a movable, resizable video window you can place anywhere on screen.
+        </p>
+      )}
+
+      {/* Active call lives in a floating PiP portal so it survives tab/panel switches */}
+      {mounted && token && createPortal(
         <LiveKitRoom
           token={token}
           serverUrl={livekitUrl}
@@ -190,8 +301,10 @@ export default function VideoPanel({ sessionId, isCoach, sessionActive }: VideoP
           video={false}
           onDisconnected={handleLeave}
         >
-          <JoinedView isCoach={isCoach} roomName={roomName} onLeave={handleLeave} />
-        </LiveKitRoom>
+          <RoomAudioRenderer />
+          <FloatingPiP isCoach={isCoach} roomName={roomName} onLeave={handleLeave} />
+        </LiveKitRoom>,
+        document.body,
       )}
     </div>
   )

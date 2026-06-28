@@ -2,17 +2,10 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Chess, type Square } from 'chess.js'
-import { Chessboard } from 'react-chessboard'
-import { MoreVertical, X, Lock, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react'
+import { Chessboard } from '@zoendev/react-chessboard'
+import type { Square as CbSquare, Piece, PromotionPieceOption } from '@zoendev/react-chessboard/dist/chessboard/types/index'
+import { Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 export interface Arrow {
   from: string
@@ -31,29 +24,28 @@ export interface MoveResult {
 const FEN_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 const ARROW_COLORS = [
-  { name: 'Green',  value: 'G', color: 'green',  hex: '#22c55e' },
-  { name: 'Red',    value: 'R', color: 'red',    hex: '#ef4444' },
-  { name: 'Blue',   value: 'B', color: 'blue',   hex: '#3b82f6' },
-  { name: 'Yellow', value: 'Y', color: 'yellow', hex: '#eab308' },
+  { name: 'Green',  color: 'green',  hex: '#22c55e' },
+  { name: 'Red',    color: 'red',    hex: '#ef4444' },
+  { name: 'Blue',   color: 'blue',   hex: '#3b82f6' },
+  { name: 'Yellow', color: 'yellow', hex: '#eab308' },
 ]
 
 interface ClassroomBoardProps {
+  /** Live position — used for move-making + legal targets. */
   fen: string
   pgn: string
-  isWritable: boolean
+  /** Position actually rendered (may be a historical position while scrubbing). */
+  displayFen: string
+  /** Whether the local user may move right now (writable, not frozen, at live end). */
+  canMove: boolean
   frozen: boolean
-  remoteArrows?: Arrow[]
-  remoteHighlights?: string[]
+  arrows: Arrow[]
+  highlights: string[]
   onMove: (result: MoveResult) => void
-  onAnnotationsChange?: (arrows: Arrow[], highlights: string[]) => void
-  // Coach-only position controls — omit for student view
-  onReset?: () => void
-  onSetFen?: (fen: string) => void
-  onLoadPgn?: (fen: string, pgn: string) => void
-  controlsDisabled?: boolean
-  // Controlled orientation — managed by parent so mobile strip can flip too
-  orientation?: 'white' | 'black'
-  onOrientationChange?: (o: 'white' | 'black') => void
+  onAnnotationsChange: (arrows: Arrow[], highlights: string[]) => void
+  orientation: 'white' | 'black'
+  /** Explicit board width (desktop, height-fit). Omit to self-measure the slot. */
+  size?: number
 }
 
 function initGame(fen: string, pgn: string): Chess {
@@ -69,129 +61,64 @@ function initGame(fen: string, pgn: string): Chess {
   }
 }
 
-type InputMode = 'none' | 'fen' | 'pgn'
+function promotionPiece(opt: PromotionPieceOption): 'q' | 'r' | 'b' | 'n' {
+  return opt[1].toLowerCase() as 'q' | 'r' | 'b' | 'n'
+}
+
+const LONG_PRESS_MS = 350
+const MOVE_TOLERANCE = 10
 
 export default function ClassroomBoard({
   fen,
   pgn,
-  isWritable,
+  displayFen,
+  canMove,
   frozen,
-  remoteArrows = [],
-  remoteHighlights = [],
+  arrows,
+  highlights,
   onMove,
   onAnnotationsChange,
-  onReset,
-  onSetFen,
-  onLoadPgn,
-  controlsDisabled = false,
-  orientation: orientationProp,
-  onOrientationChange,
+  orientation,
+  size,
 }: ClassroomBoardProps) {
-  const orientation = orientationProp ?? 'white'
-  const flipOrientation = () => onOrientationChange?.(orientation === 'white' ? 'black' : 'white')
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
-  const [arrows,         setArrows]         = useState<Arrow[]>(remoteArrows)
-  const [highlights,     setHighlights]     = useState<string[]>(remoteHighlights)
-  const [inputMode,      setInputMode]      = useState<InputMode>('none')
-  const [inputValue,     setInputValue]     = useState('')
-  const [inputError,     setInputError]     = useState<string | null>(null)
-  const [viewIndex,      setViewIndex]      = useState(-1) // -1 = live end
+  const [pendingPromo,   setPendingPromo]   = useState<{ from: Square; to: Square } | null>(null)
+  const [drawingArrow,   setDrawingArrow]   = useState(false)
+  const [measured,       setMeasured]       = useState(360)
   const boardColRef                         = useRef<HTMLDivElement>(null)
-  const [boardSize,      setBoardSize]      = useState(480)
   const gameRef                             = useRef(initGame(fen, pgn))
   const prevFenRef                          = useRef(fen)
-  const rightDragStartRef                   = useRef<string | null>(null)
-  const rightDragCurrentRef                 = useRef<string | null>(null)
 
-  const hasCoachControls = !!(onReset || onSetFen || onLoadPgn)
+  const annoStartRef   = useRef<string | null>(null)
+  const touchDownRef   = useRef<{ x: number; y: number; square: string | null } | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const drawingRef     = useRef(false)
 
-  const closeInput = () => { setInputMode('none'); setInputValue(''); setInputError(null) }
+  const boardSize = size && size > 0 ? size : measured
 
-  const openInput = (mode: 'fen' | 'pgn') => {
-    setInputMode(prev => prev === mode ? 'none' : mode)
-    setInputValue('')
-    setInputError(null)
-  }
-
-  const handleApplyInput = () => {
-    setInputError(null)
-    if (inputMode === 'fen') {
-      try {
-        new Chess(inputValue.trim())
-        onSetFen?.(inputValue.trim())
-        closeInput()
-      } catch { setInputError('Invalid FEN string') }
-    } else if (inputMode === 'pgn') {
-      try {
-        const g = new Chess(); g.loadPgn(inputValue.trim())
-        onLoadPgn?.(g.fen(), g.pgn())
-        closeInput()
-      } catch { setInputError('Invalid PGN') }
-    }
-  }
-
-  // Sync game when FEN changes externally (broadcast position update)
+  // Sync game when the live FEN changes externally (broadcast position update)
   useEffect(() => {
     if (fen === prevFenRef.current) return
     prevFenRef.current = fen
     gameRef.current = initGame(fen, pgn)
     setSelectedSquare(null)
-    rightDragStartRef.current = null
-    rightDragCurrentRef.current = null
+    setPendingPromo(null)
+    annoStartRef.current = null
+    touchDownRef.current = null
   }, [fen, pgn])
 
-  useEffect(() => { setArrows(remoteArrows) },         [remoteArrows])
-  useEffect(() => { setHighlights(remoteHighlights) }, [remoteHighlights])
-
-  // Build FEN history from PGN for navigation
-  const fenHistory = useMemo<string[]>(() => {
-    if (!pgn) return []
-    try {
-      const g = new Chess()
-      g.loadPgn(pgn)
-      const hist = g.history({ verbose: true }) as Array<{ san: string }>
-      const temp = new Chess()
-      const fens: string[] = [temp.fen()]
-      for (const m of hist) {
-        try { temp.move(m.san); fens.push(temp.fen()) } catch {}
-      }
-      return fens
-    } catch { return [] }
-  }, [pgn])
-
-  // When new moves arrive (pgn changes), jump back to live end
-  useEffect(() => { setViewIndex(-1) }, [pgn])
-
+  // Self-measure only when no explicit size is supplied (mobile full-width slot).
   useEffect(() => {
+    if (size && size > 0) return
     const el = boardColRef.current
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect
-      setBoardSize(Math.max(200, Math.min(Math.floor(width) - 8, Math.floor(height) - 56)))
+      setMeasured(Math.max(180, Math.min(Math.floor(width), Math.floor(height), 560)))
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
-
-  // Navigation: -1 = live end; 0..n = specific position in history
-  const totalPositions = fenHistory.length  // 0 when no pgn
-  const effectiveIdx   = viewIndex === -1 ? totalPositions - 1 : Math.min(viewIndex, totalPositions - 1)
-  const isAtEnd        = totalPositions === 0 || effectiveIdx >= totalPositions - 1
-  const displayFen     = !isAtEnd && fenHistory[effectiveIdx] != null ? fenHistory[effectiveIdx] : fen
-
-  const canNavBack    = totalPositions > 0 && effectiveIdx > 0
-  const canNavForward = !isAtEnd
-
-  const goToStart = () => setViewIndex(0)
-  const goToPrev  = () => setViewIndex(Math.max(0, effectiveIdx - 1))
-  const goToNext  = () => {
-    const next = effectiveIdx + 1
-    if (next >= totalPositions - 1) setViewIndex(-1)
-    else setViewIndex(next)
-  }
-  const goToEnd = () => setViewIndex(-1)
-
-  const canMove = isWritable && !frozen && isAtEnd
+  }, [size])
 
   const legalTargets = useMemo<Square[]>(() => {
     if (!selectedSquare || !canMove) return []
@@ -215,206 +142,175 @@ export default function ClassroomBoard({
   const customArrowsMap = useMemo(() =>
     arrows.map(a => {
       const hex = ARROW_COLORS.find(c => c.color === a.color)?.hex ?? '#22c55e'
-      return [a.from, a.to, hex] as [string, string, string]
+      return [a.from, a.to, hex] as [CbSquare, CbSquare, string]
     })
   , [arrows])
 
-  const updateAnnotations = useCallback((nextArrows: Arrow[], nextHighlights: string[]) => {
-    setArrows(nextArrows)
-    setHighlights(nextHighlights)
-    onAnnotationsChange?.(nextArrows, nextHighlights)
-  }, [onAnnotationsChange])
-
-  const tryMove = useCallback((source: Square, target: Square): boolean => {
+  // ── Moves ──────────────────────────────────────────────────────────────────
+  const tryMove = useCallback((source: Square, target: Square, promo?: 'q' | 'r' | 'b' | 'n'): boolean => {
     if (!canMove) return false
     const game = gameRef.current
     let result
-    try { result = game.move({ from: source, to: target, promotion: 'q' }) } catch { return false }
+    try { result = game.move({ from: source, to: target, promotion: promo ?? 'q' }) } catch { return false }
     if (!result) return false
     setSelectedSquare(null)
-    updateAnnotations([], [])
+    setPendingPromo(null)
     onMove({ from: source, to: target, san: result.san, newFen: game.fen(), newPgn: game.pgn() })
     return true
-  }, [canMove, onMove, updateAnnotations])
+  }, [canMove, onMove])
 
-  const handlePieceDrop = useCallback((source: Square, target: Square) => tryMove(source, target), [tryMove])
+  const handlePieceDrop = useCallback((source: CbSquare, target: CbSquare) =>
+    tryMove(source as Square, target as Square), [tryMove])
 
-  const handleSquareClick = useCallback((square: Square) => {
-    updateAnnotations([], [])
-    if (!canMove) return
-    if (selectedSquare) {
-      if (selectedSquare === square) { setSelectedSquare(null); return }
-      const moved = tryMove(selectedSquare, square)
-      if (!moved) {
-        const piece = new Chess(fen).get(square)
-        setSelectedSquare(piece ? square : null)
-      }
-    } else {
-      const piece = new Chess(fen).get(square)
-      if (piece) setSelectedSquare(square)
+  const handlePromotionCheck = useCallback((from: CbSquare, to: CbSquare, piece: Piece): boolean => {
+    const isWhite = piece === 'wP' && from[1] === '7' && to[1] === '8'
+    const isBlack = piece === 'bP' && from[1] === '2' && to[1] === '1'
+    if ((isWhite || isBlack) && canMove) {
+      setPendingPromo({ from: from as Square, to: to as Square })
+      return true
     }
-  }, [canMove, selectedSquare, tryMove, fen, updateAnnotations])
+    return false
+  }, [canMove])
 
-  const handleSquareRightClick = useCallback((square: Square) => {
-    rightDragStartRef.current = square
-    rightDragCurrentRef.current = square
+  const handlePromotionSelect = useCallback((opt?: PromotionPieceOption, from?: CbSquare, to?: CbSquare): boolean => {
+    const src = (from as Square | undefined) ?? pendingPromo?.from
+    const dst = (to as Square | undefined) ?? pendingPromo?.to
+    if (!src || !dst || !opt) { setPendingPromo(null); return false }
+    return tryMove(src, dst, promotionPiece(opt))
+  }, [pendingPromo, tryMove])
+
+  const handleSquareClick = useCallback((square: CbSquare) => {
+    const sq = square as Square
+    if (!canMove) return
+    const reader = new Chess(fen)
+    if (selectedSquare) {
+      if (selectedSquare === sq) { setSelectedSquare(null); return }
+      if (legalTargets.includes(sq)) {
+        const sel = reader.get(selectedSquare)
+        const isPromo = sel?.type === 'p' &&
+          ((sel.color === 'w' && sq[1] === '8') || (sel.color === 'b' && sq[1] === '1'))
+        if (isPromo) { setPendingPromo({ from: selectedSquare, to: sq }); return }
+        const moved = tryMove(selectedSquare, sq)
+        if (!moved) { const p = reader.get(sq); setSelectedSquare(p ? sq : null) }
+        return
+      }
+      const p = reader.get(sq)
+      setSelectedSquare(p ? sq : null)
+    } else {
+      const p = reader.get(sq)
+      if (p) setSelectedSquare(sq)
+    }
+  }, [canMove, selectedSquare, legalTargets, tryMove, fen])
+
+  // ── Annotation gestures (mouse right-drag + touch long-press-drag) ───────────
+  const squareAtPoint = useCallback((x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null
+    return el?.closest('[data-square]')?.getAttribute('data-square') ?? null
   }, [])
 
-  const handleMouseOverSquare = useCallback((square: Square) => {
-    if (rightDragStartRef.current) rightDragCurrentRef.current = square
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null }
   }, [])
 
-  const handleBoardMouseUp = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 2) return
-    const start = rightDragStartRef.current
-    const end   = rightDragCurrentRef.current
-    rightDragStartRef.current   = null
-    rightDragCurrentRef.current = null
+  const finishAnnotation = useCallback((x: number, y: number) => {
+    const start = annoStartRef.current
+    annoStartRef.current = null
     if (!start) return
+    const end = squareAtPoint(x, y)
     if (!end || start === end) {
-      updateAnnotations(
+      onAnnotationsChange(
         arrows,
         highlights.includes(start) ? highlights.filter(s => s !== start) : [...highlights, start],
       )
-    } else {
-      if (!arrows.some(a => a.from === start && a.to === end)) {
-        updateAnnotations([...arrows, { from: start, to: end, color: 'green' }], highlights)
-      }
+      return
     }
-  }, [arrows, highlights, updateAnnotations])
+    if (!arrows.some(a => a.from === start && a.to === end)) {
+      onAnnotationsChange([...arrows, { from: start, to: end, color: 'green' }], highlights)
+    }
+  }, [arrows, highlights, squareAtPoint, onAnnotationsChange])
 
-  const hasAnnotations = arrows.length > 0 || highlights.length > 0
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      if (e.button === 2) annoStartRef.current = squareAtPoint(e.clientX, e.clientY)
+      return
+    }
+    const square = squareAtPoint(e.clientX, e.clientY)
+    touchDownRef.current = { x: e.clientX, y: e.clientY, square }
+    clearLongPress()
+    longPressTimer.current = setTimeout(() => {
+      if (!touchDownRef.current) return
+      annoStartRef.current = touchDownRef.current.square
+      drawingRef.current = true
+      setDrawingArrow(true)
+    }, LONG_PRESS_MS)
+  }, [squareAtPoint, clearLongPress])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' || drawingRef.current || !touchDownRef.current) return
+    if (Math.hypot(e.clientX - touchDownRef.current.x, e.clientY - touchDownRef.current.y) > MOVE_TOLERANCE) {
+      clearLongPress()
+      touchDownRef.current = null
+    }
+  }, [clearLongPress])
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') {
+      if (e.button === 2) finishAnnotation(e.clientX, e.clientY)
+      return
+    }
+    clearLongPress()
+    if (drawingRef.current) {
+      finishAnnotation(e.clientX, e.clientY)
+      drawingRef.current = false
+      setDrawingArrow(false)
+    }
+    touchDownRef.current = null
+  }, [finishAnnotation, clearLongPress])
+
+  const handlePointerCancel = useCallback(() => {
+    clearLongPress()
+    touchDownRef.current = null
+    annoStartRef.current = null
+    if (drawingRef.current) { drawingRef.current = false; setDrawingArrow(false) }
+  }, [clearLongPress])
 
   return (
-    <div
-      ref={boardColRef}
-      className="flex flex-col h-full min-w-0 overflow-hidden"
-      onMouseUp={handleBoardMouseUp}
-      onContextMenu={e => e.preventDefault()}
-    >
-      {/* Board */}
-      <div className="flex items-center justify-center flex-1 min-h-0 p-3">
-        <div className="relative">
-          {frozen && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-sm">
-              <div className="bg-black/50 backdrop-blur-sm rounded-sm px-3 py-1.5 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-white" />
-                <span className="text-white text-xs font-semibold tracking-wide">Frozen</span>
-              </div>
+    <div ref={boardColRef} className="flex items-center justify-center w-full h-full min-w-0 min-h-0">
+      <div className="relative" style={{ width: boardSize, height: boardSize }}>
+        {frozen && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none rounded-sm">
+            <div className="bg-black/50 backdrop-blur-sm rounded-sm px-3 py-1.5 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-white" />
+              <span className="text-white text-xs font-semibold tracking-wide">Frozen</span>
             </div>
-          )}
-          <div className={cn('rounded-sm overflow-hidden border border-border shadow-md', frozen && 'opacity-75')}>
-            <Chessboard
-              position={displayFen}
-              boardWidth={boardSize}
-              onSquareClick={handleSquareClick}
-              onSquareRightClick={handleSquareRightClick}
-              onMouseOverSquare={handleMouseOverSquare}
-              onPieceDrop={handlePieceDrop}
-              arePiecesDraggable={canMove}
-              areArrowsAllowed={false}
-              animationDuration={150}
-              boardOrientation={orientation}
-              customSquareStyles={customSquareStyles}
-              customArrows={customArrowsMap.length > 0 ? customArrowsMap as any : undefined}
-            />
           </div>
-        </div>
-      </div>
-
-      {/* Inline FEN / PGN input panel */}
-      {inputMode !== 'none' && (
-        <div className="flex-shrink-0 px-3 pb-2 flex flex-col gap-1.5">
-          {inputMode === 'fen' ? (
-            <input
-              type="text"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleApplyInput(); if (e.key === 'Escape') closeInput() }}
-              placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-              autoFocus
-              className="w-full text-xs px-2 py-1.5 rounded-sm border border-border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          ) : (
-            <textarea
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Escape') closeInput() }}
-              placeholder="1. e4 e5 2. Nf3 Nc6 ..."
-              rows={3}
-              autoFocus
-              className="w-full text-xs px-2 py-1.5 rounded-sm border border-border bg-background font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          )}
-          {inputError && <p className="text-[10px] text-destructive">{inputError}</p>}
-          <div className="flex gap-1.5">
-            <button
-              onClick={handleApplyInput}
-              className="text-xs px-3 py-1 rounded-sm bg-foreground text-background font-medium hover:opacity-90 transition-opacity"
-            >
-              Apply
-            </button>
-            <button
-              onClick={closeInput}
-              className="text-xs px-3 py-1 rounded-sm border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-medium transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Board Controls — navigation + menu */}
-      <div className="flex-shrink-0 px-3 pb-2">
-        <div className="flex items-center gap-1 p-1.5 bg-card border border-border rounded-sm shadow-sm">
-          <Button variant="outline" size="sm" onClick={goToStart} disabled={!canNavBack} className="flex-1 h-9 rounded-sm">
-            <ChevronsLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToPrev} disabled={!canNavBack} className="flex-1 h-9 rounded-sm">
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToNext} disabled={!canNavForward} className="flex-1 h-9 rounded-sm">
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={goToEnd} disabled={!canNavForward} className="flex-1 h-9 rounded-sm">
-            <ChevronsRight className="w-4 h-4" />
-          </Button>
-          {hasAnnotations && (
-            <button
-              onClick={() => updateAnnotations([], [])}
-              title="Clear annotations"
-              className="h-9 px-1.5 flex items-center gap-1 text-xs text-destructive hover:bg-destructive/10 rounded-sm transition-colors flex-shrink-0"
-            >
-              <X className="w-3 h-3" />
-              Clear
-            </button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 w-9 p-0 flex-shrink-0 rounded-sm" title="More controls">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[140px]">
-              {hasCoachControls && (
-                <>
-                  <DropdownMenuItem disabled={controlsDisabled} onSelect={() => { onReset?.(); closeInput() }}>
-                    Reset
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={controlsDisabled} onSelect={() => openInput('fen')}>
-                    Set FEN
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={controlsDisabled} onSelect={() => openInput('pgn')}>
-                    Load PGN
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem onSelect={flipOrientation}>
-                Flip board
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        )}
+        <div
+          className={cn('rounded-sm overflow-hidden border border-border shadow-md', frozen && 'opacity-75')}
+          style={{ touchAction: drawingArrow ? 'none' : undefined }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onContextMenu={e => e.preventDefault()}
+        >
+          <Chessboard
+            position={displayFen}
+            boardWidth={boardSize}
+            boardOrientation={orientation}
+            arePiecesDraggable={canMove && !drawingArrow}
+            onSquareClick={handleSquareClick}
+            onPieceDrop={handlePieceDrop}
+            onPromotionCheck={handlePromotionCheck}
+            onPromotionPieceSelect={handlePromotionSelect}
+            promotionDialogVariant="modal"
+            showPromotionDialog={pendingPromo !== null}
+            promotionToSquare={pendingPromo?.to as CbSquare | undefined}
+            areArrowsAllowed={false}
+            animationDuration={150}
+            customSquareStyles={customSquareStyles}
+            customArrows={customArrowsMap.length > 0 ? customArrowsMap : undefined}
+          />
         </div>
       </div>
     </div>

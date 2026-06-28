@@ -2,12 +2,14 @@
 
 import { useState, useCallback, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FlipVertical, MoreHorizontal } from 'lucide-react'
+import { UserPlus, FlipVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { persistSessionState, grantPawn, revokePawn, addSessionStudent, removeSessionStudent } from '@/actions/academy/classroomActions'
 import type { ClassroomSession, SessionMode } from '@/services/classroomService'
 import { useClassroomChannel, type BoardUpdatePayload, type AnnotationUpdatePayload, type ModeChangePayload, type PawnTransferPayload, type BoardFreezePayload } from '../_hooks/useClassroomChannel'
+import { useBoardNavigation, useStageMetrics } from '../_hooks/useBoardNavigation'
 import ClassroomBoard, { type MoveResult, type Arrow } from './ClassroomBoard'
+import BoardControlBar from './BoardControlBar'
 import SessionHeader from './SessionHeader'
 import ModeBar from './ModeBar'
 import MoveList from './MoveList'
@@ -25,6 +27,8 @@ interface CoachViewProps {
   coachStudents:    EnrolledStudent[]
 }
 
+const FEN_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
 export default function CoachView({ session, userId, userName, enrolledStudents, coachStudents }: CoachViewProps) {
   const router = useRouter()
   const [, startEnrollTransition] = useTransition()
@@ -35,11 +39,15 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
   const [frozen,          setFrozen]          = useState(session.board_frozen)
   const [activeStudentId, setActiveStudentId] = useState<string | null>(session.active_student_id)
   const [enrolled,        setEnrolled]        = useState<EnrolledStudent[]>(enrolledStudents)
-  const [remoteArrows,     setRemoteArrows]     = useState<Arrow[]>([])
-  const [remoteHighlights, setRemoteHighlights] = useState<string[]>([])
-  const [orientation,      setOrientation]      = useState<'white' | 'black'>('white')
-  const [mobileTab,        setMobileTab]        = useState<'video' | 'session'>('session')
-  const [stripOpen,        setStripOpen]        = useState(false)
+  const [arrows,          setArrows]          = useState<Arrow[]>([])
+  const [highlights,      setHighlights]      = useState<string[]>([])
+  const [orientation,     setOrientation]     = useState<'white' | 'black'>('white')
+  // Mobile-only: which bottom panel is open
+  const [mobilePanel,     setMobilePanel]     = useState<'video' | 'session' | 'moves' | null>('session')
+
+  const stageRef = useRef<HTMLDivElement>(null)
+  const { isDesktop, boardSize } = useStageMetrics(stageRef)
+  const nav = useBoardNavigation(pgn, fen)
 
   // ── Realtime ────────────────────────────────────────────────────────────────
 
@@ -57,16 +65,14 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
     userName,
     role: 'coach',
 
-    // Coach receives board updates from students in exercise mode
     onBoardUpdate: useCallback((payload: BoardUpdatePayload) => {
       setFen(payload.fen)
       setPgn(payload.pgn)
     }, []),
 
-    // Phase 8: receive annotation updates from the move-holder
     onAnnotationUpdate: useCallback((payload: AnnotationUpdatePayload) => {
-      setRemoteArrows(payload.arrows)
-      setRemoteHighlights(payload.highlights)
+      setArrows(payload.arrows)
+      setHighlights(payload.highlights)
     }, []),
 
     onModeChange:   useCallback((p: ModeChangePayload)    => setMode(p.mode), []),
@@ -78,41 +84,49 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
     }, [router]),
   })
 
-  // ── Board writability ────────────────────────────────────────────────────────
-  // Coach controls board in demo mode; in exercise mode the pawn-holder does
+  // Coach controls the board in demo mode; in exercise mode the pawn-holder does
   const isWritable = mode === 'demonstration' && !frozen
+  const canMove    = isWritable && nav.isAtEnd
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleMove = useCallback((result: MoveResult) => {
     setFen(result.newFen)
     setPgn(result.newPgn)
+    setArrows([])
+    setHighlights([])
     broadcastMove(result.newFen, result.newPgn, { from: result.from, to: result.to, san: result.san })
+    broadcastAnnotations([], [])
     persistSessionState(session.id, result.newFen, result.newPgn).catch(console.error)
-  }, [session.id, broadcastMove])
+  }, [session.id, broadcastMove, broadcastAnnotations])
 
   const annotationDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const handleAnnotationsChange = useCallback((arrows: Arrow[], highlights: string[]) => {
+  const handleAnnotationsChange = useCallback((a: Arrow[], h: string[]) => {
+    setArrows(a)
+    setHighlights(h)
     if (annotationDebounce.current) clearTimeout(annotationDebounce.current)
-    annotationDebounce.current = setTimeout(() => {
-      broadcastAnnotations(arrows, highlights)
-    }, 150)
+    annotationDebounce.current = setTimeout(() => { broadcastAnnotations(a, h) }, 150)
+  }, [broadcastAnnotations])
+
+  const clearAnnotations = useCallback(() => {
+    setArrows([])
+    setHighlights([])
+    broadcastAnnotations([], [])
   }, [broadcastAnnotations])
 
   const applyPosition = useCallback((newFen: string, newPgn: string) => {
     setFen(newFen)
     setPgn(newPgn)
-    setRemoteArrows([])
-    setRemoteHighlights([])
+    setArrows([])
+    setHighlights([])
     broadcastMove(newFen, newPgn, { from: '', to: '', san: '' })
     broadcastAnnotations([], [])
     persistSessionState(session.id, newFen, newPgn).catch(console.error)
   }, [broadcastMove, broadcastAnnotations, session.id])
 
-  const FEN_START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
   const handleReset   = useCallback(() => applyPosition(FEN_START, ''), [applyPosition])
-  const handleSetFen  = useCallback((fen: string) => applyPosition(fen, ''), [applyPosition])
-  const handleLoadPgn = useCallback((fen: string, pgn: string) => applyPosition(fen, pgn), [applyPosition])
+  const handleSetFen  = useCallback((f: string) => applyPosition(f, ''), [applyPosition])
+  const handleLoadPgn = useCallback((f: string, p: string) => applyPosition(f, p), [applyPosition])
 
   const handleGrantPawn = useCallback(async (studentId: string, studentName: string) => {
     const isRevoke = activeStudentId === studentId
@@ -120,11 +134,8 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
     setActiveStudentId(next)
     await broadcastPawnTransfer(next)
     try {
-      if (isRevoke) {
-        await revokePawn(session.id)
-      } else {
-        await grantPawn(session.id, studentId, studentName)
-      }
+      if (isRevoke) await revokePawn(session.id)
+      else await grantPawn(session.id, studentId, studentName)
     } catch {}
   }, [activeStudentId, broadcastPawnTransfer, session.id])
 
@@ -149,13 +160,18 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
     })
   }, [coachStudents, session.id, startEnrollTransition])
 
-  // Students not yet enrolled (for the add dropdown)
-  const enrolledIds = new Set(enrolled.map(e => e.id))
+  const enrolledIds    = new Set(enrolled.map(e => e.id))
   const availableToAdd = coachStudents.filter(s => !enrolledIds.has(s.id))
 
+  const togglePanel = (p: 'video' | 'session' | 'moves') =>
+    setMobilePanel(cur => (cur === p ? null : p))
+
+  const hasAnnotations = arrows.length > 0 || highlights.length > 0
+  const positionDisabled = session.status !== 'active'
+
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] overflow-hidden">
-      <SessionHeader session={session} role="coach" />
+    <div className="flex flex-col h-[calc(100dvh-5rem)] overflow-hidden">
+      <SessionHeader session={session} role="coach" onlineCount={connectedUsers.length} enrolledCount={enrolled.length} />
       <ModeBar
         sessionId={session.id}
         mode={mode}
@@ -179,126 +195,166 @@ export default function CoachView({ session, userId, userName, enrolledStudents,
         </div>
       )}
 
-      {/* Main layout: board | sidebar */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Stage: board + panel side-by-side on desktop, stacked on mobile */}
+      <div ref={stageRef} className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden lg:gap-3 lg:p-3">
 
-        {/* Board */}
-        <div className="flex-1 min-w-0 overflow-hidden">
+        {/* Board column — sized to fit height on desktop (no side dead-space) */}
+        <div
+          className="flex-1 min-h-0 min-w-0 lg:flex-none flex items-center justify-center"
+          style={isDesktop && boardSize > 0 ? { width: boardSize, height: boardSize } : undefined}
+        >
           <ClassroomBoard
             fen={fen}
             pgn={pgn}
-            isWritable={isWritable}
+            displayFen={nav.displayFen}
+            canMove={canMove}
             frozen={frozen}
-            remoteArrows={remoteArrows}
-            remoteHighlights={remoteHighlights}
+            arrows={arrows}
+            highlights={highlights}
             onMove={handleMove}
             onAnnotationsChange={handleAnnotationsChange}
-            onReset={handleReset}
-            onSetFen={handleSetFen}
-            onLoadPgn={handleLoadPgn}
-            controlsDisabled={session.status !== 'active'}
             orientation={orientation}
-            onOrientationChange={setOrientation}
+            size={isDesktop ? boardSize : undefined}
           />
         </div>
 
-        {/* Sidebar */}
-        <div className="w-[110px] sm:w-32 lg:w-64 flex-shrink-0 border-l border-border flex flex-col overflow-hidden bg-background">
-
-          {/* Collapsible strip — mobile only */}
-          <div className="flex-shrink-0 lg:hidden border-b border-border">
-            <button
-              onClick={() => setStripOpen(o => !o)}
-              className="w-full flex items-center justify-center py-1.5 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            {stripOpen && (
-              <div className="flex items-center justify-center gap-3 pb-2">
-                <button
-                  onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
-                  title="Flip board"
-                  className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <FlipVertical className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-
+        {/* Panel: bottom drawer (mobile) / right column (desktop) */}
+        <div
+          className="flex flex-col flex-shrink-0 overflow-hidden bg-card border-t border-border lg:border lg:rounded-md lg:flex-1 lg:min-w-[240px]"
+          style={isDesktop && boardSize > 0 ? { height: boardSize } : undefined}
+        >
           {/* Tab bar — mobile only */}
-          <div className="flex-shrink-0 flex lg:hidden border-b border-border">
-            <button
-              onClick={() => setMobileTab('video')}
-              className={cn(
-                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors',
-                mobileTab === 'video' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >Video</button>
-            <button
-              onClick={() => setMobileTab('session')}
-              className={cn(
-                'flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wide border-l border-border transition-colors',
-                mobileTab === 'session' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >Session</button>
-          </div>
-
-          {/* VideoPanel: always on desktop, tab-controlled on mobile */}
-          <div className={cn('flex-shrink-0', mobileTab !== 'video' && 'hidden lg:block')}>
-            <VideoPanel sessionId={session.id} isCoach={true} sessionActive={session.status === 'active'} />
-          </div>
-
-          {/* Students section: always on desktop, tab-controlled on mobile */}
-          <div className={cn(
-            'flex flex-col flex-shrink-0 overflow-y-auto border-b border-border max-h-[40%]',
-            mobileTab !== 'session' && 'hidden lg:flex',
-          )}>
-            <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Students</p>
-              <div className="flex items-center gap-2">
-                {availableToAdd.length > 0 && (
-                  <Select onValueChange={handleAddStudent}>
-                    <SelectTrigger className="h-8 w-8 p-0 border-0 bg-transparent rounded-sm [&>svg]:hidden group transition-colors hover:bg-muted" title="Add student">
-                      <span className="flex items-center justify-center w-full h-full">
-                        <Plus className="w-4 h-4 text-muted-foreground transition-all duration-150 group-hover:text-foreground group-hover:scale-110" />
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent align="end" className="min-w-[180px]">
-                      {availableToAdd.map(s => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                          {s.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <div className="flex-shrink-0 flex items-stretch lg:hidden border-b border-border">
+            {(['video', 'session', 'moves'] as const).map((p, i) => (
+              <button
+                key={p}
+                onClick={() => togglePanel(p)}
+                className={cn(
+                  'flex-1 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors capitalize',
+                  i > 0 && 'border-l border-border',
+                  mobilePanel === p ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
                 )}
-                <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
-                  {isConnected && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+              >{p === 'session' ? 'Students' : p}</button>
+            ))}
+            <button
+              onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+              title="Flip board"
+              className="px-3 border-l border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <FlipVertical className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Content — video + students + moves */}
+          <div className="flex flex-col overflow-hidden flex-1 min-h-0 max-h-[42dvh] lg:max-h-none">
+
+            {/* VideoPanel: always mounted (call stays alive across tab switches) */}
+            <div className={cn('flex-shrink-0', mobilePanel !== 'video' && 'hidden lg:block')}>
+              <VideoPanel sessionId={session.id} isCoach={true} sessionActive={session.status === 'active'} />
+            </div>
+
+            {/* Students */}
+            <div className={cn(
+              'flex flex-col overflow-y-auto border-b border-border',
+              'flex-shrink-0 lg:flex-none lg:max-h-[38%]',
+              mobilePanel !== 'session' && 'hidden lg:flex',
+            )}>
+              <div className="flex-shrink-0 px-3 py-2 border-b border-border flex items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Students
+                  <span className="ml-1.5 text-muted-foreground/60 normal-case tracking-normal">{enrolled.length}</span>
+                </p>
+                <div className="flex items-center gap-1.5">
+                  {availableToAdd.length > 0 ? (
+                    <Select onValueChange={handleAddStudent}>
+                      <SelectTrigger
+                        className="h-7 gap-1 px-2 border border-border bg-background rounded-sm [&>svg]:hidden group transition-colors hover:bg-muted text-[11px] font-medium text-foreground"
+                        title="Add a student to this session"
+                      >
+                        <UserPlus className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                        <span className="hidden sm:inline">Add</span>
+                      </SelectTrigger>
+                      <SelectContent align="end" className="min-w-[180px]">
+                        {availableToAdd.map(s => (
+                          <SelectItem key={s.id} value={s.id} className="text-xs">
+                            {s.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      title={coachStudents.length === 0
+                        ? 'No students are assigned to you yet — assign them under Academy → Students'
+                        : 'All of your students are already in this session'}
+                      className="h-7 gap-1 px-2 inline-flex items-center border border-border bg-background rounded-sm text-[11px] font-medium text-muted-foreground/50 cursor-not-allowed"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Add</span>
+                    </button>
                   )}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-                </span>
+                  <span title={isConnected ? 'Connected' : 'Connecting…'} className="relative flex h-2 w-2">
+                    {isConnected && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                  </span>
+                </div>
+              </div>
+              {coachStudents.length === 0 && (
+                <div className="flex-shrink-0 px-3 py-2 border-b border-border bg-amber-50 dark:bg-amber-950/20">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
+                    No students are assigned to you yet. Assign students under{' '}
+                    <span className="font-semibold">Academy → Students</span>, then add them here.
+                  </p>
+                </div>
+              )}
+              <PresencePanel
+                users={connectedUsers}
+                activeStudentId={activeStudentId}
+                mode={mode}
+                isCoach={true}
+                sessionId={session.id}
+                onGrantPawn={(studentId, name) => { void handleGrantPawn(studentId, name) }}
+                enrolledStudents={enrolled}
+                onRemoveStudent={handleRemoveStudent}
+              />
+            </div>
+
+            {/* Moves */}
+            <div className={cn(
+              'flex flex-col overflow-hidden',
+              'flex-1 min-h-0 lg:flex-1',
+              mobilePanel !== 'moves' && 'hidden lg:flex',
+            )}>
+              <div className="flex-shrink-0 px-3 py-2 border-b border-border">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Moves</p>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <MoveList pgn={pgn} currentPly={nav.currentPly} onSelectPly={nav.goToPly} />
               </div>
             </div>
-            <PresencePanel
-              users={connectedUsers}
-              activeStudentId={activeStudentId}
-              mode={mode}
-              isCoach={true}
-              sessionId={session.id}
-              onGrantPawn={(studentId, name) => { void handleGrantPawn(studentId, name) }}
-              enrolledStudents={enrolled}
-              onRemoveStudent={handleRemoveStudent}
-            />
           </div>
 
-          {/* Moves — always visible */}
-          <div className="flex-shrink-0 px-3 py-2 border-b border-border">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Moves</p>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <MoveList pgn={pgn} />
+          {/* Controls — pinned to the panel bottom */}
+          <div className="flex-shrink-0 border-t border-border p-2">
+            <BoardControlBar
+              canBack={nav.canBack}
+              canForward={nav.canForward}
+              onStart={nav.goStart}
+              onPrev={nav.goPrev}
+              onNext={nav.goNext}
+              onEnd={nav.goEnd}
+              hasAnnotations={hasAnnotations}
+              onClearAnnotations={clearAnnotations}
+              onFlip={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+              onReset={handleReset}
+              onSetFen={handleSetFen}
+              onLoadPgn={handleLoadPgn}
+              controlsDisabled={positionDisabled}
+            />
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Users } from 'lucide-react'
+import { UserMinus, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PresenceUser } from '../_hooks/useClassroomChannel'
 
@@ -103,10 +103,11 @@ function UserRow({
         {showRemove && onRemove && (
           <button
             onClick={() => onRemove(id)}
-            className="p-0.5 rounded-sm text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="p-1 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             title="Remove from session"
+            aria-label={`Remove ${name} from session`}
           >
-            <X className="w-3 h-3" />
+            <UserMinus className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

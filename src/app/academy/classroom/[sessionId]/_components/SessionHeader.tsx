@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Play, Square, ArrowLeft } from 'lucide-react'
+import { Copy, Check, Play, Square, ArrowLeft, Clock, Users } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { startClassroomSession, endClassroomSession } from '@/actions/academy/classroomActions'
@@ -11,6 +11,31 @@ import type { ClassroomSession } from '@/services/classroomService'
 interface SessionHeaderProps {
   session: ClassroomSession
   role: 'coach' | 'student'
+  /** Number of people currently connected (from realtime presence). */
+  onlineCount?: number
+  /** Coach only: total students enrolled, for the "online / total" health read. */
+  enrolledCount?: number
+}
+
+// Live-updating elapsed time since the session started (mm:ss, or h:mm:ss past an hour).
+function SessionTimer({ startedAt }: { startedAt: string }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const secs = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000))
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const label = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums" title="Session time">
+      <Clock className="w-3.5 h-3.5" />
+      {label}
+    </span>
+  )
 }
 
 function StatusDot({ status }: { status: ClassroomSession['status'] }) {
@@ -28,7 +53,7 @@ function StatusDot({ status }: { status: ClassroomSession['status'] }) {
   return <span className="inline-flex rounded-full h-2 w-2 bg-muted-foreground/40" />
 }
 
-export default function SessionHeader({ session, role }: SessionHeaderProps) {
+export default function SessionHeader({ session, role, onlineCount, enrolledCount }: SessionHeaderProps) {
   const [copied, setCopied]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -87,6 +112,24 @@ export default function SessionHeader({ session, role }: SessionHeaderProps) {
             {session.title}
           </h1>
           <span className="text-xs text-muted-foreground flex-shrink-0">{statusLabel}</span>
+        </div>
+
+        {/* Live meta: elapsed timer + connected count (health) */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {session.status === 'active' && session.started_at && (
+            <SessionTimer startedAt={session.started_at} />
+          )}
+          {onlineCount != null && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums"
+              title={role === 'coach' && enrolledCount != null
+                ? `${onlineCount} connected · ${enrolledCount} student${enrolledCount === 1 ? '' : 's'} enrolled`
+                : `${onlineCount} connected`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              {role === 'coach' && enrolledCount != null ? `${onlineCount}/${enrolledCount + 1}` : onlineCount}
+            </span>
+          )}
         </div>
 
         {error && <span className="text-xs text-destructive flex-shrink-0">{error}</span>}

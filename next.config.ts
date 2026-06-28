@@ -4,7 +4,14 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['localhost:8008', '192.168.110.252:8008'],
+  // Dev-only: LAN hosts allowed to fetch /_next dev resources (HMR, client JS).
+  // Next expects the bare host (no port). Add your phone's LAN IP here — it can
+  // change when DHCP reassigns it (check the dev server's "Network:" line).
+  allowedDevOrigins: [
+    'localhost',
+    '192.168.110.252',
+    '192.168.110.227',
+  ],
   async headers() {
     return [
       {

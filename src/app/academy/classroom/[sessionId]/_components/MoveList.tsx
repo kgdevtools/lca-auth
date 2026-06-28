@@ -7,9 +7,13 @@ import { cn } from '@/lib/utils'
 interface MoveListProps {
   pgn: string
   className?: string
+  /** 0-based index of the currently viewed ply (for highlight). Defaults to last. */
+  currentPly?: number
+  /** Click a move to jump the board to that ply. */
+  onSelectPly?: (ply: number) => void
 }
 
-export default function MoveList({ pgn, className }: MoveListProps) {
+export default function MoveList({ pgn, className, currentPly, onSelectPly }: MoveListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const moves = useMemo(() => {
@@ -42,7 +46,7 @@ export default function MoveList({ pgn, className }: MoveListProps) {
     })
   }
 
-  const lastMoveIndex = moves.length - 1
+  const activeIdx = currentPly ?? moves.length - 1
 
   return (
     <div className={cn('overflow-y-auto', className)}>
@@ -55,27 +59,31 @@ export default function MoveList({ pgn, className }: MoveListProps) {
               <span className="text-[11px] text-muted-foreground/60 font-mono select-none w-5 text-right flex-shrink-0">
                 {num}.
               </span>
-              <span
+              <button
+                type="button"
+                onClick={() => onSelectPly?.(whiteIdx)}
                 className={cn(
-                  'text-sm px-1 py-0.5 rounded-[2px] font-medium leading-none',
-                  whiteIdx === lastMoveIndex
+                  'text-sm px-1 py-0.5 rounded-[2px] font-medium leading-none transition-colors',
+                  whiteIdx === activeIdx
                     ? 'bg-amber-500 text-black'
-                    : 'text-foreground',
+                    : 'text-foreground hover:bg-muted',
                 )}
               >
                 {white}
-              </span>
+              </button>
               {black !== null && (
-                <span
+                <button
+                  type="button"
+                  onClick={() => onSelectPly?.(blackIdx)}
                   className={cn(
-                    'text-sm px-1 py-0.5 rounded-[2px] font-medium leading-none',
-                    blackIdx === lastMoveIndex
+                    'text-sm px-1 py-0.5 rounded-[2px] font-medium leading-none transition-colors',
+                    blackIdx === activeIdx
                       ? 'bg-amber-500 text-black'
-                      : 'text-foreground',
+                      : 'text-foreground hover:bg-muted',
                   )}
                 >
                   {black}
-                </span>
+                </button>
               )}
             </span>
           )

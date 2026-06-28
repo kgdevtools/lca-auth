@@ -18,7 +18,7 @@ export default function AcademyLayoutClient({
 
   return (
     <div
-      className={`${jetbrainsMono.variable} flex h-screen overflow-hidden bg-background tracking-tighter leading-tight`}
+      className={`${jetbrainsMono.variable} flex h-[100dvh] overflow-hidden bg-background tracking-tighter leading-tight`}
       style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
     >
       <AcademySidebar
