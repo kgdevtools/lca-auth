@@ -100,7 +100,8 @@ export function useStageMetrics(ref: React.RefObject<HTMLElement | null>) {
     return () => ro.disconnect()
   }, [ref])
 
-  // Desktop: fit the board to available height, reserve panel width + gap, cap at 560.
-  const boardSize = isDesktop ? Math.max(220, Math.min(box.h - 8, box.w - 268, 560)) : 0
+  // Desktop: board is the hero (~64% of stage width), fit to height, cap at 760.
+  // The remaining ~36% is the video + moves column.
+  const boardSize = isDesktop ? Math.max(280, Math.min(box.h - 8, Math.round(box.w * 0.64), 760)) : 0
   return { isDesktop, boardSize }
 }

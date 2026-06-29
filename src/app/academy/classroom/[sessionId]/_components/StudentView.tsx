@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Hand, FlipVertical } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Hand, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logClassroomEvent, getSessionState, persistSessionState } from '@/actions/academy/classroomActions'
 import type { ClassroomSession } from '@/services/classroomService'
@@ -36,7 +37,7 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
   const [isPending,   startTransition] = useTransition()
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   // Mobile-only: which bottom panel is open (null = collapsed, board maximised)
-  const [mobilePanel, setMobilePanel] = useState<'video' | 'session' | 'moves' | null>('session')
+  const [mobilePanel, setMobilePanel] = useState<'video' | 'session' | 'moves' | null>(null)
 
   const stageRef = useRef<HTMLDivElement>(null)
   const { isDesktop, boardSize } = useStageMetrics(stageRef)
@@ -123,9 +124,6 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
   const notStarted = session.status === 'scheduled'
   const ended      = session.status === 'ended'
 
-  const togglePanel = (p: 'video' | 'session' | 'moves') =>
-    setMobilePanel(cur => (cur === p ? null : p))
-
   const hasAnnotations = arrows.length > 0 || highlights.length > 0
 
   return (
@@ -145,40 +143,89 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
         </div>
       )}
 
-      {/* Stage: board + panel side-by-side on desktop, stacked on mobile */}
-      <div ref={stageRef} className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden lg:gap-3 lg:p-3">
+      {/* Stage: board hero + panel. Desktop = side-by-side; mobile = board fills,
+          controls always visible, Video/Players/Moves in a collapsible drawer. */}
+      <div ref={stageRef} className="relative flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden lg:gap-3 lg:p-3">
 
-        {/* Board column — sized to fit height on desktop (no side dead-space) */}
+        {/* Board column */}
         <div
-          className="flex-1 min-h-0 min-w-0 lg:flex-none flex items-center justify-center"
+          className="flex flex-col flex-1 min-h-0 min-w-0 lg:flex-none"
           style={isDesktop && boardSize > 0 ? { width: boardSize, height: boardSize } : undefined}
         >
-          <ClassroomBoard
-            fen={fen}
-            pgn={pgn}
-            displayFen={nav.displayFen}
-            canMove={canMove}
-            frozen={frozen}
-            arrows={arrows}
-            highlights={highlights}
-            onMove={handleMove}
-            onAnnotationsChange={handleAnnotationsChange}
-            orientation={orientation}
-            size={isDesktop ? boardSize : undefined}
-          />
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <ClassroomBoard
+              fen={fen}
+              pgn={pgn}
+              displayFen={nav.displayFen}
+              canMove={canMove}
+              frozen={frozen}
+              arrows={arrows}
+              highlights={highlights}
+              onMove={handleMove}
+              onAnnotationsChange={handleAnnotationsChange}
+              orientation={orientation}
+              size={isDesktop ? boardSize : undefined}
+            />
+          </div>
+
+          {/* Mobile controls — ALWAYS visible (board + controls are the priority) */}
+          <div className="lg:hidden flex-shrink-0 border-t border-border p-2 flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <BoardControlBar
+                canBack={nav.canBack}
+                canForward={nav.canForward}
+                onStart={nav.goStart}
+                onPrev={nav.goPrev}
+                onNext={nav.goNext}
+                onEnd={nav.goEnd}
+                hasAnnotations={hasAnnotations}
+                onClearAnnotations={clearAnnotations}
+                onFlip={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+              />
+            </div>
+            {session.status === 'active' && (
+              <button
+                onClick={handleRaiseHand}
+                disabled={isPending}
+                title={handRaised ? 'Lower hand' : 'Raise hand'}
+                className={cn(
+                  'flex-shrink-0 h-9 w-9 inline-flex items-center justify-center rounded-sm border transition-colors',
+                  handRaised
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+                )}
+              >
+                <Hand className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setMobilePanel(p => (p ? null : 'moves'))}
+              title="Video, players & moves"
+              className={cn(
+                'flex-shrink-0 h-9 px-2.5 rounded-sm border flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide transition-colors',
+                mobilePanel ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+              )}
+            >
+              {mobilePanel ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              Panels
+            </button>
+          </div>
         </div>
 
-        {/* Panel: bottom drawer (mobile) / right column (desktop) */}
-        <div
+        {/* Panel — one instance. Desktop right column; mobile bottom drawer (animated). */}
+        <motion.div
           className="flex flex-col flex-shrink-0 overflow-hidden bg-card border-t border-border lg:border lg:rounded-md lg:flex-1 lg:min-w-[240px]"
           style={isDesktop && boardSize > 0 ? { height: boardSize } : undefined}
+          animate={{ height: isDesktop ? (boardSize > 0 ? boardSize : 'auto') : (mobilePanel ? '58dvh' : 0) }}
+          transition={isDesktop ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 38 }}
+          initial={false}
         >
           {/* Tab bar — mobile only */}
           <div className="flex-shrink-0 flex items-stretch lg:hidden border-b border-border">
             {(['video', 'session', 'moves'] as const).map((p, i) => (
               <button
                 key={p}
-                onClick={() => togglePanel(p)}
+                onClick={() => setMobilePanel(p)}
                 className={cn(
                   'flex-1 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors capitalize',
                   i > 0 && 'border-l border-border',
@@ -187,18 +234,18 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
               >{p === 'session' ? 'Players' : p}</button>
             ))}
             <button
-              onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
-              title="Flip board"
+              onClick={() => setMobilePanel(null)}
+              title="Collapse"
               className="px-3 border-l border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
-              <FlipVertical className="w-4 h-4" />
+              <ChevronDown className="w-4 h-4" />
             </button>
           </div>
 
           {/* Content — video + players + moves */}
-          <div className="flex flex-col overflow-hidden flex-1 min-h-0 max-h-[42dvh] lg:max-h-none">
+          <div className="flex flex-col overflow-hidden flex-1 min-h-0">
 
-            {/* VideoPanel: always mounted (call stays alive across tab switches) */}
+            {/* VideoPanel: always mounted (call stays alive across tab switches / drawer collapse) */}
             <div className={cn('flex-shrink-0', mobilePanel !== 'video' && 'hidden lg:block')}>
               <VideoPanel sessionId={session.id} isCoach={false} sessionActive={session.status === 'active'} />
             </div>
@@ -241,8 +288,8 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
             </div>
           </div>
 
-          {/* Controls — pinned to the panel bottom */}
-          <div className="flex-shrink-0 border-t border-border p-2 space-y-2">
+          {/* Controls — desktop only (mobile controls + raise-hand live under the board) */}
+          <div className="hidden lg:block flex-shrink-0 border-t border-border p-2 space-y-2">
             {session.status === 'active' && (
               <button
                 onClick={handleRaiseHand}
@@ -270,7 +317,7 @@ export default function StudentView({ session, userId, userName }: StudentViewPr
               onFlip={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
             />
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   )

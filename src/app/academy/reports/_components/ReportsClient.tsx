@@ -50,6 +50,7 @@ interface ReportsClientProps {
     feedback: CoachFeedbackRow[]
   }
   gamification?: GamificationSummary | null
+  academyRating?: number | null
   studentLessonsData?: Record<string, StudentLessonsData>
   classroomSessions?: ClassroomSessionReport[]
 }
@@ -69,6 +70,7 @@ export default function ReportsClient({
   isAdmin,
   selfProgress,
   gamification,
+  academyRating,
   studentLessonsData = {},
   classroomSessions = [],
 }: ReportsClientProps) {
@@ -82,7 +84,7 @@ export default function ReportsClient({
   )
 
   if (role === 'student' && selfProgress) {
-    return <StudentView selfProgress={selfProgress} gamification={gamification} />
+    return <StudentView selfProgress={selfProgress} gamification={gamification} academyRating={academyRating} />
   }
 
   return (
@@ -378,6 +380,7 @@ const LEVEL_PIECES: Record<number, string> = { 1: '♙', 2: '♞', 3: '♝', 4: 
 function StudentView({
   selfProgress,
   gamification,
+  academyRating,
 }: {
   selfProgress: {
     lessons: StudentLessonProgress[]
@@ -393,6 +396,7 @@ function StudentView({
     feedback: CoachFeedbackRow[]
   }
   gamification?: GamificationSummary | null
+  academyRating?: number | null
 }) {
   const { lessons, stats, feedback } = selfProgress
 
@@ -417,6 +421,12 @@ function StudentView({
             </span>
             <span className="text-[10px] text-muted-foreground ml-0.5">Lv.{gamification.level}</span>
           </div>
+          {academyRating != null && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-border">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</span>
+              <span className="text-xs font-bold text-foreground tabular-nums">{academyRating}</span>
+            </div>
+          )}
           <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <span className="text-amber-500">🔥</span>
             <span className="font-semibold text-foreground">{gamification.currentStreak}</span>

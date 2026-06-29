@@ -14,7 +14,7 @@ interface MoveListProps {
 }
 
 export default function MoveList({ pgn, className, currentPly, onSelectPly }: MoveListProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const moves = useMemo(() => {
     if (!pgn.trim()) return []
@@ -23,9 +23,12 @@ export default function MoveList({ pgn, className, currentPly, onSelectPly }: Mo
     } catch { return [] }
   }, [pgn])
 
-  // Auto-scroll to latest move
+  // Auto-scroll to latest move — scoped to THIS container only (never bubbles to
+  // the page). Using scrollTop instead of scrollIntoView avoids the post-move
+  // viewport jump on mobile.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [moves.length])
 
   if (moves.length === 0) {
@@ -49,7 +52,7 @@ export default function MoveList({ pgn, className, currentPly, onSelectPly }: Mo
   const activeIdx = currentPly ?? moves.length - 1
 
   return (
-    <div className={cn('overflow-y-auto', className)}>
+    <div ref={scrollRef} className={cn('overflow-y-auto overscroll-contain', className)}>
       <div className="px-3 py-2 flex flex-wrap gap-x-1 gap-y-0.5 content-start">
         {pairs.map(({ num, white, black }) => {
           const whiteIdx = (num - 1) * 2
@@ -88,7 +91,6 @@ export default function MoveList({ pgn, className, currentPly, onSelectPly }: Mo
             </span>
           )
         })}
-        <div ref={bottomRef} />
       </div>
     </div>
   )

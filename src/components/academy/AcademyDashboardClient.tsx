@@ -5,6 +5,7 @@ import { motion, type Variants } from 'framer-motion'
 import { LEVEL_NAMES, type LevelNumber } from '@/lib/constants/achievements'
 import type { Profile } from '@/utils/auth/academyAuth'
 import ClassroomRealtimeSync from '@/components/classroom/ClassroomRealtimeSync'
+import CoachOnboardingTour, { COACH_TOUR_EVENT } from '@/components/academy/CoachOnboardingTour'
 
 // ── Level display data ────────────────────────────────────────────────────────
 
@@ -33,6 +34,13 @@ interface GamificationData {
   lessonsCompleted: number
 }
 
+interface AcademyRatingData {
+  rating: number
+  form: number | null
+  trajectory: { word: string; tone: 'up' | 'down' | 'neutral' } | null
+  history: number[]
+}
+
 interface LessonSummaryData {
   totalAssigned: number
   completed: number
@@ -53,6 +61,7 @@ interface AcademyDashboardClientProps {
   profile: Profile
   userEmail: string
   gamification: GamificationData | null
+  academyRating: AcademyRatingData | null
   coachName: string | null
   coachAssigned: boolean
   lessonSummary: LessonSummaryData | null
@@ -71,6 +80,7 @@ export default function AcademyDashboardClient({
   profile,
   userEmail,
   gamification,
+  academyRating,
   coachName,
   coachAssigned,
   lessonSummary,
@@ -92,6 +102,7 @@ export default function AcademyDashboardClient({
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <ClassroomRealtimeSync userId={profile.id} role={profile.role as 'coach' | 'student' | 'admin'} />
+      {(profile.role === 'coach' || profile.role === 'admin') && <CoachOnboardingTour />}
       <motion.div
         variants={stagger}
         initial="hidden"
@@ -221,6 +232,7 @@ export default function AcademyDashboardClient({
         {profile.role === 'student' && (
           <StudentSection
             gamification={gamification}
+            academyRating={academyRating}
             lessonSummary={lessonSummary}
             activeClassroomSession={activeClassroomSession}
           />
@@ -245,10 +257,12 @@ export default function AcademyDashboardClient({
 
 function StudentSection({
   gamification,
+  academyRating,
   lessonSummary,
   activeClassroomSession,
 }: {
   gamification: GamificationData | null
+  academyRating: AcademyRatingData | null
   lessonSummary: LessonSummaryData | null
   activeClassroomSession: { id: string; title: string } | null
 }) {
@@ -414,7 +428,61 @@ function StudentSection({
         </div>
       </div>
 
+      {/* Academy Rating — a live rating that moves with puzzles & lessons */}
+      {academyRating && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-4">Academy Rating</p>
+          <div className="flex items-center gap-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold tabular-nums tracking-tight">{academyRating.rating}</span>
+              {academyRating.form != null && academyRating.form !== 0 && (
+                <span className={`text-xs font-semibold tabular-nums ${academyRating.form > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {academyRating.form > 0 ? '▲' : '▼'} {Math.abs(academyRating.form)}
+                </span>
+              )}
+            </div>
+            {academyRating.history.length >= 2 && (
+              <Sparkline values={academyRating.history} />
+            )}
+            {academyRating.trajectory && (
+              <span className={`ml-auto text-[10px] uppercase tracking-wide ${
+                academyRating.trajectory.tone === 'up' ? 'text-emerald-600 dark:text-emerald-400'
+                : academyRating.trajectory.tone === 'down' ? 'text-red-600 dark:text-red-400'
+                : 'text-muted-foreground'
+              }`}>
+                {academyRating.trajectory.word}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
     </motion.div>
+  )
+}
+
+// Tiny inline SVG sparkline of the rating history (oldest → newest).
+function Sparkline({ values }: { values: number[] }) {
+  const w = 96, h = 28, pad = 2
+  const min = Math.min(...values), max = Math.max(...values)
+  const span = max - min || 1
+  const pts = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * (w - pad * 2)
+    const y = pad + (1 - (v - min) / span) * (h - pad * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const up = values[values.length - 1] >= values[0]
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-hidden>
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={up ? '#10b981' : '#ef4444'}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
@@ -431,6 +499,16 @@ function CoachSection({
 }) {
   return (
     <motion.div variants={fadeUp} transition={{ duration: 0.25 }} className="space-y-10">
+
+      {/* Take a tour */}
+      <div className="flex justify-end -mb-6">
+        <button
+          onClick={() => window.dispatchEvent(new Event(COACH_TOUR_EVENT))}
+          className="text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
+        >
+          Take a tour
+        </button>
+      </div>
 
       {/* Live session badge */}
       {activeClassroomSession && (

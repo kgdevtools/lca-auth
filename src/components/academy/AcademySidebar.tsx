@@ -13,6 +13,7 @@ import {
   Settings,
   Trophy,
   Monitor,
+  Puzzle,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -31,6 +32,7 @@ const baseSidebarItems: SidebarItem[] = [
 
 const studentItems: SidebarItem[] = [
   { title: "Lessons",      href: "/academy/lesson",       icon: BookOpen  },
+  { title: "Puzzles",      href: "/academy/puzzles",      icon: Puzzle    },
   { title: "Classroom",    href: "/academy/classroom",    icon: Monitor   },
   { title: "My Reports",   href: "/academy/reports",      icon: BarChart3 },
   { title: "Leaderboard",  href: "/academy/leaderboard",  icon: Trophy    },
@@ -111,6 +113,7 @@ function SidebarContent({
           return (
             <button
               key={item.href}
+              data-tour={item.href.replace('/academy', '').replace(/^\//, '') || 'dashboard'}
               onClick={() => onNavigate(item.href)}
               disabled={isLoading}
               title={isCollapsed ? item.title : undefined}

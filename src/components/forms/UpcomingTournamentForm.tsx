@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, X, Trash2, ImageIcon } from "lucide-react"
-import { createUpcomingTournament } from "@/repositories/upcomingTournamentRepo"
+import { submitUpcomingTournament } from "@/actions/upcomingTournamentActions"
 import type { CreateUpcomingTournamentPayload, TournamentSection } from "@/types/upcoming-tournament"
 
 export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void }) {
@@ -168,7 +168,7 @@ export function UpcomingTournamentForm({ onSuccess }: { onSuccess: () => void })
     setSubmitting(true)
 
     try {
-      const result = await createUpcomingTournament(form)
+      const result = await submitUpcomingTournament(form)
       
       if (result.success) {
         onSuccess()

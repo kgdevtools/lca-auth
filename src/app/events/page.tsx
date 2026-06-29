@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Clock, User, Trophy, ChevronLeft, ChevronRight, Download } from "lucide-react"
 import tournamentsData from "@/data/tournaments.json"
-import { getAllUpcomingTournaments } from "@/repositories/upcomingTournamentRepo"
+import { fetchAllUpcomingTournaments } from "@/actions/upcomingTournamentActions"
 import type { UpcomingTournament } from "@/types/upcoming-tournament"
 
 // Static Capricorn calendar shape, plus optional links for dynamic (DB) events.
@@ -329,7 +329,7 @@ export default function ChessCalendar() {
   const [dynamicEvents, setDynamicEvents] = useState<Tournament[]>([])
   useEffect(() => {
     let active = true
-    getAllUpcomingTournaments()
+    fetchAllUpcomingTournaments()
       .then((list) => { if (active) setDynamicEvents(list.map(upcomingToEvent)) })
       .catch(() => {})
     return () => { active = false }

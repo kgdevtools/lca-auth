@@ -67,17 +67,17 @@ function VideoGrid({ isCoach, roomName }: { isCoach: boolean; roomName: string }
 
   if (tracks.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-[11px] text-muted-foreground">
         No participants yet
       </div>
     )
   }
 
   return (
-    <div className={cn('bg-black', tracks.length === 1 ? 'flex flex-col' : 'grid grid-cols-2 gap-px')}>
+    <div className={cn('bg-black h-full min-h-0 overflow-hidden', tracks.length === 1 ? 'flex flex-col' : 'grid grid-cols-2 auto-rows-fr gap-px')}>
       {tracks.map(trackRef => (
-        <div key={`${trackRef.participant.identity}-${trackRef.source}`} className="relative w-full">
-          <ParticipantTile trackRef={trackRef} className="w-full aspect-video overflow-hidden" />
+        <div key={`${trackRef.participant.identity}-${trackRef.source}`} className="relative w-full h-full min-h-0">
+          <ParticipantTile trackRef={trackRef} className="w-full h-full overflow-hidden" />
           {isCoach && !trackRef.participant.isLocal && (
             <MuteButton
               participantIdentity={trackRef.participant.identity}
@@ -120,33 +120,37 @@ function VideoControls({ isCoach, onLeave }: { isCoach: boolean; onLeave: () => 
 // can be moved anywhere on screen. Mounts once per call (no remount on drag) so
 // the LiveKit connection is never interrupted.
 
-const PIP_MIN_W = 200
-const PIP_MAX_W = 560
+const PIP_MIN_W = 180
+const PIP_MAX_W = 640
+const PIP_MIN_H = 160
+const PIP_MAX_H = 720
+
+type ResizeDir = 'e' | 's' | 'se'
 
 function FloatingPiP({ isCoach, roomName, onLeave }: { isCoach: boolean; roomName: string; onLeave: () => void }) {
   const [pos, setPos]   = useState<{ x: number; y: number } | null>(null)
-  const [width, setW]   = useState(300)
+  const [size, setSize] = useState({ w: 300, h: 250 })
   const [minimised, setMin] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
   const drag   = useRef<{ dx: number; dy: number } | null>(null)
-  const resize = useRef<{ startX: number; startW: number } | null>(null)
+  const resize = useRef<{ dir: ResizeDir; startX: number; startY: number; startW: number; startH: number } | null>(null)
 
   // Initial placement: bottom-right, clamped to viewport.
   useEffect(() => {
-    const w = Math.min(width, window.innerWidth - 24)
-    setPos({ x: window.innerWidth - w - 16, y: window.innerHeight - 16 - 220 })
+    const w = Math.min(size.w, window.innerWidth - 24)
+    setPos({ x: window.innerWidth - w - 12, y: Math.max(12, window.innerHeight - size.h - 16) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const clamp = useCallback((x: number, y: number) => {
+  const clampPos = useCallback((x: number, y: number) => {
     const el = boxRef.current
-    const w = el?.offsetWidth ?? width
-    const h = el?.offsetHeight ?? 200
+    const w = el?.offsetWidth ?? size.w
+    const h = el?.offsetHeight ?? size.h
     return {
       x: Math.max(8, Math.min(x, window.innerWidth  - w - 8)),
       y: Math.max(8, Math.min(y, window.innerHeight - h - 8)),
     }
-  }, [width])
+  }, [size])
 
   const onDragDown = useCallback((e: React.PointerEvent) => {
     if (!pos) return
@@ -154,37 +158,42 @@ function FloatingPiP({ isCoach, roomName, onLeave }: { isCoach: boolean; roomNam
     drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y }
   }, [pos])
 
-  const onResizeDown = useCallback((e: React.PointerEvent) => {
+  const onResizeDown = (dir: ResizeDir) => (e: React.PointerEvent) => {
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
-    resize.current = { startX: e.clientX, startW: width }
-  }, [width])
+    resize.current = { dir, startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h }
+  }
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (drag.current) {
-      setPos(clamp(e.clientX - drag.current.dx, e.clientY - drag.current.dy))
-    } else if (resize.current) {
-      const next = resize.current.startW + (e.clientX - resize.current.startX)
-      setW(Math.max(PIP_MIN_W, Math.min(next, Math.min(PIP_MAX_W, window.innerWidth - 24))))
+      setPos(clampPos(e.clientX - drag.current.dx, e.clientY - drag.current.dy))
+      return
     }
-  }, [clamp])
+    const r = resize.current
+    if (!r || !pos) return
+    let { w, h } = size
+    if (r.dir === 'e' || r.dir === 'se') {
+      w = Math.max(PIP_MIN_W, Math.min(r.startW + (e.clientX - r.startX), PIP_MAX_W, window.innerWidth - pos.x - 8))
+    }
+    if (r.dir === 's' || r.dir === 'se') {
+      h = Math.max(PIP_MIN_H, Math.min(r.startH + (e.clientY - r.startY), PIP_MAX_H, window.innerHeight - pos.y - 8))
+    }
+    setSize({ w, h })
+  }, [clampPos, pos, size])
 
   const endGesture = useCallback(() => { drag.current = null; resize.current = null }, [])
 
   const dockCorner = useCallback(() => {
-    const el = boxRef.current
-    const w = el?.offsetWidth ?? width
-    const h = el?.offsetHeight ?? 200
-    setPos({ x: window.innerWidth - w - 16, y: window.innerHeight - h - 16 })
-  }, [width])
+    setPos(p => p ? { x: window.innerWidth - size.w - 12, y: window.innerHeight - size.h - 16 } : p)
+  }, [size])
 
   if (!pos) return null
 
   return (
     <div
       ref={boxRef}
-      className="fixed z-[60] rounded-md border border-border bg-card shadow-2xl overflow-hidden select-none"
-      style={{ left: pos.x, top: pos.y, width }}
+      className="fixed z-[60] flex flex-col rounded-md border border-border bg-card shadow-2xl overflow-hidden select-none"
+      style={{ left: pos.x, top: pos.y, width: size.w, height: minimised ? undefined : size.h }}
       onPointerMove={onPointerMove}
       onPointerUp={endGesture}
       onPointerCancel={endGesture}
@@ -192,7 +201,7 @@ function FloatingPiP({ isCoach, roomName, onLeave }: { isCoach: boolean; roomNam
       {/* Drag handle / title bar */}
       <div
         onPointerDown={onDragDown}
-        className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/60 border-b border-border cursor-grab active:cursor-grabbing touch-none"
+        className="flex-shrink-0 flex items-center gap-1.5 px-2 py-1.5 bg-muted/60 border-b border-border cursor-grab active:cursor-grabbing touch-none"
       >
         <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-1">Video</span>
@@ -208,12 +217,26 @@ function FloatingPiP({ isCoach, roomName, onLeave }: { isCoach: boolean; roomNam
 
       {!minimised && (
         <>
-          <VideoGrid isCoach={isCoach} roomName={roomName} />
+          <div className="flex-1 min-h-0">
+            <VideoGrid isCoach={isCoach} roomName={roomName} />
+          </div>
           <VideoControls isCoach={isCoach} onLeave={onLeave} />
-          {/* Resize handle (bottom-right) */}
+
+          {/* Resize handles — right edge (X), bottom edge (Y), corner (both).
+              touch-none so finger drags resize instead of scrolling. */}
           <div
-            onPointerDown={onResizeDown}
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize touch-none"
+            onPointerDown={onResizeDown('e')}
+            className="absolute top-8 bottom-3 right-0 w-2.5 cursor-e-resize touch-none hover:bg-primary/20"
+            title="Drag to resize width"
+          />
+          <div
+            onPointerDown={onResizeDown('s')}
+            className="absolute bottom-0 left-3 right-3 h-2.5 cursor-s-resize touch-none hover:bg-primary/20"
+            title="Drag to resize height"
+          />
+          <div
+            onPointerDown={onResizeDown('se')}
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize touch-none z-10"
             style={{ background: 'linear-gradient(135deg, transparent 50%, var(--color-border, #94a3b8) 50%)' }}
             title="Drag to resize"
           />

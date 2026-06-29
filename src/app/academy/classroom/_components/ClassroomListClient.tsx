@@ -3,9 +3,9 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Copy, Check, Play, Square, ArrowRight, MonitorPlay } from 'lucide-react'
+import { Plus, Copy, Check, Play, Square, ArrowRight, MonitorPlay, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { startClassroomSession, endClassroomSession } from '@/actions/academy/classroomActions'
+import { startClassroomSession, endClassroomSession, deleteClassroomSession } from '@/actions/academy/classroomActions'
 import type { ClassroomSession } from '@/services/classroomService'
 import ClassroomRealtimeSync from '@/components/classroom/ClassroomRealtimeSync'
 
@@ -91,6 +91,19 @@ function CoachSessionRow({ session }: { session: ClassroomSession }) {
     })
   }
 
+  const handleDelete = () => {
+    if (!window.confirm(`Delete "${session.title}"? This permanently removes the session and its history.`)) return
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deleteClassroomSession(session.id)
+        router.refresh()
+      } catch (err: any) {
+        setError(err?.message ?? 'Failed to delete session')
+      }
+    })
+  }
+
   const date = new Date(session.created_at).toLocaleDateString('en-ZA', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
@@ -151,6 +164,18 @@ function CoachSessionRow({ session }: { session: ClassroomSession }) {
             </Button>
           </Link>
         )}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-14 w-14 p-0 text-muted-foreground hover:text-destructive"
+          onClick={handleDelete}
+          disabled={isPending}
+          title="Delete session"
+          aria-label="Delete session"
+        >
+          <Trash2 className="w-5.5 h-5.5" />
+        </Button>
       </div>
     </div>
   )

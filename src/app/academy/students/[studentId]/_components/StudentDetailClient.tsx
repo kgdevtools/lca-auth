@@ -27,6 +27,8 @@ interface StudentDetailClientProps {
   coaches: { id: string; full_name: string | null }[]
   gamification: GamificationSummary | null
   tier: string | null
+  academyRating: number | null
+  ratingForm: number | null
 }
 
 const LEVEL_PIECES: Record<number, string> = { 1: '♙', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' }
@@ -165,6 +167,8 @@ export default function StudentDetailClient({
   feedback,
   gamification,
   tier: initialTier,
+  academyRating,
+  ratingForm,
 }: StudentDetailClientProps) {
   const completedCount  = lessons.filter(l => l.status === 'completed').length
   const inProgressCount = lessons.filter(l => l.status === 'in_progress').length
@@ -232,6 +236,17 @@ export default function StudentDetailClient({
             <span className="text-xs font-semibold text-foreground tracking-tight">{gamification.levelName}</span>
             <span className="text-[10px] text-muted-foreground ml-0.5">Lv.{gamification.level}</span>
           </div>
+          {academyRating != null && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-border">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</span>
+              <span className="text-xs font-bold text-foreground tabular-nums">{academyRating}</span>
+              {ratingForm != null && ratingForm !== 0 && (
+                <span className={cn('text-[10px] font-semibold tabular-nums', ratingForm > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                  {ratingForm > 0 ? '▲' : '▼'}{Math.abs(ratingForm)}
+                </span>
+              )}
+            </div>
+          )}
           <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <span className="text-amber-500">🔥</span>
             <span className="font-semibold text-foreground">{gamification.currentStreak}</span>

@@ -328,6 +328,16 @@ export async function endSession(sessionId: string): Promise<void> {
   if (error) throw new Error(`Failed to end session: ${error.message}`)
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('classroom_sessions')
+    .delete()
+    .eq('id', sessionId)
+
+  if (error) throw new Error(`Failed to delete session: ${error.message}`)
+}
+
 // Last-writer-wins — called fire-and-forget after each broadcast.
 export async function updateSessionState(
   sessionId: string,

@@ -4,6 +4,7 @@ import { getCurrentUserWithProfile, checkCoachForStudent } from '@/utils/auth/ac
 import { getStudentLessonDetail, getStudentFeedback } from '@/repositories/lesson/studentRepository'
 import { getAllCoaches } from '@/actions/academy/coachActions'
 import { getStudentGamificationSummary } from '@/services/gamificationService'
+import { getAcademyRatingSummary } from '@/services/academyRatingService'
 import StudentDetailClient from './_components/StudentDetailClient'
 
 export const metadata = {
@@ -30,12 +31,13 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     .eq('id', studentId)
     .single()
 
-  const [lessons, feedback, coaches, gamification, academyProfile] = await Promise.all([
+  const [lessons, feedback, coaches, gamification, academyProfile, ratingSummary] = await Promise.all([
     getStudentLessonDetail(studentId),
     getStudentFeedback(studentId),
     profile.role === 'admin' ? getAllCoaches() : Promise.resolve([]),
     getStudentGamificationSummary(studentId),
     supabase.from('academy_profiles').select('tier').eq('student_id', studentId).maybeSingle(),
+    getAcademyRatingSummary(studentId),
   ])
 
   return (
@@ -48,6 +50,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       coaches={coaches}
       gamification={gamification}
       tier={academyProfile.data?.tier ?? null}
+      academyRating={ratingSummary?.rating ?? null}
+      ratingForm={ratingSummary?.aggregates.recentForm ?? null}
     />
   )
 }

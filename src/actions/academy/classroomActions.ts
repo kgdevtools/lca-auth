@@ -76,6 +76,19 @@ export async function endClassroomSession(sessionId: string): Promise<void> {
   revalidatePath('/academy/classroom')
 }
 
+// Delete a session entirely. Admins may delete any; coaches only their own.
+// Child rows (students, logs) cascade via ON DELETE CASCADE.
+export async function deleteClassroomSession(sessionId: string): Promise<void> {
+  const profile = await requireCoach()
+  const session = await classroomService.getSession(sessionId)
+  if (!session) throw new Error('Session not found')
+  if (profile.role !== 'admin' && session.coach_id !== profile.id) {
+    throw new Error('Unauthorised: you do not own this session')
+  }
+  await classroomService.deleteSession(sessionId)
+  revalidatePath('/academy/classroom')
+}
+
 // ── In-session state (called fire-and-forget from client) ─────────────────────
 
 // Persists FEN + PGN after each broadcast. Last-writer-wins.

@@ -3,6 +3,7 @@ import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import { getCoachStudentsWithProgress, getAllStudentsWithProgressAdmin, getStudentSelfProgress, getStudentLessonDetail, getStudentFeedback } from '@/repositories/lesson/studentRepository'
 import { getAllLessons, type LessonWithCategory } from '@/repositories/lesson/lessonRepository'
 import { getStudentGamificationSummary } from '@/services/gamificationService'
+import { getAcademyRatingSummary } from '@/services/academyRatingService'
 import { getClassroomSessionsReport } from '@/actions/academy/classroomActions'
 import type { ClassroomSessionReport } from '@/services/classroomService'
 import ReportsClient from './_components/ReportsClient'
@@ -27,15 +28,17 @@ export default async function ReportsPage() {
   if (!profile) redirect('/login')
 
   if (profile.role === 'student') {
-    const [selfProgress, gamification] = await Promise.all([
+    const [selfProgress, gamification, ratingSummary] = await Promise.all([
       getStudentSelfProgress(profile.id),
       getStudentGamificationSummary(profile.id),
+      getAcademyRatingSummary(profile.id),
     ])
     return (
       <ReportsClient
         role="student"
         selfProgress={selfProgress}
         gamification={gamification}
+        academyRating={ratingSummary?.rating ?? null}
       />
     )
   }

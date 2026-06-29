@@ -2,6 +2,8 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { ACHIEVEMENTS, LEVEL_NAMES, type AchievementStats, type LevelNumber } from '@/lib/constants/achievements'
+import { recordRatingEvent } from './academyRatingService'
+import { LESSON_DIFFICULTY_RATING } from '@/lib/academyRating'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -250,6 +252,16 @@ export async function onLessonCompleted(
     had_perfect_quiz: quizScore === 100,
   })
 
+  // Feed the academy rating — a completed lesson is a rated activity (Q2).
+  // R = difficulty-mapped; quiz score modulates the result. Idempotent per lesson/day.
+  try {
+    const lessonR = LESSON_DIFFICULTY_RATING[difficulty] ?? 1200
+    const actual  = quizScore == null ? 1 : quizScore >= 80 ? 1 : quizScore >= 50 ? 0.5 : 0
+    await recordRatingEvent(studentId, { source: 'lesson', sourceRef: lessonId, opponentR: lessonR, actual })
+  } catch (e) {
+    console.error('[gamification] rating event (lesson) failed:', e)
+  }
+
   const newLevel = latestResult?.new_level ?? 1
 
   return {
@@ -299,6 +311,22 @@ export async function triggerDailyActivity(studentId: string): Promise<void> {
     const stats = await fetchStats(studentId)
     await checkAndAwardAchievements(studentId, { ...stats, had_perfect_quiz: false })
   }
+}
+
+// ── Public: standalone daily-puzzle solve ──────────────────────────────────────
+// Points for a solved daily puzzle, scaled by puzzle rating (6–20). The rating
+// event + puzzles_solved counter are handled by record_rating_event (academy
+// rating service); this only grants the points ledger entry.
+
+export async function onDailyPuzzleSolved(
+  studentId:    string,
+  puzzleRating: number | null,
+): Promise<{ pointsEarned: number }> {
+  const pts = Math.max(6, Math.min(20, Math.round((puzzleRating ?? 1200) / 150)))
+  const r = await callGrantPoints(studentId, pts, 'daily_puzzle_solved', null, 'puzzle', {
+    puzzle_rating: puzzleRating,
+  })
+  return { pointsEarned: r ? pts : 0 }
 }
 
 // ── Public: coach manual award ─────────────────────────────────────────────────

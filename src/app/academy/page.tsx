@@ -2,6 +2,7 @@ import { getCurrentUserWithProfile } from "@/utils/auth/academyAuth";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import AcademyDashboardClient from "@/components/academy/AcademyDashboardClient";
+import { getAcademyRatingSummary } from "@/services/academyRatingService";
 
 export default async function AcademyDashboard() {
   const { user, profile } = await getCurrentUserWithProfile();
@@ -13,6 +14,13 @@ export default async function AcademyDashboard() {
   // ── Defaults ──────────────────────────────────────────────────────────────
   let gamification: {
     totalPoints: number; level: number; currentStreak: number; lessonsCompleted: number
+  } | null = null;
+
+  let academyRating: {
+    rating: number;
+    form: number | null;
+    trajectory: { word: string; tone: "up" | "down" | "neutral" } | null;
+    history: number[];
   } | null = null;
 
   let coachName: string | null = null;
@@ -97,6 +105,17 @@ export default async function AcademyDashboard() {
         level:            summary.level               ?? 1,
         currentStreak:    summary.current_streak_days  ?? 0,
         lessonsCompleted: summary.lessons_completed    ?? 0,
+      };
+    }
+
+    // Academy rating (live, moves with puzzles & lessons)
+    const ratingSummary = await getAcademyRatingSummary(profile.id);
+    if (ratingSummary) {
+      academyRating = {
+        rating:     ratingSummary.rating,
+        form:       ratingSummary.aggregates.recentForm,
+        trajectory: ratingSummary.trajectory,
+        history:    ratingSummary.history,
       };
     }
 
@@ -213,6 +232,7 @@ export default async function AcademyDashboard() {
       profile={profile}
       userEmail={user.email ?? ""}
       gamification={gamification}
+      academyRating={academyRating}
       coachName={coachName}
       coachAssigned={coachAssigned}
       lessonSummary={lessonSummary}
