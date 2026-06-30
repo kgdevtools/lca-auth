@@ -15,6 +15,18 @@
   --rk-expand: color-mix(in srgb, var(--muted-foreground) 6%, transparent);
   --rk-zebra: color-mix(in srgb, var(--muted-foreground) 5%, transparent);
   --rk-head-bg: color-mix(in srgb, var(--muted-foreground) 11%, transparent);
+  /* Opaque twins of the row tints (mixed over the surface, not transparent) for
+     the frozen Rank/Player columns — a see-through fill would let the scrolled
+     cells bleed under the sticky columns. Must visually match the tints above. */
+  --rk-hover-solid: color-mix(in srgb, var(--muted-foreground) 10%, var(--card));
+  --rk-expand-solid: color-mix(in srgb, var(--muted-foreground) 6%, var(--card));
+  --rk-zebra-solid: color-mix(in srgb, var(--muted-foreground) 5%, var(--card));
+  --rk-head-bg-solid: color-mix(in srgb, var(--muted-foreground) 11%, var(--card));
+  /* Qualification status painted onto the frozen Rank cell (selection view): a
+     solid green/red chip that stays put as the row scrolls. Opaque (over --card)
+     because the Rank column is sticky and must mask the cells scrolling under it. */
+  --rk-pass-rank: color-mix(in srgb, var(--rk-pos) 30%, var(--card));
+  --rk-fail-rank: color-mix(in srgb, var(--rk-neg) 28%, var(--card));
   --rk-accent: var(--primary);
   --rk-accent-soft: color-mix(in srgb, var(--primary) 13%, transparent);
   --rk-pos: var(--chart-2);
@@ -22,8 +34,12 @@
 
   --rk-mono: var(--font-geist-mono), ui-monospace, monospace;
   --row-pad-y: 4px;
-  --cell-pad-x: 12px;
-  --rank-w: 44px;
+  --cell-pad-x: 10px;
+  /* Rank column trimmed to just what the digits need, freeing width for the
+     scrollable count/comment columns. The frozen Player column sticks at this
+     offset (see .cName), so it tracks any change here automatically. */
+  --rank-w: 34px;
+  --name-w: 168px;
 
   max-width: 1240px;
   margin: 0 auto;
@@ -245,15 +261,30 @@
 .table th.cRank, .table td.cRank {
   width: var(--rank-w);
   min-width: var(--rank-w);
-  padding-left: 6px;
-  padding-right: 6px;
+  padding-left: 4px;
+  padding-right: 4px;
   text-align: center;
 }
 .cName { left: var(--rank-w); }
-.table thead .cRank, .table thead .cName { z-index: 3; background: var(--rk-head-bg); }
-.row[data-even="true"] .cRank, .row[data-even="true"] .cName { background: var(--rk-zebra); }
-.row:hover .cRank, .row:hover .cName { background: var(--rk-hover); }
-.row[data-open="true"] .cRank, .row[data-open="true"] .cName { background: var(--rk-expand); }
+/* Fixed Player width: names stay on one line (ellipsis on the rare long one —
+   the full name is in the expanded card), so the column never balloons into the
+   unreadable stacked-letters wrap. --name-w shrinks a touch on tiny screens. */
+.table th.cName, .table td.cName {
+  width: var(--name-w);
+  min-width: var(--name-w);
+  max-width: var(--name-w);
+}
+.table thead .cRank, .table thead .cName { z-index: 3; background: var(--rk-head-bg-solid); }
+/* Group-band left spacer spans the frozen Rank+Player columns — pin it too so the
+   scrolled "Performance" label can't slide under the frozen corner. */
+.table thead .grp th.spacer.gl { position: sticky; left: 0; z-index: 3; background: var(--rk-head-bg-solid); }
+.row[data-even="true"] .cRank, .row[data-even="true"] .cName { background: var(--rk-zebra-solid); }
+.row:hover .cRank, .row:hover .cName { background: var(--rk-hover-solid); }
+.row[data-open="true"] .cRank, .row[data-open="true"] .cName { background: var(--rk-expand-solid); }
+/* Status chip on the Rank cell — last, so the green/red holds through zebra,
+   hover and expanded states (the row's qualification doesn't change on hover). */
+.row[data-meets="true"] .cRank { background: var(--rk-pass-rank); }
+.row[data-meets="false"] .cRank { background: var(--rk-fail-rank); }
 
 /* rank cell */
 .rankN {
@@ -273,17 +304,19 @@
 .caret { color: var(--rk-faint); flex-shrink: 0; transition: transform .18s ease, color .12s; }
 .row:hover .caret { color: var(--rk-accent); }
 .row[data-open="true"] .caret { transform: rotate(90deg); color: var(--rk-accent); }
-.nameMain { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nameMain { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .nameLine { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .pname {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--rk-text);
-  /* wrap long names onto new lines (no crop): tightest tracking + tight leading */
   letter-spacing: -0.02em;
   line-height: 1.2;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  /* one line within the fixed Player width; only the rare over-long name clips */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .titleBadge {
   font-family: var(--rk-mono);
@@ -440,14 +473,21 @@
 }
 .selCounts strong { color: var(--rk-text); font-weight: 600; }
 
-/* Responsive column reveal:
-   .hideMobile → hidden ≤640px;  .hideTablet → hidden ≤1024px (tablet + mobile).
-   Counts/verdict that drop out at these widths live in the expanded card. */
-@media (max-width: 1024px) {
-  .hideTablet { display: none !important; }
-}
+/* Responsive column reveal: .hideMobile → hidden ≤640px (Age/Rating/Meets). The
+   counts and comment stay in the horizontally-scrollable table at every width. */
 @media (max-width: 640px) {
   .hideMobile { display: none !important; }
+}
+/* .onlyMobile spans the lone Comments column below 640px (the Meets column, and
+   thus the 2-wide Selection group header, only appear from tablet up). */
+.onlyMobile { display: none !important; }
+@media (max-width: 640px) {
+  .onlyMobile { display: table-cell !important; }
+}
+/* Narrow phones (≤360px): trim the frozen Player column so a usable slice of the
+   scrollable columns still shows beside it. */
+@media (max-width: 360px) {
+  .page { --name-w: 138px; }
 }
 
 /* hidden on small screens (everything past Player + Performance) */
@@ -649,10 +689,10 @@
   .search { height: 38px; }
 }
 @media (min-width: 768px) {
-  .page { padding: 28px 18px 80px; }
+  .page { padding: 28px 18px 80px; --name-w: 210px; }
 }
 @media (min-width: 1024px) {
-  .page { padding: 32px 24px 96px; }
+  .page { padding: 32px 24px 96px; --name-w: 248px; }
 }
 @media (max-width: 767px) {
   .expandPad { grid-template-columns: 1fr; gap: 14px; padding: 10px 12px 18px; }

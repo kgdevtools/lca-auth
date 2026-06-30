@@ -204,6 +204,7 @@ function PlayerRow({
         data-even={rank % 2 === 0}
         data-open={open}
         data-medal={rank <= 3 ? rank : undefined}
+        data-meets={verdict ? verdict.meets : undefined}
         onClick={onToggle}
       >
         <td className={styles.cRank}>
@@ -240,16 +241,16 @@ function PlayerRow({
         <td className={cx(styles.numCell, styles.dim)}>{p.bestPerf}</td>
         {selectionMode ? (
           <>
-            <td className={cx(styles.numCell, styles.hideTablet)}>{p.juniorTournaments + p.openTournaments}</td>
-            <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.juniorTournaments}</td>
-            <td className={cx(styles.numCell, styles.dim, styles.hideTablet)}>{p.openTournaments}</td>
+            <td className={styles.numCell}>{p.juniorTournaments + p.openTournaments}</td>
+            <td className={cx(styles.numCell, styles.dim)}>{p.juniorTournaments}</td>
+            <td className={cx(styles.numCell, styles.dim)}>{p.openTournaments}</td>
             <td
               className={cx(styles.critCell, styles.hideMobile)}
               data-meets={verdict ? verdict.meets : undefined}
             >
               {verdict ? <CritIcon meets={verdict.meets} /> : <span className={styles.naDash}>—</span>}
             </td>
-            <td className={cx(styles.commentCell, styles.hideMobile)}>
+            <td className={styles.commentCell}>
               {verdict ? (
                 <span className={styles.commentText} data-meets={verdict.meets} title={verdict.comment}>{verdict.comment}</span>
               ) : (
@@ -259,8 +260,8 @@ function PlayerRow({
           </>
         ) : (
           <>
-            <td className={cx(styles.numCell, styles.hideMobile)}>{p.juniorTournaments}</td>
-            <td className={cx(styles.numCell, styles.dim, styles.hideMobile)}>{p.openTournaments}</td>
+            <td className={styles.numCell}>{p.juniorTournaments}</td>
+            <td className={cx(styles.numCell, styles.dim)}>{p.openTournaments}</td>
           </>
         )}
       </tr>
@@ -550,12 +551,15 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                   <th colSpan={2}>Performance</th>
                   {selectionMode ? (
                     <>
-                      <th className={styles.hideTablet} colSpan={3}>No. Tournaments</th>
+                      <th colSpan={3}>No. Tournaments</th>
+                      {/* On mobile only Comments survives; the Meets column rejoins
+                          the Selection group from tablet up. */}
+                      <th className={cx(styles.selGroupHead, styles.onlyMobile)} colSpan={1}>Selection</th>
                       <th className={cx(styles.selGroupHead, styles.hideMobile)} colSpan={2}>Selection</th>
                     </>
                   ) : (
                     <>
-                      <th className={styles.hideMobile} colSpan={2}>No. Tournaments</th>
+                      <th colSpan={2}>No. Tournaments</th>
                     </>
                   )}
                 </tr>
@@ -569,16 +573,16 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                   <SortTh field="bestPerf" label="Best" sort={sort} onSort={onSort} />
                   {selectionMode ? (
                     <>
-                      <th className={styles.hideTablet}>Total</th>
-                      <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} className={styles.hideTablet} />
-                      <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} className={styles.hideTablet} />
+                      <th>Total</th>
+                      <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} />
+                      <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} />
                       <th className={cx(styles.critHead, styles.hideMobile)}>Meets Requirements</th>
-                      <th className={cx(styles.gl, styles.commentHead, styles.hideMobile)}>Comments/Remarks</th>
+                      <th className={cx(styles.gl, styles.commentHead)}>Comments/Remarks</th>
                     </>
                   ) : (
                     <>
-                      <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} className={styles.hideMobile} />
-                      <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} className={styles.hideMobile} />
+                      <SortTh field="juniorTournaments" label="Junior" sort={sort} onSort={onSort} />
+                      <SortTh field="openTournaments" label="Open" sort={sort} onSort={onSort} />
                     </>
                   )}
                 </tr>
