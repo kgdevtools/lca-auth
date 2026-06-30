@@ -426,7 +426,7 @@ export default function TournamentRegistrationForm() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-5">
             <a
-              href="/posters/IMG-20250921-WA0001.jpg"
+              href="/posters/limpopo-open-2026.png"
               target="_blank"
               rel="noopener noreferrer"
               className="group block"
@@ -434,7 +434,7 @@ export default function TournamentRegistrationForm() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/posters/IMG-20250921-WA0001.jpg"
+                src="/posters/limpopo-open-2026.png"
                 alt="Limpopo Open tournament poster"
                 className="w-full max-w-[280px] sm:max-w-xs rounded-lg border border-border shadow-md transition-transform group-hover:scale-[1.02]"
               />
