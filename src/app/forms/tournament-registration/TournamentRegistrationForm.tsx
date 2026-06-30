@@ -424,14 +424,21 @@ export default function TournamentRegistrationForm() {
         onSubmit={handleSubmit}
       >
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Link
+          <div className="flex justify-center mb-5">
+            <a
               href="/posters/IMG-20250921-WA0001.jpg"
               target="_blank"
-              className="text-primary underline font-bold text-lg sm:text-xl md:text-2xl"
+              rel="noopener noreferrer"
+              className="group block"
+              aria-label="Open the Limpopo Open tournament poster"
             >
-              Tournament Poster
-            </Link>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/posters/IMG-20250921-WA0001.jpg"
+                alt="Limpopo Open tournament poster"
+                className="w-full max-w-[280px] sm:max-w-xs rounded-lg border border-border shadow-md transition-transform group-hover:scale-[1.02]"
+              />
+            </a>
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Limpopo Open 2025</h1>
           <p className="text-muted-foreground text-lg">Tournament Registration Form</p>

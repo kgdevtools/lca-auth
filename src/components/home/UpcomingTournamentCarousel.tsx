@@ -122,13 +122,13 @@ export function UpcomingTournamentCarousel({ items }: { items: UpcomingTournamen
       )}
 
       {n > 1 && (
-        <div className="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+        <div className="absolute bottom-2.5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
           {items.map((_, idx) => (
             <button
               key={idx}
               aria-label={`Show tournament ${idx + 1}`}
               onClick={() => setI(idx)}
-              className={`h-1.5 rounded-full transition-all ${idx === i ? "w-5 bg-primary" : "w-1.5 bg-foreground/30 hover:bg-foreground/50"}`}
+              className={`h-2.5 rounded-full transition-all ${idx === i ? "w-7 bg-primary" : "w-2.5 bg-foreground/50 hover:bg-foreground/70"}`}
             />
           ))}
         </div>

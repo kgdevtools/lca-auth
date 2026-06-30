@@ -42,28 +42,34 @@ function SourceIcon({ item, className }: { item: NewsItem; className?: string })
   );
 }
 
+/** Source logo as an <img>, with a graceful fallback to the generic logo.
+ *  Transparent (no box/border) so it blends into whatever sits behind it. */
+function LogoImg({ item, className }: { item: NewsItem; className?: string }) {
+  const [src, setSrc] = useState(`/news-logos/${item.iconFile}`);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      loading="lazy"
+      onError={() => setSrc(`/news-logos/${FALLBACK_ICON}`)}
+      className={className}
+    />
+  );
+}
+
 /** Article thumbnail. Real feed image fills the box (object-cover). With no
  *  image we fall back to the source's logo, contained + transparent (no box, no
  *  border) so the logo's surrounding space blends into the card/page behind it. */
 function Thumb({ item }: { item: NewsItem }) {
-  const [logoSrc, setLogoSrc] = useState(`/news-logos/${item.iconFile}`);
   if (item.thumbnailUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={item.thumbnailUrl} alt="" aria-hidden loading="lazy" className="h-full w-full object-cover" />
     );
   }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={logoSrc}
-      alt=""
-      aria-hidden
-      loading="lazy"
-      onError={() => setLogoSrc(`/news-logos/${FALLBACK_ICON}`)}
-      className="h-full w-full object-contain p-2 md:p-5"
-    />
-  );
+  return <LogoImg item={item} className="h-full w-full object-contain p-2 md:p-5" />;
 }
 
 function RegionTag({ region }: { region: Region }) {
@@ -122,7 +128,14 @@ function Lead({ items }: { items: NewsItem[] }) {
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/85 to-background/20" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-muted/40 to-card" />
+            <>
+              <div className="absolute inset-0 bg-gradient-to-br from-muted/40 to-card" />
+              <LogoImg
+                item={item}
+                className="pointer-events-none absolute left-1/2 top-[36%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 object-contain opacity-70 sm:h-28 sm:w-28"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+            </>
           )}
           <div className="relative space-y-2">
             <div className="flex items-center gap-2">
@@ -142,13 +155,13 @@ function Lead({ items }: { items: NewsItem[] }) {
       ))}
 
       {n > 1 && (
-        <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+        <div className="absolute right-3 top-3 z-10 flex gap-2">
           {items.map((_, idx) => (
             <button
               key={idx}
               aria-label={`Show featured story ${idx + 1}`}
               onClick={() => setI(idx)}
-              className={`h-1.5 rounded-full transition-all ${idx === i ? "w-5 bg-primary" : "w-1.5 bg-foreground/30 hover:bg-foreground/50"}`}
+              className={`h-2.5 rounded-full transition-all ${idx === i ? "w-7 bg-primary" : "w-2.5 bg-foreground/40 hover:bg-foreground/60"}`}
             />
           ))}
         </div>
