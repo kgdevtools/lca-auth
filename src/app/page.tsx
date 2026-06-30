@@ -4,7 +4,11 @@ import { ArrowRight } from "lucide-react";
 import { UpcomingTournamentCardServer } from "@/components/home/UpcomingTournamentCard";
 import { RankingsCardServer } from "@/components/home/RankingsCardServer";
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer";
+import { NewsCardServer } from "@/components/home/NewsCardServer";
 import { CountUp } from "@/components/home/CountUp";
+import HeroGallery from "@/components/home/HeroGallery";
+import ChessPiecesBackdrop from "@/components/home/ChessPiecesBackdrop";
+import { HERO_IMAGES } from "@/components/home/heroImages";
 import { getRankingStats, getSummaries } from "@/lib/rankingsServer";
 import { getGamesStats } from "@/lib/chess-games/publicData";
 import { SEASON, SEASON_LABEL, isLocal, meetsCriteria } from "@/components/home/homeRankings";
@@ -101,8 +105,18 @@ async function GamesStatStrip() {
 
 export default function Home() {
   return (
-    <section className="min-h-dvh px-4 sm:px-6 lg:px-8 py-5 sm:py-7 mx-auto max-w-7xl text-foreground">
-      {/* Hero — copy + actions | live board */}
+    <>
+      {/* Faint scattered chess-piece brand backdrop (behind everything; content
+          below sits at z-10). Mirrors the academy / poster brand style. */}
+      <ChessPiecesBackdrop />
+
+      {/* Full-bleed fading photo banner. Sits below the fixed nav (main has
+          pt-20) and spans the full viewport width since it's outside the
+          centered section below. */}
+      <HeroGallery images={HERO_IMAGES} />
+
+      <section className="relative z-10 min-h-dvh px-4 sm:px-6 lg:px-8 py-5 sm:py-7 mx-auto max-w-7xl text-foreground">
+        {/* Hero — copy + actions | live board */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start mb-10 sm:mb-12">
         <div className="space-y-6 lg:pt-2">
           <div className="space-y-4">
@@ -124,26 +138,27 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex items-stretch gap-1.5 sm:gap-2.5">
             <Link
               href="/player-rankings"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-2 rounded text-center text-[11px] sm:text-sm font-semibold leading-tight bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               View rankings
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5 shrink-0 hidden sm:inline" />
             </Link>
             <Link
               href="/events"
-              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold border border-border hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
+              className="flex-1 inline-flex items-center justify-center px-2 py-2 rounded text-center text-[11px] sm:text-sm font-semibold leading-tight border border-border hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
             >
               Upcoming tournaments
             </Link>
-            <Link
-              href="/academy"
-              className="inline-flex items-center px-4 py-2 rounded text-sm font-semibold border border-border hover:border-muted-foreground/60 hover:bg-muted/30 transition-colors"
+            <span
+              aria-disabled="true"
+              title="Coming soon"
+              className="flex-1 inline-flex items-center justify-center px-2 py-2 rounded text-center text-[11px] sm:text-sm font-semibold leading-tight border border-border text-muted-foreground/50 cursor-not-allowed select-none"
             >
               Learn at the academy
-            </Link>
+            </span>
           </div>
 
           <StatStrip />
@@ -159,6 +174,12 @@ export default function Home() {
         <UpcomingTournamentCardServer />
         <RankingsCardServer />
       </div>
-    </section>
+
+      {/* Chess news aggregator — headlines from across the chess world */}
+      <div className="mt-10 sm:mt-12">
+        <NewsCardServer />
+      </div>
+      </section>
+    </>
   );
 }

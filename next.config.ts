@@ -53,7 +53,6 @@ const nextConfig: NextConfig = {
         hostname: "*.supabase.in",
       },
     ],
-    unoptimized: true,
   },
 
   turbopack: {

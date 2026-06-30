@@ -426,7 +426,7 @@ export default function TournamentRegistrationForm() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <Link
-              href="/IMG-20250921-WA0001.jpg"
+              href="/posters/IMG-20250921-WA0001.jpg"
               target="_blank"
               className="text-primary underline font-bold text-lg sm:text-xl md:text-2xl"
             >
