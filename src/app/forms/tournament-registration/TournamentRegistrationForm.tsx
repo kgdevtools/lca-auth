@@ -1,7 +1,7 @@
 "use client"
 import type React from "react"
 import { useState } from "react"
-import { registerLcaOpen2025, getAllPlayers } from "./server-actions"
+import { registerLcaOpen2026, getAllPlayers } from "./server-actions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -161,7 +161,7 @@ export default function TournamentRegistrationForm() {
     }
     setSubmitting(true)
     try {
-      const result: RegistrationResult = await registerLcaOpen2025({
+      const result: RegistrationResult = await registerLcaOpen2026({
         surname: form.surname,
         names: form.names,
         phone: form.phone,
@@ -237,7 +237,7 @@ export default function TournamentRegistrationForm() {
           </div>
           <h2 className="text-3xl font-bold mb-3 text-emerald-700 dark:text-emerald-300">Registration Successful!</h2>
           <p className="text-emerald-600 dark:text-emerald-400 text-lg max-w-2xl mx-auto">
-            Welcome to the Limpopo Chess Academy Open 2025. Your registration has been confirmed and you're all set to
+            Welcome to the Limpopo Chess Academy Open 2026. Your registration has been confirmed and you're all set to
             compete!
           </p>
         </div>
@@ -440,7 +440,7 @@ export default function TournamentRegistrationForm() {
               />
             </a>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Limpopo Open 2025</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Limpopo Open 2026</h1>
           <p className="text-muted-foreground text-lg">Tournament Registration Form</p>
         </div>
 

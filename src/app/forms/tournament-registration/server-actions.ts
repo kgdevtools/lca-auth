@@ -28,7 +28,7 @@ interface PlayerRegistration {
 export async function getAllPlayers(): Promise<PlayerRegistration[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("lca_open_2025_registrations")
+    .from("lca_open_2026_registrations")
     .select("*")
     .order("section", { ascending: true })
     .order("rating", { ascending: false, nullsFirst: false });
@@ -44,7 +44,7 @@ export async function getAllPlayers(): Promise<PlayerRegistration[]> {
 export async function getSectionPlayers(section: string): Promise<PlayerRegistration[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("lca_open_2025_registrations")
+    .from("lca_open_2026_registrations")
     .select("*")
     .eq("section", section)
     .order("rating", { ascending: false, nullsFirst: false });
@@ -57,7 +57,7 @@ export async function getSectionPlayers(section: string): Promise<PlayerRegistra
   return data || [];
 }
 
-export async function registerLcaOpen2025(form: {
+export async function registerLcaOpen2026(form: {
   surname: string;
   names: string;
   phone: string;
@@ -76,25 +76,25 @@ export async function registerLcaOpen2025(form: {
   const supabase = await createClient();
   // Check for duplicate (surname + names)
   const { data: existing, error: dupError } = await supabase
-    .from("lca_open_2025_registrations")
+    .from("lca_open_2026_registrations")
     .select("id")
     .eq("surname", form.surname.trim())
     .eq("names", form.names.trim())
     .maybeSingle();
     
   if (dupError) {
-    console.error("[registerLcaOpen2025] Duplicate check error:", dupError);
+    console.error("[registerLcaOpen2026] Duplicate check error:", dupError);
     return { error: "Error checking for duplicates." };
   }
   
   if (existing) {
-    console.error("[registerLcaOpen2025] Duplicate found for:", form.surname, form.names);
+    console.error("[registerLcaOpen2026] Duplicate found for:", form.surname, form.names);
     return { error: "A registration with this Surname and Name(s) already exists." };
   }
 
   try {
     const { error, data } = await supabase
-      .from("lca_open_2025_registrations")
+      .from("lca_open_2026_registrations")
       .insert([
         {
           surname: form.surname.trim(),
@@ -116,12 +116,12 @@ export async function registerLcaOpen2025(form: {
       .select();
 
     if (error) {
-      console.error("[registerLcaOpen2025] Insert error:", error);
+      console.error("[registerLcaOpen2026] Insert error:", error);
       return { error: error.message };
     }
     
     if (!data || !data[0]) {
-      console.error("[registerLcaOpen2025] Insert returned no data:", data);
+      console.error("[registerLcaOpen2026] Insert returned no data:", data);
       return { error: "Registration failed: no data returned." };
     }
 
@@ -129,7 +129,7 @@ export async function registerLcaOpen2025(form: {
     return { success: true, player: data[0] as PlayerRegistration };
     
   } catch (error) {
-    console.error("[registerLcaOpen2025] Unexpected error:", error);
+    console.error("[registerLcaOpen2026] Unexpected error:", error);
     return { error: "An unexpected error occurred. Please try again." };
   }
 }
