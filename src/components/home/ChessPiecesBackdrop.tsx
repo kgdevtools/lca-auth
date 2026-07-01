@@ -5,10 +5,6 @@
 
 const PIECES = ["♞", "♛", "♟", "♚", "♝", "♜"];
 
-// A bit of brand colour so the pieces read (esp. in light mode). Tokens adapt
-// per light/dark in globals.css.
-const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-5)", "var(--primary)"];
-
 // Hand-tuned scatter: varied sizes, positions and rotation across the viewport.
 const SCATTER: { top: string; left: string; size: number; rot: number }[] = [
   { top: "4%", left: "6%", size: 84, rot: -12 },
@@ -40,13 +36,12 @@ export default function ChessPiecesBackdrop() {
       {SCATTER.map((p, i) => (
         <span
           key={i}
-          className="absolute leading-none opacity-[0.16] dark:opacity-[0.12]"
+          className="absolute leading-none text-zinc-300 dark:text-zinc-700 opacity-[0.21] dark:opacity-[0.15]"
           style={{
             top: p.top,
             left: p.left,
             fontSize: p.size,
             transform: `rotate(${p.rot}deg)`,
-            color: COLORS[i % COLORS.length],
           }}
         >
           {PIECES[i % PIECES.length]}
