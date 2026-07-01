@@ -6,9 +6,7 @@ import { RankingsCardServer } from "@/components/home/RankingsCardServer";
 import { TournamentGamesCardServer } from "@/components/home/TournamentGamesCardServer";
 import { NewsCardServer } from "@/components/home/NewsCardServer";
 import { CountUp } from "@/components/home/CountUp";
-import HeroGallery from "@/components/home/HeroGallery";
 import ChessPiecesBackdrop from "@/components/home/ChessPiecesBackdrop";
-import { HERO_IMAGES } from "@/components/home/heroImages";
 import { getRankingStats, getSummaries } from "@/lib/rankingsServer";
 import { getGamesStats } from "@/lib/chess-games/publicData";
 import { SEASON, SEASON_LABEL, isLocal, meetsCriteria } from "@/components/home/homeRankings";
@@ -109,11 +107,6 @@ export default function Home() {
       {/* Faint scattered chess-piece brand backdrop (behind everything; content
           below sits at z-10). Mirrors the academy / poster brand style. */}
       <ChessPiecesBackdrop />
-
-      {/* Full-bleed fading photo banner. Sits below the fixed nav (main has
-          pt-20) and spans the full viewport width since it's outside the
-          centered section below. */}
-      <HeroGallery images={HERO_IMAGES} />
 
       <section className="relative z-10 min-h-dvh px-4 sm:px-6 lg:px-8 py-5 sm:py-7 mx-auto max-w-7xl text-foreground">
         {/* Hero — copy + actions | live board */}
