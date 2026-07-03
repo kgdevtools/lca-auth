@@ -23,7 +23,7 @@ export const TOURNAMENTS: Record<string, RegTournament> = {
   'lca-winter-rapid-0407': {
     slug: 'lca-winter-rapid-0407',
     name: 'LCA Winter Rapid 2026',
-    dateLabel: 'Saturday 4 July 2026',
+    dateLabel: 'Postponed — new date TBC (August/September 2026)',
     posterDark: '/posters/lca-winter-rapid-0407-dark.png',
     posterLight: '/posters/lca-winter-rapid-0407-light.png',
     sections: [
@@ -31,7 +31,7 @@ export const TOURNAMENTS: Record<string, RegTournament> = {
       { code: 'B', label: 'Section B', detail: 'Under 1500 & juniors', fee: 150 },
       { code: 'C', label: 'Section C', detail: 'Beginners & U14', fee: 100 },
     ],
-    regDeadline: 'Thursday 2 July, 23:55',
+    regDeadline: 'TBC — existing registrations carry over to the new date',
   },
   'lca-weekend-rapidblitz-2706': {
     slug: 'lca-weekend-rapidblitz-2706',
