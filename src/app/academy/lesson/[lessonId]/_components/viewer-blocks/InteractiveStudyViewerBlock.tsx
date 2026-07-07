@@ -20,6 +20,7 @@ import {
 import { parsePgn, type ParsedPgnMove } from '@/lib/pgnParser'
 import { cn } from '@/lib/utils'
 import { trackInteractiveSolvePoint } from '@/services/progressService'
+import { blockStorageKey, readWithTtl } from '../lessonProgressStorage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,17 @@ interface InteractiveStudyViewerBlockProps {
   }
   onSolved: () => void
   lessonId?: string
+  /** Stable block id — enables intra-block progress persistence across refreshes. */
+  blockKey?: string
   onBlockComplete?: (pts: number, label: string) => void
+}
+
+interface SavedBlockProgress {
+  savedAt: number
+  chapterIndex: number
+  moveIndex: number
+  solved: Array<[string, 'main' | 'alternative']>
+  points: number
 }
 
 interface ParsedMove extends Move {
@@ -211,6 +222,7 @@ export default function InteractiveStudyViewerBlock({
   data,
   onSolved,
   lessonId,
+  blockKey,
   onBlockComplete,
 }: InteractiveStudyViewerBlockProps) {
   const chapters = data.chapters || []
@@ -245,6 +257,51 @@ export default function InteractiveStudyViewerBlock({
   const activeMoveRef = useRef<HTMLButtonElement>(null)
 
   const currentChapter = chapters[currentChapterIndex]
+
+  // ── Intra-block progress persistence (survives refresh, 1-hour TTL) ──────
+  const storageKey = lessonId && blockKey ? blockStorageKey(lessonId, blockKey) : null
+  const restoredRef = useRef(false)
+  // Move index to re-apply once the target chapter's PGN has been parsed.
+  const pendingRestoreRef = useRef<{ chapter: number; move: number } | null>(null)
+
+  // Runs before the parse effect below (declaration order) so the pending
+  // restore target is visible on the very first parse.
+  useEffect(() => {
+    if (!storageKey || restoredRef.current) return
+    restoredRef.current = true
+    const saved = readWithTtl<SavedBlockProgress>(storageKey)
+    if (!saved) return
+    if (Array.isArray(saved.solved)) setSolvedMap(new Map(saved.solved))
+    if (typeof saved.points === 'number' && saved.points > 0) setPoints(saved.points)
+    if (
+      typeof saved.chapterIndex === 'number' &&
+      saved.chapterIndex >= 0 &&
+      saved.chapterIndex < chapters.length
+    ) {
+      pendingRestoreRef.current = {
+        chapter: saved.chapterIndex,
+        move: typeof saved.moveIndex === 'number' ? saved.moveIndex : -1,
+      }
+      setCurrentChapterIndex(saved.chapterIndex)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!storageKey || !restoredRef.current) return
+    // Nothing worth saving yet — also avoids clobbering saved state on mount.
+    if (solvedMap.size === 0 && points === 0 && currentChapterIndex === 0 && currentMoveIndex <= -1) return
+    try {
+      const payload: SavedBlockProgress = {
+        savedAt: Date.now(),
+        chapterIndex: currentChapterIndex,
+        moveIndex: currentMoveIndex,
+        solved: Array.from(solvedMap.entries()),
+        points,
+      }
+      localStorage.setItem(storageKey, JSON.stringify(payload))
+    } catch {}
+  }, [storageKey, currentChapterIndex, currentMoveIndex, solvedMap, points])
 
   // ── Parse PGN when chapter changes ───────────────────────────────────────
   useEffect(() => {
@@ -282,7 +339,14 @@ export default function InteractiveStudyViewerBlock({
     setParsedMoves(moves)
     setFenHistory(buildFenHistory(moves))
     setHeaders(parsed.headers)
-    setCurrentMoveIndex(-1)
+    // Restored refresh target for this chapter wins over the default reset.
+    const pending = pendingRestoreRef.current
+    if (pending && pending.chapter === currentChapterIndex) {
+      pendingRestoreRef.current = null
+      setCurrentMoveIndex(Math.min(pending.move, moves.length - 1))
+    } else {
+      setCurrentMoveIndex(-1)
+    }
     setCustomHighlights({})
     clearSolveState()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -478,6 +542,7 @@ export default function InteractiveStudyViewerBlock({
     if (currentChapterIndex < chapters.length - 1) {
       handleChapterChange(currentChapterIndex + 1)
     } else {
+      if (storageKey) { try { localStorage.removeItem(storageKey) } catch {} }
       onSolved()
     }
   }
@@ -586,7 +651,12 @@ export default function InteractiveStudyViewerBlock({
         {/* Board */}
         <div className="lg:w-[45%] flex flex-col min-w-0">
           <div className="flex justify-center overflow-hidden">
-            <div className="w-full aspect-square max-w-full">
+            {/* Clamp to viewport height so board + controls always fit on mobile/tablet.
+                touch-action none only while solving so drag doesn't scroll the page. */}
+            <div
+              className="w-full aspect-square mx-auto"
+              style={{ maxWidth: 'min(100%, calc(100dvh - 14rem))', touchAction: isSolveMode ? 'none' : 'auto' }}
+            >
               <Chessboard
                 position={boardFen}
                 onSquareClick={handleSquareClick}

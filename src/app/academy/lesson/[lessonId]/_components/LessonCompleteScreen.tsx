@@ -147,6 +147,19 @@ export default function LessonCompleteScreen({
               </p>
             )}
           </div>
+
+          {/* Academy rating delta — only when this completion was a rated activity */}
+          {g?.rating && (
+            <div className="col-span-2 rounded-lg border border-border bg-card px-4 py-3 flex items-baseline justify-between">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Academy rating</p>
+              <p className="text-sm font-bold tracking-tight tabular-nums">
+                {g.rating.before} <span className="text-muted-foreground font-normal">→</span> {g.rating.after}{' '}
+                <span className={g.rating.after >= g.rating.before ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                  ({g.rating.after >= g.rating.before ? '+' : ''}{g.rating.after - g.rating.before})
+                </span>
+              </p>
+            </div>
+          )}
         </motion.div>
 
         {/* Breakdown */}

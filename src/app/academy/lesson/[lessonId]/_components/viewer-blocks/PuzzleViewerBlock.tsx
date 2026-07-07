@@ -32,6 +32,7 @@ interface PuzzleViewerBlockProps {
   studentLevel?: number
   studentLevelName?: string
   currentStreak?: number
+  academyRating?: number | null
 }
 
 const LEVEL_ICONS: Record<number, string> = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' }
@@ -60,7 +61,7 @@ function parseSolutionMove(raw: string, fen: string): { from: string; to: string
 
 const PUZZLE_PTS: Record<string, number> = { clean: 10, wrong_first: 7, hint: 5, hint_wrong: 4, gave_up: 0 }
 
-export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, lessonId, onBlockComplete, sessionPoints, puzzleStreak, studentLevel, studentLevelName, currentStreak }: PuzzleViewerBlockProps) {
+export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, lessonId, onBlockComplete, sessionPoints, puzzleStreak, studentLevel, studentLevelName, currentStreak, academyRating }: PuzzleViewerBlockProps) {
   const startFen = data.fen || ''
   const solution = data.solution || []
 
@@ -493,12 +494,15 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
       {/* Board column */}
       <div className="lg:w-[45%] flex flex-col min-w-0">
         <div className="flex justify-center overflow-hidden">
-          <div className="w-full aspect-square max-w-full">
+          {/* Clamp to viewport height so board + actions always fit on mobile/tablet */}
+          <div className="w-full aspect-square mx-auto" style={{ maxWidth: 'min(100%, calc(100dvh - 14rem))' }}>
             <div
               onMouseDown={handleBoardMouseDown}
               onMouseUp={handleBoardMouseUp}
               onContextMenu={(e) => e.preventDefault()}
               className="w-full h-full"
+              // While solving, stop touch-drag from scrolling the page (board jitter on mobile)
+              style={{ touchAction: showSolution || isSolved ? 'auto' : 'none' }}
             >
               <Chessboard
                 position={boardPosition}
@@ -647,6 +651,12 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {academyRating != null && (
+                <div className="flex flex-col items-end gap-px leading-none" title="Academy rating">
+                  <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">Rating</span>
+                  <span className="text-xs font-bold text-amber-400 tabular-nums">{academyRating}</span>
+                </div>
+              )}
               {(currentStreak ?? 0) > 0 && (
                 <div className="flex items-center gap-1" title={`${currentStreak}-day streak`}>
                   <span className="text-base leading-none">🔥</span>

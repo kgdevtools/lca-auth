@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getLessonById, isLessonAssignedToStudent } from '@/repositories/lesson/lessonRepository'
 import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import { getStudentGamificationSummary } from '@/services/gamificationService'
+import { getAcademyRatingSummary } from '@/services/academyRatingService'
 import LessonViewerShell from './_components/LessonViewerShell'
 
 interface PageProps {
@@ -39,9 +40,10 @@ export default async function LessonViewerPage({ params }: PageProps) {
     }
   }
 
-  const [blocks, gamificationSummary] = await Promise.all([
-    Promise.resolve((lesson.blocks || []) as Array<{ id: string; type: string; data: Record<string, unknown> }>),
+  const blocks = (lesson.blocks || []) as Array<{ id: string; type: string; data: Record<string, unknown> }>
+  const [gamificationSummary, ratingSummary] = await Promise.all([
     isCoachOrAdmin ? Promise.resolve(null) : getStudentGamificationSummary(profile.id).catch(() => null),
+    isCoachOrAdmin ? Promise.resolve(null) : getAcademyRatingSummary(profile.id).catch(() => null),
   ])
 
   return (
@@ -55,6 +57,7 @@ export default async function LessonViewerPage({ params }: PageProps) {
         blocks,
       }}
       gamificationSummary={gamificationSummary}
+      academyRating={ratingSummary?.rating ?? null}
     />
   )
 }

@@ -15,6 +15,8 @@ export interface GamificationResult {
   levelName:         string
   levelUp:           boolean
   newAchievements:   { key: string; name: string; icon: string }[]
+  /** Academy rating change from this lesson (null when not applied, e.g. already rated today) */
+  rating:            { before: number; after: number } | null
 }
 
 export interface StudentGamificationSummary {
@@ -254,10 +256,12 @@ export async function onLessonCompleted(
 
   // Feed the academy rating — a completed lesson is a rated activity (Q2).
   // R = difficulty-mapped; quiz score modulates the result. Idempotent per lesson/day.
+  let rating: GamificationResult['rating'] = null
   try {
     const lessonR = LESSON_DIFFICULTY_RATING[difficulty] ?? 1200
     const actual  = quizScore == null ? 1 : quizScore >= 80 ? 1 : quizScore >= 50 ? 0.5 : 0
-    await recordRatingEvent(studentId, { source: 'lesson', sourceRef: lessonId, opponentR: lessonR, actual })
+    const r = await recordRatingEvent(studentId, { source: 'lesson', sourceRef: lessonId, opponentR: lessonR, actual })
+    if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
   } catch (e) {
     console.error('[gamification] rating event (lesson) failed:', e)
   }
@@ -272,6 +276,7 @@ export async function onLessonCompleted(
     levelName:       LEVEL_NAMES[newLevel as LevelNumber] ?? 'Pawn',
     levelUp:         latestResult?.level_up ?? false,
     newAchievements,
+    rating,
   }
 }
 

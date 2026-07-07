@@ -16,6 +16,7 @@ import {
   markLessonComplete,
   updateTimeSpent,
 } from '@/services/progressService'
+import { lessonStorageKey, readWithTtl, clearLessonStorage } from './lessonProgressStorage'
 import type { GamificationResult, StudentGamificationSummary } from '@/services/gamificationService'
 
 interface LessonBlock {
@@ -34,12 +35,22 @@ interface LessonViewerShellProps {
     blocks: LessonBlock[]
   }
   gamificationSummary: StudentGamificationSummary | null
+  academyRating: number | null
 }
 
 type ViewerState = {
   currentIndex: number
   completedIds: Set<number>
   isComplete: boolean
+}
+
+interface SavedShellProgress {
+  savedAt: number
+  currentIndex: number
+  completedIds: number[]
+  sessionPoints?: number
+  sessionBreakdown?: Array<{ label: string; pts: number }>
+  puzzleStreak?: number
 }
 
 type ViewerAction =
@@ -95,6 +106,7 @@ function ViewerBlockRenderer({
   studentLevel,
   studentLevelName,
   currentStreak,
+  academyRating,
 }: {
   block: LessonBlock
   onSolved: () => void
@@ -107,6 +119,7 @@ function ViewerBlockRenderer({
   studentLevel: number
   studentLevelName: string
   currentStreak: number
+  academyRating: number | null
 }) {
   const blockType = block.type as BlockType
 
@@ -124,6 +137,7 @@ function ViewerBlockRenderer({
         studentLevel={studentLevel}
         studentLevelName={studentLevelName}
         currentStreak={currentStreak}
+        academyRating={academyRating}
       />
     )
   }
@@ -133,7 +147,7 @@ function ViewerBlockRenderer({
   }
 
   if (blockType === 'interactive_study') {
-    return <InteractiveStudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} onBlockComplete={onBlockComplete} />
+    return <InteractiveStudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} blockKey={block.id} onBlockComplete={onBlockComplete} />
   }
 
   const definition = getBlockDefinition(blockType)
@@ -165,7 +179,7 @@ function ViewerBlockRenderer({
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function LessonViewerShell({ lesson, gamificationSummary }: LessonViewerShellProps) {
+export default function LessonViewerShell({ lesson, gamificationSummary, academyRating }: LessonViewerShellProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [gamification, setGamification] = useState<GamificationResult | null>(null)
@@ -208,19 +222,31 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
     blockStartTimeRef.current = Date.now()
   }, [state.currentIndex])
 
-  // ── Restore position from localStorage after hydration ────────────────────
+  // ── Restore position from localStorage after hydration (1-hour TTL) ───────
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`lca_lesson_${lesson.id}`)
-      if (!saved) return
-      const parsed = JSON.parse(saved)
+      const parsed = readWithTtl<SavedShellProgress>(lessonStorageKey(lesson.id))
+      if (!parsed) {
+        // Stale shell state also invalidates any per-block saved state.
+        clearLessonStorage(lesson.id)
+        return
+      }
       if (
         typeof parsed.currentIndex === 'number' &&
-        parsed.currentIndex > 0 &&
+        parsed.currentIndex >= 0 &&
         parsed.currentIndex < lesson.blocks.length &&
         Array.isArray(parsed.completedIds)
       ) {
         dispatch({ type: 'RESTORE', currentIndex: parsed.currentIndex, completedIds: new Set<number>(parsed.completedIds) })
+      }
+      if (typeof parsed.sessionPoints === 'number' && parsed.sessionPoints > 0) {
+        setSessionPoints(parsed.sessionPoints)
+      }
+      if (Array.isArray(parsed.sessionBreakdown)) {
+        setSessionBreakdown(parsed.sessionBreakdown)
+      }
+      if (typeof parsed.puzzleStreak === 'number') {
+        setPuzzleStreak(parsed.puzzleStreak)
       }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,12 +256,16 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
   useEffect(() => {
     if (state.isComplete) return
     try {
-      localStorage.setItem(`lca_lesson_${lesson.id}`, JSON.stringify({
+      localStorage.setItem(lessonStorageKey(lesson.id), JSON.stringify({
+        savedAt: Date.now(),
         currentIndex: state.currentIndex,
         completedIds: Array.from(state.completedIds),
+        sessionPoints,
+        sessionBreakdown,
+        puzzleStreak,
       }))
     } catch {}
-  }, [state.currentIndex, state.completedIds, state.isComplete, lesson.id])
+  }, [state.currentIndex, state.completedIds, state.isComplete, lesson.id, sessionPoints, sessionBreakdown, puzzleStreak])
 
   // ── Flush time spent when the user leaves (tab close / navigate away) ──────
   useEffect(() => {
@@ -278,7 +308,7 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
     if (isLastBlock) {
       // ── Lesson complete — dispatch immediately for instant feedback,
       // then resolve gamification data asynchronously.
-      try { localStorage.removeItem(`lca_lesson_${lesson.id}`) } catch {}
+      clearLessonStorage(lesson.id)
       dispatch({ type: 'LESSON_COMPLETE' })
       setGamificationPending(true)
       markLessonComplete(lesson.id)
@@ -330,12 +360,20 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
             <p className="text-gray-600 dark:text-gray-400">{lesson.description}</p>
           )}
         </div>
-        {sessionPoints > 0 && (
-          <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-sm text-sm font-black text-white shadow-lg select-none">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            +{sessionPoints} pts
-          </div>
-        )}
+        <div className="shrink-0 flex items-center gap-1.5 select-none">
+          {academyRating !== null && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-sm text-sm font-black text-white shadow-lg" title="Academy rating">
+              <span className="text-amber-400 text-xs leading-none">★</span>
+              {academyRating}
+            </div>
+          )}
+          {sessionPoints > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-sm text-sm font-black text-white shadow-lg">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              +{sessionPoints} pts
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="w-full">
@@ -361,6 +399,7 @@ export default function LessonViewerShell({ lesson, gamificationSummary }: Lesso
               studentLevel={gamificationSummary?.level ?? 1}
               studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
               currentStreak={gamificationSummary?.currentStreak ?? 0}
+              academyRating={academyRating}
             />
           </motion.div>
         </AnimatePresence>
