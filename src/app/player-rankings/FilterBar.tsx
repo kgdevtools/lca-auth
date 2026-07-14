@@ -44,31 +44,11 @@ export function isSeniorGroup(g: string): boolean {
   return g === "ADT" || g === "SNR" || g === "VET"
 }
 
-// Reference season — Juniors born >= 2006, UNN further requires born >=
-// REF_YEAR - NN. Used by the client-side category filter in RankingsView (the
-// period filter is applied server-side during aggregation).
-export const REF_YEAR = 2026
-export const JUNIOR_MIN_BIRTH = 2006
-
-/**
- * Age-group label for a birth year. Juniors (born >= JUNIOR_MIN_BIRTH) map to the
- * 2-year non-overlapping UNN bands used by the category filter (`passesCategory`):
- * UNN covers ages NN-1 and NN in REF_YEAR (e.g. U16 = born 2010–2011). Seniors map
- * to age bands: ADT (20–49), SNR (50–59), VET (60+). Unknown birth year → "—".
- */
-export function ageGroupOf(birthYear: number | null | undefined): string {
-  if (birthYear == null) return "—"
-  const age = REF_YEAR - birthYear
-  if (birthYear < JUNIOR_MIN_BIRTH) {
-    if (age >= 60) return "VET"
-    if (age >= 50) return "SNR"
-    return "ADT"
-  }
-  let nn = age % 2 === 0 ? age : age + 1
-  if (nn < 8) nn = 8
-  if (nn > 20) nn = 20
-  return `U${String(nn).padStart(2, "0")}`
-}
+// Age-group convention lives in @/lib/ageGroups (shared with the home card and
+// admin tournament-selection): UNN = turning NN-2 or NN-1 in REF_YEAR, e.g.
+// U16 = born REF_YEAR-15..REF_YEAR-14. Re-exported for existing importers
+// (RankingsView, exportRankings, ProfileView).
+export { REF_YEAR, JUNIOR_MIN_BIRTH, ageGroupOf } from "@/lib/ageGroups"
 
 function SearchIcon() {
   return (

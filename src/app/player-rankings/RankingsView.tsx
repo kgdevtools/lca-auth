@@ -10,13 +10,13 @@ import {
 import FilterBar, {
   FILTER_DEFAULTS,
   JUNIOR_MIN_BIRTH,
-  REF_YEAR,
   ageGroupOf,
   isSeniorGroup,
   scopeLabels,
   type Category,
   type UiFilters,
 } from "./FilterBar"
+import { juniorBandBirthYears } from "@/lib/ageGroups"
 import type { ExportFormat } from "./exportRankings"
 import ExpandedPanel from "./ExpandedPanel"
 import styles from "./rankings.module.css"
@@ -92,9 +92,13 @@ function passesCategory(p: RankedSummary, f: UiFilters): boolean {
     if (p.birthYear == null || p.birthYear < JUNIOR_MIN_BIRTH) return false
     if (f.ageGroup && f.ageGroup !== "all") {
       const n = Number(f.ageGroup.replace(/\D/g, ""))
-      // Exact 2-year band so age groups never overlap: a U12 player (born
-      // REF_YEAR-12..REF_YEAR-11) is excluded from U14, U16, … and vice-versa.
-      if (Number.isFinite(n)) return p.birthYear >= REF_YEAR - n && p.birthYear <= REF_YEAR - n + 1
+      // Exact 2-year band so age groups never overlap: UNN = turning NN-2 or
+      // NN-1 in REF_YEAR, so a U16 player (born REF_YEAR-15..REF_YEAR-14) is
+      // excluded from U14, U18, … and vice-versa.
+      if (Number.isFinite(n)) {
+        const { min, max } = juniorBandBirthYears(n)
+        return p.birthYear >= min && p.birthYear <= max
+      }
     }
     return true
   }

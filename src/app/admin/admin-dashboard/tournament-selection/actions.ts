@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/utils/supabase/server"
+import { REF_YEAR, ageGroupOf } from "@/lib/ageGroups"
 
 export interface TournamentSelectionMeta {
   id: string
@@ -330,51 +331,43 @@ export interface JuniorPlayerStats {
   }
 }
 
-const JUNIOR_AGE_GROUPS = ['U20', 'U18', 'U16', 'U14', 'U12', 'U10']
+const JUNIOR_AGE_GROUPS = ['U20', 'U18', 'U16', 'U14', 'U12', 'U10', 'U08']
 
+// Year-based age (the year they TURN this age), matching the shared age-group
+// convention in @/lib/ageGroups — deliberately NOT birthday-adjusted, so a
+// player never flips age group mid-season.
 function computeAgeYears(bdateRaw: any, now: Date = new Date()): number | null {
   if (!bdateRaw) return null
   const s = String(bdateRaw).trim()
   if (!s) return null
-  
+
   const n = Date.parse(s)
   if (!Number.isNaN(n)) {
-    const d = new Date(n)
-    let age = now.getFullYear() - d.getFullYear()
-    const m = now.getMonth() - d.getMonth()
-    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+    const age = now.getFullYear() - new Date(n).getFullYear()
     return age >= 0 ? age : null
   }
-  
+
   const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
   if (m) {
     const [_, dd, mm, yyyy] = m
     const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
     return Number.isNaN(d.getTime()) ? null : now.getFullYear() - d.getFullYear()
   }
-  
+
   const m2 = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/)
   if (m2) {
     const [_, yyyy, mm, dd] = m2
     const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd))
     return Number.isNaN(d.getTime()) ? null : now.getFullYear() - d.getFullYear()
   }
-  
+
   return null
 }
 
 function deriveAgeGroup(age: number | null): string | null {
   if (age == null) return null
-  if (age >= 60) return 'VET'
-  if (age >= 50) return 'SNR'
-  if (age >= 20) return 'ADT'
-  if (age >= 17 && age <= 19) return 'U20'
-  if (age >= 15 && age <= 16) return 'U18'
-  if (age >= 13 && age <= 14) return 'U16'
-  if (age >= 11 && age <= 12) return 'U14'
-  if (age >= 9 && age <= 10) return 'U12'
-  if (age >= 7 && age <= 8) return 'U10'
-  return null
+  const label = ageGroupOf(REF_YEAR - age)
+  return label === '—' ? null : label
 }
 
 function safeNumber(v: any): number | null {
