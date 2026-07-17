@@ -26,6 +26,15 @@
   --ring: #3b82f6; /* blue-500 */
   --radius: 0.5rem;
 
+  /* Microinteraction timing tokens (semantic durations, shared with framer presets) */
+  --ms-instant: 100ms; /* tap down-scale, hover entry */
+  --ms-quick: 200ms;   /* icon bounce, color swap */
+  --ms-morph: 350ms;   /* board scale-to-fit shared layout */
+  --ms-bounce: 400ms;  /* success pop settle, card peek */
+  --ms-card: 500ms;    /* card-to-card slide */
+  --ms-pulse: 600ms;   /* glow border, hint highlight */
+  --ms-wavy: 800ms;    /* celebration, streak */
+
   /* Chart colors */
   --chart-1: #3b82f6; /* blue-500 */
   --chart-2: #10b981; /* emerald-500 */
@@ -186,10 +195,11 @@
   }
 }
 
-/* Smooth transitions for theme switching */
+/* Smooth transitions for theme switching.
+   Deliberately excludes transform/filter/backdrop-filter: a 200ms CSS ease on
+   transform double-eases every framer-motion spring (mushy pops, smeared shakes). */
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow,
-    transform, filter, backdrop-filter;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
