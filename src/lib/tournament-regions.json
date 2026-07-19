@@ -1518,6 +1518,13 @@
     "method": "location-exact",
     "matchedOn": "gqeberha"
   },
+  "8929f7a4-d03f-4459-9253-63c92bb4f947": {
+    "province": "Limpopo",
+    "district": null,
+    "confidence": 0.77,
+    "method": "organizer",
+    "matchedOn": "limpopo"
+  },
   "49f29256-f5a9-4039-a93c-c269ea7b1f88": {
     "province": "Eastern Cape",
     "district": "Nelson Mandela Bay",
@@ -1601,5 +1608,19 @@
     "confidence": 0.77,
     "method": "organizer",
     "matchedOn": "limpopo"
+  },
+  "b5fdd3c7-a450-4cc0-8808-233fff33d742": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn tvet college"
+  },
+  "8458020d-ae87-4adb-8c05-ea9a9abaa794": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn tvet college"
   }
 }
