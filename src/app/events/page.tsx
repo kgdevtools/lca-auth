@@ -336,8 +336,11 @@ export default function ChessCalendar() {
   }, [])
 
   const allTournaments = useMemo<Tournament[]>(() => {
-    const seen = new Set(dynamicEvents.map((d) => `${d.name}|${d.startDate}`))
-    const statics = (tournamentsData as Tournament[]).filter((t) => !seen.has(`${t.name}|${t.startDate}`))
+    // Date only (not name+date) — see dayKey() in upcomingTournamentRepo.ts: a
+    // DB tournament_name is often a shortened version of the JSON name, so
+    // exact-string matching misses same-event collisions. Dynamic rows win.
+    const seen = new Set(dynamicEvents.map((d) => d.startDate))
+    const statics = (tournamentsData as Tournament[]).filter((t) => !seen.has(t.startDate))
     return [...statics, ...dynamicEvents]
   }, [dynamicEvents])
 

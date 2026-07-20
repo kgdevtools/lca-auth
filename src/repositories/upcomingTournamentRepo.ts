@@ -92,15 +92,21 @@ export async function getNextUpcomingTournament(): Promise<UpcomingTournament | 
   }
 }
 
+// Date only (not name+date): a DB tournament_name is often a shortened version
+// of the JSON name (tournament_name has a <=30 char CHECK), so exact-string
+// matching misses same-event collisions — e.g. JSON's "Capricorn Qualifying
+// Tournament 7, U08-U20" vs the DB's "Capricorn Junior Qualifiers #7", both on
+// the same date. Same calendar/organiser, so a same-day match reliably means
+// "the DB row (poster + registration link) supersedes the static JSON row."
 function dayKey(t: Partial<UpcomingTournament>): string {
-  return `${t.tournament_name}|${(t.tournament_date || "").slice(0, 10)}`;
+  return (t.tournament_date || "").slice(0, 10);
 }
 
 /**
  * Tournaments for the home carousel: the static Capricorn calendar (tournaments.json)
  * merged with the dynamic `upcoming_tournaments` table, then selected by date — up to
  * 3 soonest upcoming + the most recently completed one. Dynamic rows win on a
- * name+date clash (they carry posters / registration links). Cached briefly.
+ * same-day clash (they carry posters / registration links). Cached briefly.
  */
 export async function getCarouselTournaments(): Promise<UpcomingTournament[]> {
   try {
@@ -109,12 +115,17 @@ export async function getCarouselTournaments(): Promise<UpcomingTournament[]> {
     if (cached) return cached;
 
     const supabase = await createClient();
-    const today = new Date().toISOString().slice(0, 10);
+    // Include a trailing window of past rows (not just >= today) so a DB
+    // tournament that already happened can still win the "most recently
+    // completed" slide below with its poster, instead of falling back to the
+    // poster-less JSON row for the same date.
+    const windowStart = new Date();
+    windowStart.setUTCDate(windowStart.getUTCDate() - 30);
     const { data: db } = await supabase
       .from("upcoming_tournaments")
       .select("*")
       .eq("is_active", true)
-      .gte("tournament_date", today);
+      .gte("tournament_date", windowStart.toISOString().slice(0, 10));
     const dbItems = (db ?? []) as UpcomingTournament[];
 
     // Static calendar mapped into the same shape (no posters/links on these).
