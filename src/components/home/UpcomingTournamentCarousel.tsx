@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { UpcomingTournament } from "@/types/upcoming-tournament";
 
-const CURRENT_MS = 15000; // first slide ("current") dwells longer
-const OTHER_MS = 5000;
+const DWELL_MS = 5000; // uniform dwell per slide
 
 function isPast(dateStr?: string): boolean {
   if (!dateStr) return false;
@@ -58,7 +57,7 @@ function Slide({ t }: { t: UpcomingTournament }) {
       {t.poster_url?.trim()
         ? <PosterFill url={t.poster_url} name={t.tournament_name} />
         : <DataLayout t={t} />}
-      <span className="absolute top-2 left-2 z-20 rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-background/80 text-foreground backdrop-blur">
+      <span className="absolute top-6 left-2 z-20 rounded-sm px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-background/80 text-foreground backdrop-blur">
         {past ? "Completed" : "Upcoming"}
       </span>
     </div>
@@ -71,19 +70,77 @@ function Slide({ t }: { t: UpcomingTournament }) {
   );
 }
 
+/** True when the OS asks for reduced motion — the fill animation (and its
+ *  animationend event) is disabled then, so a plain timer drives the rotation. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+/** WhatsApp-status style segment row: past segments full, the active one fills
+ *  left→right over the dwell and advances the carousel when its animation ends. */
+function StorySegments({
+  n, i, paused, reduced, onSelect, onDone,
+}: {
+  n: number; i: number; paused: boolean; reduced: boolean;
+  onSelect: (idx: number) => void; onDone: () => void;
+}) {
+  return (
+    <div className="absolute top-2 left-2 right-2 z-20 flex gap-1.5">
+      {Array.from({ length: n }, (_, idx) => (
+        <button
+          key={idx}
+          aria-label={`Show tournament ${idx + 1}`}
+          onClick={() => onSelect(idx)}
+          className="h-1 flex-1 overflow-hidden rounded-full bg-white/35 backdrop-blur-[1px]"
+        >
+          {idx === i ? (
+            <div
+              // remount per activation so the fill restarts from zero
+              key={`run-${i}`}
+              onAnimationEnd={onDone}
+              className="h-full w-full origin-left rounded-full bg-white"
+              style={
+                reduced
+                  ? undefined // static full bar; a timer advances the slide instead
+                  : {
+                      animation: `story-fill ${DWELL_MS}ms linear forwards`,
+                      animationPlayState: paused ? "paused" : "running",
+                    }
+              }
+            />
+          ) : (
+            <div className={`h-full w-full rounded-full bg-white transition-none ${idx < i ? "" : "scale-x-0"}`} />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function UpcomingTournamentCarousel({ items }: { items: UpcomingTournament[] }) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
+  const reduced = usePrefersReducedMotion();
   const n = items.length;
 
-  useEffect(() => {
-    if (n <= 1 || paused) return;
-    const dwell = i === 0 ? CURRENT_MS : OTHER_MS;
-    const id = setTimeout(() => setI((x) => (x + 1) % n), dwell);
-    return () => clearTimeout(id);
-  }, [i, n, paused]);
-
+  const next = () => setI((x) => (x + 1) % n);
   const go = (dir: number) => setI((x) => (x + dir + n) % n);
+
+  // Reduced-motion fallback: no animation → no animationend → plain timer.
+  useEffect(() => {
+    if (!reduced || n <= 1 || paused) return;
+    const id = setTimeout(next, DWELL_MS);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduced, i, n, paused]);
 
   return (
     <div
@@ -104,6 +161,10 @@ export function UpcomingTournamentCarousel({ items }: { items: UpcomingTournamen
 
       {n > 1 && (
         <>
+          {/* top scrim so the white segments read on any poster/card */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-12 bg-gradient-to-b from-black/45 to-transparent" />
+          <StorySegments n={n} i={i} paused={paused} reduced={reduced} onSelect={setI} onDone={next} />
+
           <button
             aria-label="Previous tournament"
             onClick={() => go(-1)}
@@ -119,19 +180,6 @@ export function UpcomingTournamentCarousel({ items }: { items: UpcomingTournamen
             <ChevronRight className="h-4 w-4" />
           </button>
         </>
-      )}
-
-      {n > 1 && (
-        <div className="absolute bottom-2.5 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-          {items.map((_, idx) => (
-            <button
-              key={idx}
-              aria-label={`Show tournament ${idx + 1}`}
-              onClick={() => setI(idx)}
-              className={`h-2.5 rounded-full transition-all ${idx === i ? "w-7 bg-primary" : "w-2.5 bg-foreground/50 hover:bg-foreground/70"}`}
-            />
-          ))}
-        </div>
       )}
     </div>
   );

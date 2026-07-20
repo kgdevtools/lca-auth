@@ -135,7 +135,7 @@ export async function getCarouselTournaments(): Promise<UpcomingTournament[]> {
     const upcoming = merged
       .filter((t) => Number.isFinite(time(t)) && time(t) >= now)
       .sort((a, b) => day(a) - day(b))
-      .slice(0, 3);
+      .slice(0, 5);
     const past = merged
       .filter((t) => Number.isFinite(time(t)) && time(t) < now)
       .sort((a, b) => day(b) - day(a))

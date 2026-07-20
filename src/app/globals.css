@@ -306,3 +306,8 @@
 .animate-pulse-subtle {
   animation: pulse-subtle 5s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
+/* Story-style progress fill for the upcoming-tournament carousel segments. */
+@keyframes story-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
