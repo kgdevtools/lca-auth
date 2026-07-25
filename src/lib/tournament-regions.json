@@ -1622,5 +1622,12 @@
     "confidence": 0.97,
     "method": "location-exact",
     "matchedOn": "capricorn tvet college"
+  },
+  "f9efb88b-e6dd-4e5e-9fa9-a0e28f26c607": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
   }
 }
