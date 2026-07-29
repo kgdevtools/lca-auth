@@ -1,11 +1,24 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Loader2, RefreshCw, Trash2, Check, Puzzle as PuzzleIcon, Users } from 'lucide-react'
+import { Loader2, RefreshCw, Trash2, Check, Puzzle as PuzzleIcon, Users, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { saveDailyPuzzleSet } from '@/actions/academy/dailyPuzzleActions'
 import type { StoredPuzzle } from '@/services/dailyPuzzleService'
+import { PuzzleAuthoringPanel, type PuzzleData } from '@/components/lessons/PuzzleAuthoringPanel'
+
+function puzzleDataToStored(p: PuzzleData): StoredPuzzle {
+  return {
+    lichessId: `manual-${p.id}`,
+    fen: p.fen,
+    solution: p.solution,
+    themes: p.themes ?? (p.description ? p.description.split(',').map(t => t.trim()) : []),
+    rating: p.rating ?? null,
+    orientation: p.orientation ?? 'white',
+  }
+}
 
 const THEME_PRESETS = [
   { key: 'mixed', label: 'Mixed' },
@@ -38,6 +51,8 @@ export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStu
   const [saved, setSaved]           = useState(initialPuzzles.length > 0)
   const [isSaving, startSave]       = useTransition()
   const [assignedIds, setAssignedIds] = useState<string[]>(initialAssignedStudentIds)
+  const [isAuthoringOpen, setIsAuthoringOpen] = useState(false)
+  const [draftPuzzles, setDraftPuzzles] = useState<PuzzleData[]>([])
 
   const handleFetch = async () => {
     setFetching(true)
@@ -65,6 +80,15 @@ export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStu
   const removePuzzle = (id: string) => {
     setPuzzles(prev => prev.filter(p => p.lichessId !== id))
     setSaved(false)
+  }
+
+  const handleDoneAuthoring = () => {
+    if (draftPuzzles.length > 0) {
+      setPuzzles(prev => [...prev, ...draftPuzzles.map(puzzleDataToStored)])
+      setSaved(false)
+    }
+    setDraftPuzzles([])
+    setIsAuthoringOpen(false)
   }
 
   const handlePublish = () => {
@@ -154,6 +178,10 @@ export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStu
             {fetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             Add puzzles
           </Button>
+          <Button onClick={() => setIsAuthoringOpen(true)} variant="outline" size="sm" className="h-8 gap-1.5">
+            <Pencil className="w-3.5 h-3.5" />
+            Add manually
+          </Button>
         </div>
 
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -232,6 +260,20 @@ export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStu
           </ul>
         )}
       </div>
+
+      <Dialog open={isAuthoringOpen} onOpenChange={(open) => { if (!open) handleDoneAuthoring(); else setIsAuthoringOpen(true) }}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Add puzzles manually</DialogTitle>
+          </DialogHeader>
+          <PuzzleAuthoringPanel puzzles={draftPuzzles} onPuzzlesChange={setDraftPuzzles} />
+          <DialogFooter>
+            <Button onClick={handleDoneAuthoring}>
+              Done{draftPuzzles.length > 0 ? ` — add ${draftPuzzles.length} to pool` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

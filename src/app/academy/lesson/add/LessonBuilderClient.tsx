@@ -25,8 +25,10 @@ import {
   createPuzzleLesson, createStudyLesson, createInteractiveStudyLesson,
   updatePuzzleLesson, updateStudyLesson, updateInteractiveStudyLesson,
   createMcqLesson, updateMcqLesson, createQaLesson, updateQaLesson,
+  createPuzzleStormLesson, updatePuzzleStormLesson,
   fetchStudentsForAssignment,
 } from "./actions";
+import { PuzzleAuthoringPanel, type PuzzleData as AuthoredPuzzle } from "@/components/lessons/PuzzleAuthoringPanel";
 import { fetchCategories } from "./categories";
 import { parsePgn, parsePgnStudy, type MoveAnnotation } from "@/lib/pgnParser";
 import StudyEditorBoard from "@/components/lessons/StudyEditorBoard";
@@ -153,7 +155,13 @@ const BATCH_THEMES = [
   ]},
 ];
 
-const validTypes: LessonType[] = ["puzzle", "study", "interactive", "mcq", "qa"];
+const validTypes: LessonType[] = ["puzzle", "study", "interactive", "mcq", "qa", "puzzle_storm"];
+const STORM_TIME_PRESETS = [
+  { label: "Off (∞)", value: 0 },
+  { label: "3 min", value: 180 },
+  { label: "5 min", value: 300 },
+  { label: "10 min", value: 600 },
+] as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,6 +178,7 @@ function contentTypeToLessonType(ct: string): LessonType {
   if (ct === 'interactive_study') return 'interactive';
   if (ct === 'mcq') return 'mcq';
   if (ct === 'qa') return 'qa';
+  if (ct === 'puzzle_storm') return 'puzzle_storm';
   return 'puzzle';
 }
 
@@ -189,6 +198,23 @@ function blocksToEditPuzzles(blocks: LessonBlock[]): PuzzleData[] {
         timer: d.timer as TimerConfig | undefined,
       };
     });
+}
+
+function blocksToEditStorm(blocks: LessonBlock[]): { puzzles: AuthoredPuzzle[]; timeLimit: number } {
+  const block = blocks.find(b => b.type === 'puzzle_storm');
+  if (!block) return { puzzles: [], timeLimit: 180 };
+  const d = block.data as Record<string, any>;
+  const rawPuzzles = Array.isArray(d.puzzles) ? d.puzzles : [];
+  const puzzles: AuthoredPuzzle[] = rawPuzzles.map((p: any) => ({
+    id: generateId(),
+    fen: String(p.fen ?? ''),
+    solution: Array.isArray(p.solution) ? p.solution : [],
+    description: Array.isArray(p.themes) ? p.themes.join(', ') : '',
+    themes: Array.isArray(p.themes) ? p.themes : undefined,
+    rating: typeof p.rating === 'number' ? p.rating : undefined,
+    orientation: (p.orientation as 'white' | 'black') ?? 'white',
+  }));
+  return { puzzles, timeLimit: typeof d.timeLimit === 'number' ? d.timeLimit : 180 };
 }
 
 function blocksToEditChapters(blocks: LessonBlock[]): StudyChapter[] {
@@ -648,6 +674,14 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [batchPreviews, setBatchPreviews] = useState<BatchPreview[]>([]);
   const [isBatchFetching, setIsBatchFetching] = useState(false);
 
+  // Puzzle Storm state — shares the PuzzleAuthoringPanel core, adds a time limit
+  const [stormPuzzles, setStormPuzzles] = useState<AuthoredPuzzle[]>(() =>
+    isEdit && editData ? blocksToEditStorm(editData.lesson.blocks).puzzles : []
+  );
+  const [stormTimeLimit, setStormTimeLimit] = useState<number>(() =>
+    isEdit && editData ? blocksToEditStorm(editData.lesson.blocks).timeLimit : 180
+  );
+
   // Puzzle engine eval state
   const [puzzleEvalScore, setPuzzleEvalScore] = useState<number | null>(null);
   const [puzzleEvalMate, setPuzzleEvalMate] = useState<number | null>(null);
@@ -766,6 +800,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput("");
     setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
     setPuzzlePgnText(""); setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); setPuzzlePgnPlyIndex(0);
+    setStormPuzzles([]); setStormTimeLimit(180);
     setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null);
     setStudyDisplaySettings({ showEval: true, showClocks: true, showArrows: true, showHighlights: true });
     setStudyTimer(DEFAULT_TIMER);
@@ -1029,6 +1064,30 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
         const id = await createPuzzleLesson(lessonInfo, puzzles, selectedStudentIds);
+        setSavedLessonId(id); setIsCompleted(true);
+      }
+    } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleStormSubmit = async () => {
+    if (!validateLesson()) return;
+    if (stormPuzzles.length === 0) { alert("At least one puzzle is required"); return; }
+    setIsSubmitting(true);
+    const puzzlesPayload = stormPuzzles.map(p => ({
+      id: p.id,
+      fen: p.fen,
+      solution: p.solution.join(' '),
+      description: p.description,
+      orientation: p.orientation,
+      rating: p.rating ?? null,
+    }));
+    try {
+      if (isEdit && editData) {
+        await updatePuzzleStormLesson(editData.lesson.id, lessonInfo, puzzlesPayload, stormTimeLimit, selectedStudentIds, assignedTo || undefined);
+        setSavedLessonId(editData.lesson.id); setIsCompleted(true);
+      } else {
+        const id = await createPuzzleStormLesson(lessonInfo, puzzlesPayload, stormTimeLimit, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
@@ -1645,6 +1704,46 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     </div>
   );
 
+  // ── Puzzle Storm editor ──────────────────────────────────────────────────────
+  // Same authoring core as the puzzle block editor — the only addition is the
+  // shared countdown, packaged into one `puzzle_storm` block on submit.
+
+  const renderStormEditor = () => (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time limit</p>
+        <div className="flex flex-wrap gap-1.5">
+          {STORM_TIME_PRESETS.map(preset => (
+            <button
+              key={preset.value}
+              onClick={() => setStormTimeLimit(preset.value)}
+              className={cn(
+                'text-xs px-2.5 py-1 rounded-sm border transition-colors',
+                stormTimeLimit === preset.value
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <PuzzleAuthoringPanel puzzles={stormPuzzles} onPuzzlesChange={setStormPuzzles} />
+
+      {stormPuzzles.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          {isCompleted && savedLessonId ? (
+            <SuccessBanner lessonId={savedLessonId} label="Puzzle Storm lesson" mode={mode} onCreateAnother={handleCreateAnother} />
+          ) : (
+            <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleStormSubmit} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -1710,6 +1809,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         {selectedType === "interactive" && renderInteractiveEditor()}
         {selectedType === "mcq"         && renderMcqEditor()}
         {selectedType === "qa"          && renderQaEditor()}
+        {selectedType === "puzzle_storm" && renderStormEditor()}
       </div>
     </>
   );
