@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { JetBrains_Mono } from 'next/font/google'
 import AcademySidebar from '@/components/academy/AcademySidebar'
+import { MotionProfileProvider } from '@/components/microinteractions/MotionProfileProvider'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -21,23 +22,25 @@ export default function AcademyLayoutClient({
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div
-      className={`${jetbrainsMono.variable} flex h-[100dvh] overflow-hidden bg-background tracking-tighter leading-tight`}
-      style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-    >
-      {/* Brand backdrop — faint chess pieces scattered behind content */}
-      <AcademyBackdrop role={role} level={level} />
+    <MotionProfileProvider role={role}>
+      <div
+        className={`${jetbrainsMono.variable} flex h-[100dvh] overflow-hidden bg-background tracking-tighter leading-tight`}
+        style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+      >
+        {/* Brand backdrop — faint chess pieces scattered behind content */}
+        <AcademyBackdrop role={role} level={level} />
 
-      <AcademySidebar
-        collapsed={collapsed}
-        onToggleCollapse={() => setCollapsed(!collapsed)}
-      />
+        <AcademySidebar
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed(!collapsed)}
+        />
 
-      {/* Main content */}
-      <main className="relative z-10 flex-1 pt-20 overflow-y-auto overflow-x-hidden">
-        {children}
-      </main>
-    </div>
+        {/* Main content */}
+        <main className="relative z-10 flex-1 pt-20 overflow-y-auto overflow-x-hidden">
+          {children}
+        </main>
+      </div>
+    </MotionProfileProvider>
   )
 }
 

@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useAnimationControls } from 'framer-motion'
 import { Chessboard } from 'react-chessboard'
 import { Chess, type Move } from 'chess.js'
-import { Button } from '@/components/ui/button'
 import {
   Lightbulb, RotateCcw, CheckCircle2, XCircle,
   ChevronLeft, ChevronRight, Eye, Zap,
@@ -12,6 +11,10 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { trackPuzzleBlockOutcome } from '@/services/progressService'
+import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
+import { successAnimation, errorAnimation, hintAnimation, tapAnimation } from '@/components/microinteractions/presets'
+import { nextRating, DEFAULT_SEED } from '@/lib/academyRating'
+import { parseSolutionMove } from '@/lib/parseSolutionMove'
 
 interface PuzzleViewerBlockProps {
   data: {
@@ -26,6 +29,7 @@ interface PuzzleViewerBlockProps {
   onPrev?: () => void
   canPrev?: boolean
   lessonId?: string
+  blockKey?: string
   onBlockComplete?: (pts: number, label: string) => void
   sessionPoints?: number
   puzzleStreak?: number
@@ -33,37 +37,26 @@ interface PuzzleViewerBlockProps {
   studentLevelName?: string
   currentStreak?: number
   academyRating?: number | null
+  ratedCount?: number
+  onRatingPreview?: (rating: number) => void
+  onRatingCommit?: (rating: number) => void
 }
 
 const LEVEL_ICONS: Record<number, string> = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' }
 
-// Accepts dashed UCI ("h3-g4"), plain UCI ("g7g5"/"e7e8q"), or SAN ("Qf2","Re8","O-O")
-function parseSolutionMove(raw: string, fen: string): { from: string; to: string } | null {
-  const t = raw.trim()
-
-  if (/^[a-h][1-8]-[a-h][1-8]$/.test(t)) {
-    const [f, to] = t.split('-')
-    return { from: f, to }
-  }
-
-  if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(t)) {
-    return { from: t.slice(0, 2), to: t.slice(2, 4) }
-  }
-
-  try {
-    const g = new Chess(fen)
-    const m = g.move(t)
-    if (m) return { from: m.from, to: m.to }
-  } catch {}
-
-  return null
+const PUZZLE_PTS: Record<string, number> = { clean: 10, wrong_first: 7, hint: 5, hint_wrong: 4, gave_up: 0 }
+// Mirrors the server's PUZZLE_RATING_ACTUAL (gamificationService.ts) so the client can
+// preview the Elo step instantly; the server call reconciles the real persisted value.
+const PUZZLE_RATING_ACTUAL: Record<string, number | null> = {
+  clean: 1, wrong_first: 1, hint: 1, hint_wrong: 0.5, gave_up: null,
 }
 
-const PUZZLE_PTS: Record<string, number> = { clean: 10, wrong_first: 7, hint: 5, hint_wrong: 4, gave_up: 0 }
-
-export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, lessonId, onBlockComplete, sessionPoints, puzzleStreak, studentLevel, studentLevelName, currentStreak, academyRating }: PuzzleViewerBlockProps) {
+export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, lessonId, blockKey, onBlockComplete, sessionPoints, puzzleStreak, studentLevel, studentLevelName, currentStreak, academyRating, ratedCount, onRatingPreview, onRatingCommit }: PuzzleViewerBlockProps) {
   const startFen = data.fen || ''
   const solution = data.solution || []
+
+  const { spring, reduced } = useMotionProfile()
+  const boardControls = useAnimationControls()
 
   // ── Puzzle-solving refs (never stale in handlers) ────────────────────────────
   const positionRef = useRef(startFen)
@@ -306,6 +299,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
           if (!boardResponseRaw) {
             isSolvedRef.current = true
             setShowResult('correct')
+            boardControls.start(successAnimation(spring, reduced))
           } else {
             setShowResult(null)
             isBoardMovingRef.current = true
@@ -324,6 +318,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
                   if (moveIndexRef.current >= solution.length) {
                     isSolvedRef.current = true
                     setShowResult('correct')
+                    boardControls.start(successAnimation(spring, reduced))
                   }
                 }
               }
@@ -342,6 +337,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
     setWrongMove(true)
     setShowResult('incorrect')
     setLastMove({ from, to })
+    boardControls.start(errorAnimation(reduced))
     try {
       const test = new Chess(positionRef.current)
       const attempt = test.move({ from, to, promotion: 'q' })
@@ -480,14 +476,24 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
       : 'gave_up'
 
     const pts = PUZZLE_PTS[outcome] ?? 0
-    if (lessonId && outcome !== 'gave_up') {
-      trackPuzzleBlockOutcome(lessonId, outcome as Parameters<typeof trackPuzzleBlockOutcome>[1]).catch(() => {})
+    const ratingActual = PUZZLE_RATING_ACTUAL[outcome]
+
+    if (lessonId && blockKey && outcome !== 'gave_up') {
+      // Optimistic preview: show the projected rating instantly using the same
+      // pure Elo step the server uses; reconciled with the real value below.
+      if (ratingActual !== null && academyRating != null) {
+        const opponentR = data.rating ?? academyRating ?? DEFAULT_SEED
+        onRatingPreview?.(nextRating(academyRating, opponentR, ratingActual, ratedCount ?? 0))
+      }
+      trackPuzzleBlockOutcome(lessonId, outcome as Parameters<typeof trackPuzzleBlockOutcome>[1], blockKey, data.rating ?? null)
+        .then(r => { if (r.rating) onRatingCommit?.(r.rating.after) })
+        .catch(() => {})
     }
     if (pts > 0) {
       onBlockComplete?.(pts, `Puzzle — ${outcome.replace(/_/g, ' ')}`)
     }
     onSolved()
-  }, [lessonId, onBlockComplete, onSolved])
+  }, [lessonId, blockKey, onBlockComplete, onSolved, academyRating, ratedCount, onRatingPreview, onRatingCommit, data.rating])
 
   return (
     <div className="flex flex-col lg:flex-row gap-1 h-full overflow-hidden">
@@ -496,7 +502,8 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
         <div className="flex justify-center overflow-hidden">
           {/* Clamp to viewport height so board + actions always fit on mobile/tablet */}
           <div className="w-full aspect-square mx-auto" style={{ maxWidth: 'min(100%, calc(100dvh - 14rem))' }}>
-            <div
+            <motion.div
+              animate={boardControls}
               onMouseDown={handleBoardMouseDown}
               onMouseUp={handleBoardMouseUp}
               onContextMenu={(e) => e.preventDefault()}
@@ -516,8 +523,9 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
                 customArrows={customArrows as any}
                 isDraggablePiece={({ piece }) => !showSolution && !isSolved && !boardMoving && piece[0] === playerColor}
                 areArrowsAllowed={false}
+                animationDuration={350}
               />
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -525,16 +533,25 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
       {/* Right panel */}
       <div className="lg:w-[47%] flex flex-col gap-1 min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border text-xs font-medium shrink-0">
-          <span className="font-semibold">Tactics Puzzle</span>
-          <div className="flex items-center gap-2 shrink-0">
-            {isSolved && data.themes && data.themes.length > 0 && (
-              <span className="text-muted-foreground truncate max-w-[140px]">{data.themes.join(', ')}</span>
-            )}
+        <div className="flex flex-col gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border text-xs font-medium shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold">Tactics Puzzle</span>
             {data.rating && (
-              <span className="font-mono">★ {data.rating}</span>
+              <span className="font-mono shrink-0">★ {data.rating}</span>
             )}
           </div>
+          {isSolved && data.themes && data.themes.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {data.themes.map(theme => (
+                <span
+                  key={theme}
+                  className="text-[10px] font-normal text-muted-foreground bg-background/60 border border-border rounded-sm px-1.5 py-0.5"
+                >
+                  {theme}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Feedback */}
@@ -572,34 +589,61 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex gap-1.5 shrink-0">
-          {!isSolved && !showSolution && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setShowHint(true); usedHintRef.current = true }}
-              disabled={!data.hint}
-              className="h-8 flex-1"
+        {/* Puzzle controls — icon-only, board-control style */}
+        <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+          {onPrev !== undefined && (
+            <button
+              onClick={onPrev}
+              disabled={!canPrev}
+              title="Previous puzzle"
+              aria-label="Previous puzzle"
+              className="flex-1 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors"
             >
-              <Lightbulb className="w-3 h-3 mr-1" />
-              Hint
-            </Button>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           )}
-          <Button variant="outline" size="sm" onClick={handleRetry} className="h-8 flex-1">
-            <RotateCcw className="w-3 h-3 mr-1" />
-            Retry
-          </Button>
-          <Button
-            variant={showSolution ? 'default' : 'outline'}
-            size="sm"
+          <button
+            onClick={handleRetry}
+            title="Retry puzzle"
+            aria-label="Retry puzzle"
+            className="flex-1 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+          <motion.button
+            onClick={() => { setShowHint(true); usedHintRef.current = true }}
+            disabled={!data.hint || isSolved || showSolution}
+            whileTap={tapAnimation(reduced)}
+            animate={!showHint && data.hint && !isSolved && !showSolution ? hintAnimation(reduced) : undefined}
+            title="Hint"
+            aria-label="Hint"
+            className="flex-1 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors"
+          >
+            <Lightbulb className="w-4 h-4" />
+          </motion.button>
+          <button
             onClick={() => { showedSolutionRef.current = true; setShowSolution(p => !p); setSolutionIndex(0); setIsPlaying(false) }}
             disabled={!hasAttempted}
-            className="h-8 flex-1"
+            title="Solution"
+            aria-label="Solution"
+            className={cn(
+              'flex-1 h-10 flex items-center justify-center transition-colors disabled:opacity-30',
+              showSolution ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            )}
           >
-            <Eye className="w-3 h-3 mr-1" />
-            Solution
-          </Button>
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleBlockComplete}
+            title={isSolved ? 'Next puzzle' : 'Skip puzzle'}
+            aria-label={isSolved ? 'Next puzzle' : 'Skip puzzle'}
+            className={cn(
+              'flex-1 h-10 flex items-center justify-center transition-colors',
+              isSolved ? 'bg-foreground text-background hover:opacity-90' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            )}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Solution moves list */}
@@ -611,40 +655,15 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
           </div>
         )}
 
-        {/* Previous / Next puzzle navigation */}
-        {onPrev !== undefined && (
-          <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPrev}
-              disabled={!canPrev}
-              className="h-8 flex-1"
-            >
-              <ChevronLeft className="w-3 h-3 mr-1" />
-              Previous
-            </Button>
-            <Button size="sm" onClick={handleBlockComplete} className="h-8 flex-1">
-              {isSolved ? 'Next' : 'Skip'}
-              <ChevronRight className="w-3 h-3 ml-1" />
-            </Button>
-          </div>
-        )}
-        {onPrev === undefined && isSolved && (
-          <Button size="sm" onClick={handleBlockComplete} className="h-8 w-full shrink-0">
-            Next
-          </Button>
-        )}
-
         {/* Gamification panel — desktop only, sits above board controls */}
         <div className="hidden lg:flex flex-col gap-1.5 shrink-0 mt-auto">
-          <div className="flex items-center justify-between px-3 py-2 bg-slate-900 dark:bg-slate-950 border border-slate-700 rounded-sm text-white">
+          <div className="flex items-center justify-between px-3 py-2 bg-foreground text-background border border-transparent rounded-sm">
             <div className="flex items-center gap-2">
               <span className="text-xl leading-none select-none">
                 {LEVEL_ICONS[studentLevel ?? 1] ?? '♟'}
               </span>
               <div className="flex flex-col gap-px leading-none">
-                <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">
+                <span className="text-[9px] font-medium text-background/60 uppercase tracking-wider">
                   Level {studentLevel ?? 1}
                 </span>
                 <span className="text-xs font-bold">{studentLevelName ?? 'Pawn'}</span>
@@ -653,7 +672,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
             <div className="flex items-center gap-3">
               {academyRating != null && (
                 <div className="flex flex-col items-end gap-px leading-none" title="Academy rating">
-                  <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">Rating</span>
+                  <span className="text-[9px] font-medium text-background/60 uppercase tracking-wider">Rating</span>
                   <span className="text-xs font-bold text-amber-400 tabular-nums">{academyRating}</span>
                 </div>
               )}

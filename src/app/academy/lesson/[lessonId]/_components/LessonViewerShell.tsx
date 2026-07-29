@@ -2,15 +2,22 @@
 
 import { useReducer, useCallback, useEffect, useTransition, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Zap } from 'lucide-react'
+import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
+import { ChevronLeft, ChevronRight, Zap, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getBlockDefinition, type BlockType } from '@/lib/blockRegistry'
-import BlockProgressDots from './BlockProgressDots'
+import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
+import { successAnimation } from '@/components/microinteractions/presets'
+import { MotionButton } from '@/components/microinteractions/MotionButton'
+import KnightProgressPath from './KnightProgressPath'
 import LessonCompleteScreen from './LessonCompleteScreen'
 import PuzzleViewerBlock from './viewer-blocks/PuzzleViewerBlock'
+import McqViewerBlock from './viewer-blocks/McqViewerBlock'
+import QaViewerBlock from './viewer-blocks/QaViewerBlock'
 import StudyViewerBlock from './viewer-blocks/StudyViewerBlock'
 import InteractiveStudyViewerBlock from './viewer-blocks/InteractiveStudyViewerBlock'
+import PuzzleStormViewerBlock from './viewer-blocks/PuzzleStormViewerBlock'
+import { useBlockCountdown, BlockTimerChip } from '@/components/lessons/BlockTimer'
 import {
   startLesson,
   markLessonComplete,
@@ -36,12 +43,14 @@ interface LessonViewerShellProps {
   }
   gamificationSummary: StudentGamificationSummary | null
   academyRating: number | null
+  ratedCount: number
 }
 
 type ViewerState = {
   currentIndex: number
   completedIds: Set<number>
   isComplete: boolean
+  direction: 1 | -1
 }
 
 interface SavedShellProgress {
@@ -71,11 +80,13 @@ function viewerReducer(state: ViewerState, action: ViewerAction): ViewerState {
       return {
         ...state,
         currentIndex: Math.min(state.currentIndex + 1, state.completedIds.size),
+        direction: 1,
       }
     case 'PREV_BLOCK':
       return {
         ...state,
         currentIndex: Math.max(state.currentIndex - 1, 0),
+        direction: -1,
       }
     case 'LESSON_COMPLETE':
       return { ...state, isComplete: true }
@@ -86,10 +97,22 @@ function viewerReducer(state: ViewerState, action: ViewerAction): ViewerState {
   }
 }
 
+// Fixed-px offset, not a % of the element's own width — a stuck/slow transition
+// then just leaves a barely-visible sliver instead of translating whole screens'
+// worth of content off-view. rotateY needs `perspective` set on an ancestor to
+// read as a 3D card turn rather than a flat squish.
 const blockVariants = {
-  enter:  { x: '100%', opacity: 0 },
-  center: { x: 0,      opacity: 1 },
-  exit:   { x: '-100%', opacity: 0 },
+  enter: (direction: 1 | -1) => ({
+    x: direction > 0 ? 40 : -40,
+    rotateY: direction > 0 ? 15 : -15,
+    opacity: 0,
+  }),
+  center: { x: 0, rotateY: 0, opacity: 1 },
+  exit: (direction: 1 | -1) => ({
+    x: direction > 0 ? -40 : 40,
+    rotateY: direction > 0 ? -15 : 15,
+    opacity: 0,
+  }),
 }
 
 // ── Block renderer ────────────────────────────────────────────────────────────
@@ -107,6 +130,9 @@ function ViewerBlockRenderer({
   studentLevelName,
   currentStreak,
   academyRating,
+  ratedCount,
+  onRatingPreview,
+  onRatingCommit,
 }: {
   block: LessonBlock
   onSolved: () => void
@@ -120,17 +146,32 @@ function ViewerBlockRenderer({
   studentLevelName: string
   currentStreak: number
   academyRating: number | null
+  ratedCount: number
+  onRatingPreview: (rating: number) => void
+  onRatingCommit: (rating: number) => void
 }) {
   const blockType = block.type as BlockType
 
+  // Per-block gameplay timer — opt-in, disclosed via a corner chip on the block
+  // itself. Expiry auto-advances with a not-solved outcome (same as an
+  // explicit skip/give-up), never a hard lockout. See BlockTimer.tsx.
+  const timerConfig = (block.data as Record<string, unknown> | undefined)?.timer as
+    | { enabled?: boolean; seconds?: number }
+    | undefined
+  const timerEnabled = !!timerConfig?.enabled && (timerConfig.seconds ?? 0) > 0
+  const secondsLeft = useBlockCountdown(timerConfig?.seconds ?? 0, timerEnabled, onSolved)
+
+  let content: React.ReactNode
+
   if (blockType === 'puzzle') {
-    return (
+    content = (
       <PuzzleViewerBlock
         data={block.data as any}
         onSolved={onSolved}
         onPrev={onPrev}
         canPrev={canPrev}
         lessonId={lessonId}
+        blockKey={block.id}
         onBlockComplete={onBlockComplete}
         sessionPoints={sessionPoints}
         puzzleStreak={puzzleStreak}
@@ -138,48 +179,75 @@ function ViewerBlockRenderer({
         studentLevelName={studentLevelName}
         currentStreak={currentStreak}
         academyRating={academyRating}
+        ratedCount={ratedCount}
+        onRatingPreview={onRatingPreview}
+        onRatingCommit={onRatingCommit}
       />
+    )
+  } else if (blockType === 'mcq') {
+    content = <McqViewerBlock data={block.data as any} onSolved={onSolved} />
+  } else if (blockType === 'qa') {
+    content = <QaViewerBlock data={block.data as any} onSolved={onSolved} />
+  } else if (blockType === 'study') {
+    content = <StudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} onBlockComplete={onBlockComplete} />
+  } else if (blockType === 'interactive_study') {
+    content = <InteractiveStudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} blockKey={block.id} onBlockComplete={onBlockComplete} />
+  } else if (blockType === 'puzzle_storm') {
+    content = <PuzzleStormViewerBlock data={block.data as any} lessonId={lessonId} onSolved={onSolved} />
+  } else {
+    const definition = getBlockDefinition(blockType)
+    content = (
+      <div className="flex flex-col lg:flex-row gap-6 h-full">
+        <div className="lg:w-3/5">
+          <div className="aspect-square max-w-md mx-auto bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+            <span className="text-6xl">{definition?.icon}</span>
+          </div>
+        </div>
+        <div className="lg:w-2/5 space-y-4">
+          <div>
+            <h3 className="font-semibold text-lg">{definition?.label}</h3>
+            <p className="text-sm text-gray-500">{definition?.description}</p>
+          </div>
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <pre className="text-xs overflow-auto whitespace-pre-wrap">
+              {JSON.stringify(block.data, null, 2)}
+            </pre>
+          </div>
+          <Button onClick={onSolved} className="w-full">
+            Mark Complete
+          </Button>
+        </div>
+      </div>
     )
   }
 
-  if (blockType === 'study') {
-    return <StudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} onBlockComplete={onBlockComplete} />
-  }
-
-  if (blockType === 'interactive_study') {
-    return <InteractiveStudyViewerBlock data={block.data as any} onSolved={onSolved} lessonId={lessonId} blockKey={block.id} onBlockComplete={onBlockComplete} />
-  }
-
-  const definition = getBlockDefinition(blockType)
-
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full">
-      <div className="lg:w-3/5">
-        <div className="aspect-square max-w-md mx-auto bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-          <span className="text-6xl">{definition?.icon}</span>
-        </div>
-      </div>
-      <div className="lg:w-2/5 space-y-4">
-        <div>
-          <h3 className="font-semibold text-lg">{definition?.label}</h3>
-          <p className="text-sm text-gray-500">{definition?.description}</p>
-        </div>
-        <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          <pre className="text-xs overflow-auto whitespace-pre-wrap">
-            {JSON.stringify(block.data, null, 2)}
-          </pre>
-        </div>
-        <Button onClick={onSolved} className="w-full">
-          Mark Complete
-        </Button>
-      </div>
+    <div className="relative h-full">
+      {timerEnabled && (
+        <BlockTimerChip secondsLeft={secondsLeft} className="absolute -top-1 right-0 z-10" />
+      )}
+      {content}
+    </div>
+  )
+}
+
+// ── Peek stub ─────────────────────────────────────────────────────────────────
+// Title-only ghost card for the adjacent (prev/next) block — desktop only, never
+// a full block render (boards are heavy, and it must not leak puzzle/answer content).
+
+function PeekStub({ block }: { block: LessonBlock }) {
+  const definition = getBlockDefinition(block.type as BlockType)
+  return (
+    <div className="hidden lg:flex w-16 h-24 flex-col items-center justify-center gap-1 rounded-sm border border-border bg-card opacity-40 scale-[0.85] pointer-events-none select-none shadow-sm">
+      <span className="text-xl leading-none">{definition?.icon}</span>
+      <span className="text-[9px] text-muted-foreground text-center px-1 truncate w-full">{definition?.label}</span>
     </div>
   )
 }
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function LessonViewerShell({ lesson, gamificationSummary, academyRating }: LessonViewerShellProps) {
+export default function LessonViewerShell({ lesson, gamificationSummary, academyRating: initialAcademyRating, ratedCount: initialRatedCount }: LessonViewerShellProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [gamification, setGamification] = useState<GamificationResult | null>(null)
@@ -187,7 +255,33 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
   const [sessionPoints, setSessionPoints] = useState(0)
   const [sessionBreakdown, setSessionBreakdown] = useState<Array<{ label: string; pts: number }>>([])
   const [puzzleStreak, setPuzzleStreak] = useState(0)
+  const [academyRating, setAcademyRating] = useState(initialAcademyRating)
+  const [ratedCount, setRatedCount] = useState(initialRatedCount)
+  const [hasQuit, setHasQuit] = useState(false)
   const blockHadPts = useRef(false)
+
+  // Called twice per solved puzzle: once optimistically (client-computed preview,
+  // before the server round-trip resolves) and once to reconcile with the real
+  // persisted value. Only the reconciled call advances ratedCount (k-factor input).
+  const handleRatingPreview = useCallback((rating: number) => {
+    setAcademyRating(rating)
+  }, [])
+  const handleRatingCommit = useCallback((rating: number) => {
+    setAcademyRating(rating)
+    setRatedCount(prev => prev + 1)
+  }, [])
+
+  const { spring, reduced } = useMotionProfile()
+  const pointsChipControls = useAnimationControls()
+  const prevSessionPointsRef = useRef(0)
+
+  // Pulse the points chip whenever it climbs (block solved / puzzle scored)
+  useEffect(() => {
+    if (sessionPoints > prevSessionPointsRef.current) {
+      pointsChipControls.start(successAnimation(spring, reduced))
+    }
+    prevSessionPointsRef.current = sessionPoints
+  }, [sessionPoints, pointsChipControls, spring, reduced])
 
   const handleBlockComplete = useCallback((pts: number, label: string) => {
     setSessionPoints(prev => prev + pts)
@@ -201,6 +295,7 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
     currentIndex: 0,
     completedIds: new Set<number>(),
     isComplete: false,
+    direction: 1,
   })
 
   // Track time: record when the current block was first shown
@@ -328,15 +423,28 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
     }
   }
 
+  // ── Quit: bail out to a session summary without marking the lesson complete ──
+  const handleQuit = useCallback(() => {
+    if (!window.confirm('Quit this lesson? Your progress is saved and you can resume later.')) return
+    const secondsOnBlock = Math.round((Date.now() - blockStartTimeRef.current) / 1000)
+    if (secondsOnBlock > 2) {
+      startTransition(() => {
+        updateTimeSpent(lesson.id, secondsOnBlock).catch(() => {})
+      })
+    }
+    setHasQuit(true)
+  }, [lesson.id])
+
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (state.isComplete) {
+  if (state.isComplete || hasQuit) {
     return (
       <LessonCompleteScreen
         lesson={lesson}
-        gamification={gamification}
-        gamificationPending={gamificationPending}
+        gamification={hasQuit ? null : gamification}
+        gamificationPending={hasQuit ? false : gamificationPending}
         sessionSummary={{ breakdown: sessionBreakdown, total: sessionPoints }}
+        variant={hasQuit ? 'quit' : 'completed'}
       />
     )
   }
@@ -351,6 +459,9 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
     )
   }
 
+  const prevPeekBlock = state.currentIndex > 0 ? lesson.blocks[state.currentIndex - 1] : null
+  const nextPeekBlock = state.currentIndex < lesson.blocks.length - 1 ? lesson.blocks[state.currentIndex + 1] : null
+
   return (
     <div className="container mx-auto px-3 py-3 max-w-7xl overflow-hidden">
       <div className="mb-3 flex items-start justify-between gap-4">
@@ -361,51 +472,87 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
           )}
         </div>
         <div className="shrink-0 flex items-center gap-1.5 select-none">
+          <MotionButton
+            variant="ghost"
+            size="sm"
+            onClick={handleQuit}
+            className="h-8 text-muted-foreground hover:text-foreground"
+            title="Quit lesson"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </MotionButton>
           {academyRating !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-sm text-sm font-black text-white shadow-lg" title="Academy rating">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg" title="Academy rating">
               <span className="text-amber-400 text-xs leading-none">★</span>
               {academyRating}
             </div>
           )}
           {sessionPoints > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-sm text-sm font-black text-white shadow-lg">
+            <motion.div
+              animate={pointsChipControls}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg"
+            >
               <Zap className="w-3.5 h-3.5 text-amber-400" />
               +{sessionPoints} pts
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
 
       <div className="w-full">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={state.currentIndex}
-            variants={blockVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.35, ease: 'easeInOut' }}
-            className="h-full"
-          >
-            <ViewerBlockRenderer
-              block={currentBlock}
-              onSolved={handleSolved}
-              onPrev={handlePrev}
-              canPrev={state.currentIndex > 0}
-              lessonId={lesson.id}
-              onBlockComplete={handleBlockComplete}
-              sessionPoints={sessionPoints}
-              puzzleStreak={puzzleStreak}
-              studentLevel={gamificationSummary?.level ?? 1}
-              studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
-              currentStreak={gamificationSummary?.currentStreak ?? 0}
-              academyRating={academyRating}
-            />
-          </motion.div>
-        </AnimatePresence>
+        {/* Peek: title-only ghost stubs of the adjacent blocks, desktop only. The
+            card narrows on lg: so there's gutter space for them to sit in — full
+            width (no stubs) below that breakpoint. */}
+        <div className="relative">
+          {prevPeekBlock && (
+            <div className="hidden lg:flex absolute inset-y-0 left-0 items-center">
+              <PeekStub block={prevPeekBlock} />
+            </div>
+          )}
+          {nextPeekBlock && (
+            <div className="hidden lg:flex absolute inset-y-0 right-0 items-center">
+              <PeekStub block={nextPeekBlock} />
+            </div>
+          )}
+
+          {/* perspective lives on this non-transformed ancestor — CSS perspective has
+              no effect on the element that also carries the rotateY transform itself. */}
+          <div className="lg:max-w-4xl lg:mx-auto" style={{ perspective: 1200 }}>
+            <AnimatePresence mode="wait" custom={state.direction}>
+              <motion.div
+                key={state.currentIndex}
+                custom={state.direction}
+                variants={blockVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.5, type: 'spring', ...spring }}
+                className="h-full"
+              >
+                <ViewerBlockRenderer
+                  block={currentBlock}
+                  onSolved={handleSolved}
+                  onPrev={handlePrev}
+                  canPrev={state.currentIndex > 0}
+                  lessonId={lesson.id}
+                  onBlockComplete={handleBlockComplete}
+                  sessionPoints={sessionPoints}
+                  puzzleStreak={puzzleStreak}
+                  studentLevel={gamificationSummary?.level ?? 1}
+                  studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
+                  currentStreak={gamificationSummary?.currentStreak ?? 0}
+                  academyRating={academyRating}
+                  ratedCount={ratedCount}
+                  onRatingPreview={handleRatingPreview}
+                  onRatingCommit={handleRatingCommit}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
 
         <div className="mt-3">
-          <BlockProgressDots
+          <KnightProgressPath
             total={lesson.blocks.length}
             current={state.currentIndex}
             completed={state.completedIds}
@@ -414,18 +561,18 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
 
         {currentBlock.type !== 'puzzle' && (
           <div className="flex justify-between mt-2">
-            <Button
+            <MotionButton
               variant="outline"
               onClick={handlePrev}
               disabled={state.currentIndex === 0}
             >
               <ChevronLeft className="w-4 h-4 mr-2" />
               Previous
-            </Button>
-            <Button onClick={handleSolved} className="gap-2">
+            </MotionButton>
+            <MotionButton onClick={handleSolved} className="gap-2">
               {state.currentIndex >= lesson.blocks.length - 1 ? 'Finish' : 'Next'}
               <ChevronRight className="w-4 h-4" />
-            </Button>
+            </MotionButton>
           </div>
         )}
       </div>

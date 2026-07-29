@@ -6,6 +6,7 @@ import {
   getTodaysSetForCoach,
   getTodaysSetForStudent,
   getStudentAttemptsToday,
+  getMyStudentsForDailyPuzzles,
 } from '@/services/dailyPuzzleService'
 import { getAcademyRatingSummary } from '@/services/academyRatingService'
 import { tierRatingBand } from '@/lib/academyRating'
@@ -22,13 +23,22 @@ export default async function AcademyPuzzlesPage() {
 
   // ── Coach / admin: curate today's pool ──────────────────────────────────────
   if (profile.role === 'coach' || profile.role === 'admin') {
-    const set = await getTodaysSetForCoach(profile.id)
-    return <CoachPuzzleCuration initialPuzzles={set?.puzzles ?? []} />
+    const [set, students] = await Promise.all([
+      getTodaysSetForCoach(profile.id),
+      getMyStudentsForDailyPuzzles(profile.id),
+    ])
+    return (
+      <CoachPuzzleCuration
+        initialPuzzles={set?.puzzles ?? []}
+        initialAssignedStudentIds={set?.assignedStudentIds ?? []}
+        students={students}
+      />
+    )
   }
 
   // ── Student: today's set, auto-filtered to their rating band ─────────────────
   const supabase = await createClient()
-  const [set, attempts, rating, apRes] = await Promise.all([
+  const [{ coachId, set }, attempts, rating, apRes] = await Promise.all([
     getTodaysSetForStudent(profile.id),
     getStudentAttemptsToday(profile.id),
     getAcademyRatingSummary(profile.id),
@@ -52,7 +62,7 @@ export default async function AcademyPuzzlesPage() {
       puzzles={puzzles}
       attempts={attempts}
       rating={currentRating}
-      hasCoach={set !== null}
+      hasCoach={coachId !== null}
     />
   )
 }

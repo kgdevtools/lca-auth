@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { ACHIEVEMENTS, LEVEL_NAMES, type AchievementStats, type LevelNumber } from '@/lib/constants/achievements'
 import { recordRatingEvent } from './academyRatingService'
-import { LESSON_DIFFICULTY_RATING } from '@/lib/academyRating'
+import { LESSON_DIFFICULTY_RATING, DEFAULT_SEED } from '@/lib/academyRating'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -145,13 +145,21 @@ async function fetchStats(studentId: string): Promise<AchievementStats> {
 
 export type PuzzleOutcome = 'clean' | 'wrong_first' | 'hint' | 'hint_wrong' | 'gave_up'
 
+// Elo "actual" per outcome — only outcomes that actually solved the puzzle move
+// the rating; a skipped/given-up puzzle is not a rated attempt at all (null).
+const PUZZLE_RATING_ACTUAL: Record<PuzzleOutcome, number | null> = {
+  clean: 1, wrong_first: 1, hint: 1, hint_wrong: 0.5, gave_up: null,
+}
+
 export async function onPuzzleBlockSolved(
-  studentId: string,
-  lessonId:  string,
-  outcome:   PuzzleOutcome,
-): Promise<{ pointsEarned: number }> {
+  studentId:    string,
+  lessonId:     string,
+  outcome:      PuzzleOutcome,
+  blockKey:     string,
+  puzzleRating: number | null,
+): Promise<{ pointsEarned: number; rating: { before: number; after: number } | null }> {
   const base = PUZZLE_BLOCK_BASE[outcome] ?? 0
-  if (base === 0) return { pointsEarned: 0 }
+  if (base === 0) return { pointsEarned: 0, rating: null }
 
   const supabase = await createClient()
   const difficulty = await fetchLessonDifficulty(supabase, lessonId)
@@ -161,7 +169,21 @@ export async function onPuzzleBlockSolved(
     outcome, difficulty, base_pts: base,
   })
 
-  return { pointsEarned: pts }
+  let rating: { before: number; after: number } | null = null
+  const actual = PUZZLE_RATING_ACTUAL[outcome]
+  if (actual !== null) {
+    try {
+      const opponentR = puzzleRating ?? LESSON_DIFFICULTY_RATING[difficulty] ?? DEFAULT_SEED
+      const r = await recordRatingEvent(studentId, {
+        source: 'puzzle', sourceRef: `${lessonId}:${blockKey}`, opponentR, actual,
+      })
+      if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
+    } catch (e) {
+      console.error('[gamification] rating event (puzzle) failed:', e)
+    }
+  }
+
+  return { pointsEarned: pts, rating }
 }
 
 export async function onStudyChapterCompleted(
@@ -254,16 +276,21 @@ export async function onLessonCompleted(
     had_perfect_quiz: quizScore === 100,
   })
 
-  // Feed the academy rating — a completed lesson is a rated activity (Q2).
-  // R = difficulty-mapped; quiz score modulates the result. Idempotent per lesson/day.
+  // Feed the academy rating — only when this lesson actually produced a quiz
+  // score. Puzzle-content lessons are rated per-block (onPuzzleBlockSolved)
+  // as each puzzle is solved, not as a single blanket "win" on completion —
+  // otherwise skipping straight through every puzzle would still read as a
+  // full win here. Idempotent per lesson/day.
   let rating: GamificationResult['rating'] = null
-  try {
-    const lessonR = LESSON_DIFFICULTY_RATING[difficulty] ?? 1200
-    const actual  = quizScore == null ? 1 : quizScore >= 80 ? 1 : quizScore >= 50 ? 0.5 : 0
-    const r = await recordRatingEvent(studentId, { source: 'lesson', sourceRef: lessonId, opponentR: lessonR, actual })
-    if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
-  } catch (e) {
-    console.error('[gamification] rating event (lesson) failed:', e)
+  if (quizScore != null) {
+    try {
+      const lessonR = LESSON_DIFFICULTY_RATING[difficulty] ?? 1200
+      const actual  = quizScore >= 80 ? 1 : quizScore >= 50 ? 0.5 : 0
+      const r = await recordRatingEvent(studentId, { source: 'lesson', sourceRef: lessonId, opponentR: lessonR, actual })
+      if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
+    } catch (e) {
+      console.error('[gamification] rating event (lesson) failed:', e)
+    }
   }
 
   const newLevel = latestResult?.new_level ?? 1

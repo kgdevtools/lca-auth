@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useMemo, useTransition } from 'react'
-import { Lightbulb, RotateCcw, Eye, ChevronRight, FlipVertical, CheckCircle2, XCircle, TrendingUp, TrendingDown, Trophy } from 'lucide-react'
+import { Lightbulb, RotateCcw, Eye, ChevronRight, FlipVertical, CheckCircle2, XCircle, TrendingUp, TrendingDown, Trophy, Clock, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { recordPuzzleAttempt, type PuzzleSolveResult } from '@/actions/academy/dailyPuzzleActions'
@@ -16,6 +16,9 @@ interface Props {
   rating:   number
   hasCoach: boolean
 }
+
+// Puzzle-Rush style: solve as many as you can before time runs out.
+const RUSH_DURATION = 180
 
 // Desktop board-sizing: fit to available height, reserve panel width, cap 560.
 function useStage(ref: React.RefObject<HTMLDivElement | null>) {
@@ -57,6 +60,46 @@ export default function StudentDailyPuzzles({ puzzles, attempts, rating, hasCoac
   const [liveRating, setLiveRating]       = useState(rating)
   const [, startRecord]         = useTransition()
 
+  // ── Rush timer ────────────────────────────────────────────────────────────
+  // Only gate fresh solving with a countdown; a student re-opening a fully
+  // completed set is just reviewing and shouldn't be forced through it again.
+  const alreadyFullyAttempted = useMemo(
+    () => puzzles.length > 0 && puzzles.every(p => attempts[p.lichessId] !== undefined),
+    [puzzles, attempts]
+  )
+  const [rushStarted, setRushStarted] = useState(false)
+  const [rushActive, setRushActive]   = useState(false)
+  const [timeLeft, setTimeLeft]       = useState(RUSH_DURATION)
+  const [rushSolved, setRushSolved]   = useState(0)
+  const [rushFailed, setRushFailed]   = useState(0)
+
+  useEffect(() => {
+    if (!rushActive) return
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          setRushActive(false)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [rushActive])
+
+  const startRush = useCallback(() => {
+    setRushStarted(true)
+    setRushActive(true)
+  }, [])
+
+  const restartRush = useCallback(() => {
+    setTimeLeft(RUSH_DURATION)
+    setRushSolved(0)
+    setRushFailed(0)
+    setRushActive(true)
+  }, [])
+
   const recordedRef = useRef<Set<string>>(new Set())
   const stageRef = useRef<HTMLDivElement>(null)
   const { isDesktop, boardSize } = useStage(stageRef)
@@ -65,9 +108,16 @@ export default function StudentDailyPuzzles({ puzzles, attempts, rating, hasCoac
   const total  = puzzles.length
   const solvedCount = Object.values(attempts).filter(Boolean).length
 
+  // Stop the clock once every puzzle in today's set has been attempted —
+  // finishing early shouldn't force the student to sit out the rest of the clock.
+  useEffect(() => {
+    if (rushActive && rushSolved + rushFailed >= total) setRushActive(false)
+  }, [rushActive, rushSolved, rushFailed, total])
+
   const send = useCallback((p: StoredPuzzle, solved: boolean) => {
     if (recordedRef.current.has(p.lichessId)) return
     recordedRef.current.add(p.lichessId)
+    if (solved) setRushSolved(s => s + 1); else setRushFailed(s => s + 1)
     startRecord(async () => {
       try {
         const r = await recordPuzzleAttempt({ puzzleId: p.lichessId, puzzleRating: p.rating, solved })
@@ -109,8 +159,19 @@ export default function StudentDailyPuzzles({ puzzles, attempts, rating, hasCoac
   if (total === 0) {
     return <Centered title="No puzzles today" body="Your coach hasn't published a puzzle set yet. Check back soon." />
   }
+
+  // ── Rush gate: only for a fresh (not fully-attempted) set ───────────────────
+  if (!alreadyFullyAttempted && !rushStarted) {
+    return <RushStartGate total={total} onStart={startRush} />
+  }
+  const rushTimeUp = rushStarted && !alreadyFullyAttempted && timeLeft <= 0
+  if (rushTimeUp) {
+    return <RushEndScreen solved={rushSolved} failed={rushFailed} onRestart={restartRush} />
+  }
+
   const allDone = solvedCount >= total && status !== 'correct' && index >= total - 1 && recordedRef.current.size > 0
   const onLastSolvedView = index >= total - 1 && status === 'correct'
+  const showTimer = rushStarted && !alreadyFullyAttempted
 
   return (
     <div className="flex flex-col h-[calc(100dvh-5rem)] overflow-hidden">
@@ -123,6 +184,7 @@ export default function StudentDailyPuzzles({ puzzles, attempts, rating, hasCoac
           </span>
         </div>
         <div className="flex items-center gap-4">
+          {showTimer && <RushTimer timeLeft={timeLeft} solved={rushSolved} failed={rushFailed} />}
           <Stat label="Rating" value={liveRating} />
           <Stat label="Session pts" value={`+${sessionPoints}`} accent />
         </div>
@@ -277,6 +339,69 @@ function Centered({ title, body }: { title: string; body: string }) {
     <div className="flex flex-col items-center justify-center h-[calc(100dvh-5rem)] text-center px-6">
       <p className="text-base font-semibold tracking-tight">{title}</p>
       <p className="text-sm text-muted-foreground mt-1 max-w-sm">{body}</p>
+    </div>
+  )
+}
+
+// ── Puzzle Rush: start gate, header timer, end screen ───────────────────────
+
+function formatClock(seconds: number) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function RushStartGate({ total, onStart }: { total: number; onStart: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-[calc(100dvh-5rem)] text-center px-6">
+      <Zap className="w-8 h-8 text-amber-500 mb-3" />
+      <h1 className="text-xl font-bold tracking-tight">Ready to start?</h1>
+      <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+        You have {formatClock(RUSH_DURATION)} to solve as many of today&apos;s {total} puzzle{total === 1 ? '' : 's'} as you can.
+      </p>
+      <Button onClick={onStart} size="lg" className="mt-5 gap-2">
+        <Zap className="w-4 h-4" /> Start Rush
+      </Button>
+    </div>
+  )
+}
+
+function RushTimer({ timeLeft, solved, failed }: { timeLeft: number; solved: number; failed: number }) {
+  const isLowTime = timeLeft <= 30 && timeLeft > 0
+  const isTimeUp = timeLeft <= 0
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <Clock className={cn('w-3.5 h-3.5', isTimeUp ? 'text-destructive' : isLowTime ? 'text-orange-500' : 'text-muted-foreground')} />
+        <span className={cn('text-sm font-bold tabular-nums', isTimeUp ? 'text-destructive' : isLowTime ? 'text-orange-500' : 'text-foreground')}>
+          {formatClock(timeLeft)}
+        </span>
+      </div>
+      <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{solved}✓</span>
+        <span className="text-red-600 dark:text-red-400 font-semibold">{failed}✗</span>
+      </div>
+    </div>
+  )
+}
+
+function RushEndScreen({ solved, failed, onRestart }: { solved: number; failed: number; onRestart: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-[calc(100dvh-5rem)] text-center px-6">
+      <h1 className="text-xl font-bold tracking-tight">Time&apos;s up!</h1>
+      <div className="flex gap-8 mt-5">
+        <div>
+          <p className="text-3xl font-bold text-emerald-500 tabular-nums">{solved}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Solved</p>
+        </div>
+        <div>
+          <p className="text-3xl font-bold text-red-500 tabular-nums">{failed}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Missed</p>
+        </div>
+      </div>
+      <Button onClick={onRestart} size="lg" className="mt-6 gap-2">
+        <RotateCcw className="w-4 h-4" /> Go again
+      </Button>
     </div>
   )
 }

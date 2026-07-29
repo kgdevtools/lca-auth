@@ -6,6 +6,7 @@ import { Chess } from "chess.js";
 import { AnalysisPanel } from "@/components/analysis/AnalysisPanel";
 import { LessonTypeSelectionModal, type LessonType } from "@/components/lessons/LessonTypeSelectionModal";
 import { BoardEditor } from "@/components/lessons/BoardEditor";
+import { TimerConfigField, DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
 import { Chessboard } from "react-chessboard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   X, Plus, RotateCcw, Trash2, ChevronUp, ChevronDown, ChevronLeft,
   Check, Loader2, ArrowRight, ChevronRight, Pencil,
@@ -22,12 +24,15 @@ import {
 import {
   createPuzzleLesson, createStudyLesson, createInteractiveStudyLesson,
   updatePuzzleLesson, updateStudyLesson, updateInteractiveStudyLesson,
+  createMcqLesson, updateMcqLesson, createQaLesson, updateQaLesson,
   fetchStudentsForAssignment,
 } from "./actions";
 import { fetchCategories } from "./categories";
 import { parsePgn, parsePgnStudy, type MoveAnnotation } from "@/lib/pgnParser";
 import StudyEditorBoard from "@/components/lessons/StudyEditorBoard";
 import InteractiveStudyEditorBoard, { type SolvePoint } from "@/components/lessons/InteractiveStudyEditorBoard";
+import McqEditorPanel, { type McqQuestionData } from "@/components/lessons/McqEditorPanel";
+import QaEditorPanel, { type QaCardData } from "@/components/lessons/QaEditorPanel";
 import type { LessonWithCategory, LessonBlock } from "@/repositories/lesson/lessonRepository";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +46,8 @@ interface PuzzleData {
   description: string;
   hint?: string;
   orientation: 'white' | 'black';
+  rating?: number | null;
+  timer?: TimerConfig;
 }
 
 interface BatchPreview {
@@ -146,7 +153,7 @@ const BATCH_THEMES = [
   ]},
 ];
 
-const validTypes: LessonType[] = ["puzzle", "study", "interactive"];
+const validTypes: LessonType[] = ["puzzle", "study", "interactive", "mcq", "qa"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -161,6 +168,8 @@ function generateId(): string {
 function contentTypeToLessonType(ct: string): LessonType {
   if (ct === 'study') return 'study';
   if (ct === 'interactive_study') return 'interactive';
+  if (ct === 'mcq') return 'mcq';
+  if (ct === 'qa') return 'qa';
   return 'puzzle';
 }
 
@@ -176,6 +185,8 @@ function blocksToEditPuzzles(blocks: LessonBlock[]): PuzzleData[] {
         description: Array.isArray(d.themes) ? d.themes.join(', ') : String(d.themes ?? ''),
         hint: String(d.hint ?? ''),
         orientation: (d.orientation as 'white' | 'black') ?? 'white',
+        rating: typeof d.rating === 'number' ? d.rating : null,
+        timer: d.timer as TimerConfig | undefined,
       };
     });
 }
@@ -207,6 +218,45 @@ function blocksToSolveMoves(blocks: LessonBlock[]): Record<string, SolvePoint[]>
   return result;
 }
 
+function readTimer(d: Record<string, any>): TimerConfig | undefined {
+  const t = d.timer;
+  if (!t || typeof t !== 'object' || !t.enabled) return undefined;
+  return { enabled: true, seconds: Number(t.seconds) || DEFAULT_TIMER.seconds };
+}
+
+function blocksToEditMcq(blocks: LessonBlock[]): McqQuestionData[] {
+  return blocks
+    .filter(b => b.type === 'mcq')
+    .map(b => {
+      const d = b.data as Record<string, any>;
+      return {
+        id: b.id,
+        question: String(d.question ?? ''),
+        options: Array.isArray(d.options) ? d.options.map((o: any) => ({
+          id: String(o.id ?? generateId()), text: String(o.text ?? ''), isCorrect: !!o.isCorrect,
+        })) : [],
+        explanation: d.explanation ? String(d.explanation) : undefined,
+        media: d.media,
+        timer: readTimer(d),
+      };
+    });
+}
+
+function blocksToEditQa(blocks: LessonBlock[]): QaCardData[] {
+  return blocks
+    .filter(b => b.type === 'qa')
+    .map(b => {
+      const d = b.data as Record<string, any>;
+      return {
+        id: b.id,
+        question: String(d.question ?? ''),
+        answer: String(d.answer ?? ''),
+        media: d.media,
+        timer: readTimer(d),
+      };
+    });
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function CollapsibleSection({
@@ -230,6 +280,41 @@ function CollapsibleSection({
       </button>
       {open && <div className="px-5 pb-5 pt-1 border-t border-border">{children}</div>}
     </div>
+  );
+}
+
+function StudySettingsPanel({
+  displaySettings, onDisplaySettingsChange, timer, onTimerChange,
+}: {
+  displaySettings: { showEval: boolean; showClocks: boolean; showArrows: boolean; showHighlights: boolean };
+  onDisplaySettingsChange: (next: { showEval: boolean; showClocks: boolean; showArrows: boolean; showHighlights: boolean }) => void;
+  timer: TimerConfig;
+  onTimerChange: (next: TimerConfig) => void;
+}) {
+  const TOGGLES: Array<{ key: keyof typeof displaySettings; label: string }> = [
+    { key: 'showEval', label: 'Engine evaluation' },
+    { key: 'showClocks', label: 'Move clocks' },
+    { key: 'showArrows', label: 'Annotation arrows' },
+    { key: 'showHighlights', label: 'Square highlights' },
+  ];
+  return (
+    <CollapsibleSection label="Display settings" preview="What students see while viewing this study">
+      <div className="space-y-3 pt-1">
+        <div className="grid grid-cols-2 gap-2.5">
+          {TOGGLES.map(t => (
+            <div key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-border px-3 py-2">
+              <Label htmlFor={`ds-${t.key}`} className="text-xs">{t.label}</Label>
+              <Switch
+                id={`ds-${t.key}`}
+                checked={displaySettings[t.key]}
+                onCheckedChange={v => onDisplaySettingsChange({ ...displaySettings, [t.key]: v })}
+              />
+            </div>
+          ))}
+        </div>
+        <TimerConfigField value={timer} onChange={onTimerChange} />
+      </div>
+    </CollapsibleSection>
   );
 }
 
@@ -297,7 +382,7 @@ function LessonInfoForm({
   tagInput, setTagInput, onChange, onTitleChange, onAddTag, onRemoveTag,
   readOnly, coaches, assignedTo, onAssignedToChange,
 }: {
-  lessonInfo: { title: string; slug: string; description: string; categoryId: string; difficulty: string; estimatedDurationMinutes: string; tags: string[] };
+  lessonInfo: { title: string; slug: string; description: string; categoryId: string; difficulty: string; estimatedDurationMinutes: string; tags: string[]; published: boolean };
   categories: Array<{ id: string; name: string }>;
   students: Array<{ id: string; full_name: string }>;
   selectedStudentIds: string[];
@@ -382,6 +467,20 @@ function LessonInfoForm({
           value={lessonInfo.estimatedDurationMinutes}
           onChange={e => onChange({ estimatedDurationMinutes: e.target.value })}
         />
+      </div>
+
+      {/* Published */}
+      <div className="space-y-1.5">
+        <Label htmlFor="published" className="text-xs text-muted-foreground">Visibility</Label>
+        <div className="flex items-center gap-2 h-9">
+          <Switch id="published" checked={lessonInfo.published} onCheckedChange={v => onChange({ published: v })} />
+          <span className="text-sm">{lessonInfo.published ? 'Published' : 'Draft'}</span>
+        </div>
+        {!lessonInfo.published && (
+          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+            Draft lessons are invisible to assigned students until published.
+          </p>
+        )}
       </div>
 
       {/* Tags */}
@@ -516,6 +615,14 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   });
   const [showModal, setShowModal] = useState(() => !isEdit && !selectedType);
 
+  // MCQ / Q&A state
+  const [mcqQuestions, setMcqQuestions] = useState<McqQuestionData[]>(() =>
+    isEdit && editData ? blocksToEditMcq(editData.lesson.blocks) : []
+  );
+  const [qaCards, setQaCards] = useState<QaCardData[]>(() =>
+    isEdit && editData ? blocksToEditQa(editData.lesson.blocks) : []
+  );
+
   // Puzzle state
   const [puzzles, setPuzzles] = useState<PuzzleData[]>(() =>
     isEdit && editData ? blocksToEditPuzzles(editData.lesson.blocks) : []
@@ -527,6 +634,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [solutionInput, setSolutionInput] = useState("");
   const [puzzleDescInput, setPuzzleDescInput] = useState("");
   const [puzzleHintInput, setPuzzleHintInput] = useState("");
+  const [puzzleTimerInput, setPuzzleTimerInput] = useState<TimerConfig>(DEFAULT_TIMER);
+  const [editingPuzzleRating, setEditingPuzzleRating] = useState<number | null>(null);
   const [lichessUrl, setLichessUrl] = useState("");
   const [isLichessImportOpen, setIsLichessImportOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -564,6 +673,22 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [lichessStudyUrl, setLichessStudyUrl] = useState("");
   const [isLichessImporting, setIsLichessImporting] = useState(false);
   const [fileInputEl, setFileInputEl] = useState<HTMLInputElement | null>(null);
+  const [studyDisplaySettings, setStudyDisplaySettings] = useState(() => {
+    if (isEdit && editData) {
+      const block = editData.lesson.blocks.find(b => b.type === 'study' || b.type === 'interactive_study');
+      const ds = (block?.data as Record<string, any> | undefined)?.displaySettings;
+      if (ds) return { showEval: !!ds.showEval, showClocks: !!ds.showClocks, showArrows: !!ds.showArrows, showHighlights: !!ds.showHighlights };
+    }
+    return { showEval: true, showClocks: true, showArrows: true, showHighlights: true };
+  });
+  const [studyTimer, setStudyTimer] = useState<TimerConfig>(() => {
+    if (isEdit && editData) {
+      const block = editData.lesson.blocks.find(b => b.type === 'study' || b.type === 'interactive_study');
+      const t = readTimer((block?.data as Record<string, any>) ?? {});
+      if (t) return t;
+    }
+    return DEFAULT_TIMER;
+  });
 
   // Interactive study solve points
   const [interactiveSolveMoves, setInteractiveSolveMoves] = useState<Record<string, SolvePoint[]>>(() =>
@@ -587,9 +712,10 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         difficulty: l.difficulty ?? '',
         estimatedDurationMinutes: l.estimated_duration_minutes?.toString() ?? '',
         tags: [] as string[],
+        published: l.published,
       };
     }
-    return { title: '', slug: '', description: '', categoryId: '', difficulty: '', estimatedDurationMinutes: '', tags: [] as string[] };
+    return { title: '', slug: '', description: '', categoryId: '', difficulty: '', estimatedDurationMinutes: '', tags: [] as string[], published: true };
   });
 
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
@@ -634,13 +760,17 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   };
 
   const handleCreateAnother = () => {
+    setMcqQuestions([]); setQaCards([]);
     setPuzzles([]); setEditingPuzzleId(null); setEditingOrientation(undefined);
     setCurrentFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); setFenError(null);
     setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput("");
+    setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
     setPuzzlePgnText(""); setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); setPuzzlePgnPlyIndex(0);
     setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null);
+    setStudyDisplaySettings({ showEval: true, showClocks: true, showArrows: true, showHighlights: true });
+    setStudyTimer(DEFAULT_TIMER);
     setSelectedStudentIds([]);
-    setLessonInfo({ title: "", slug: "", description: "", categoryId: "", difficulty: "", estimatedDurationMinutes: "", tags: [] });
+    setLessonInfo({ title: "", slug: "", description: "", categoryId: "", difficulty: "", estimatedDurationMinutes: "", tags: [], published: true });
     setIsCompleted(false); setSavedLessonId(null); setIsSubmitting(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -707,21 +837,23 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     }
     const turn = currentFen.split(' ')[1];
     const orientation: 'white' | 'black' = turn === 'b' ? 'black' : 'white';
+    const timer = puzzleTimerInput.enabled ? puzzleTimerInput : undefined;
     if (editingPuzzleId) {
       setPuzzles(prev => prev.map(p => p.id === editingPuzzleId
-        ? { ...p, fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation }
+        ? { ...p, fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation, timer, rating: editingPuzzleRating }
         : p
       ));
       setEditingPuzzleId(null);
     } else {
-      setPuzzles(prev => [...prev, { id: generateId(), fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation }]);
+      setPuzzles(prev => [...prev, { id: generateId(), fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation, timer }]);
     }
-    setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput("");
+    setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput(""); setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
   };
 
   const handleEditPuzzle = (puzzle: PuzzleData) => {
     setCurrentFen(puzzle.fen); setEditingOrientation(puzzle.orientation);
     setSolutionInput(puzzle.solution); setPuzzleDescInput(puzzle.description); setPuzzleHintInput(puzzle.hint || '');
+    setPuzzleTimerInput(puzzle.timer ?? DEFAULT_TIMER); setEditingPuzzleRating(puzzle.rating ?? null);
     setEditingPuzzleId(puzzle.id);
     const pgn = puzzle.pgn || '';
     setPuzzlePgnText(pgn); setPuzzlePgnError(null);
@@ -742,6 +874,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const handleCancelEdit = () => {
     setEditingPuzzleId(null); setEditingOrientation(undefined);
     setSolutionInput(''); setPuzzleDescInput(''); setPuzzleHintInput('');
+    setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
     setPuzzlePgnText(''); setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]);
   };
 
@@ -764,6 +897,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         solution: data.solution?.join(" ") || "",
         description: data.themes?.join(", ") || "",
         orientation: importedTurn === 'b' ? 'black' : 'white',
+        rating: typeof data.rating === 'number' ? data.rating : null,
       }]);
     } catch { alert("Failed to import puzzle"); }
     finally { setIsImporting(false); closeImportModal(); }
@@ -792,6 +926,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     const toAdd = batchPreviews.filter(p => !p.removed).map(p => ({
       id: generateId(), fen: p.fen, pgn: p.pgn,
       solution: p.editSolution, description: p.editThemes, hint: p.editHint, orientation: p.editOrientation,
+      rating: p.rating,
     }));
     setPuzzles(prev => [...prev, ...toAdd]);
     closeImportModal();
@@ -882,8 +1017,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     return true;
   };
 
-  const displaySettings = { showEval: true, showClocks: true, showArrows: true, showHighlights: true };
-
   // ── Submit handlers ────────────────────────────────────────────────────────
 
   const handlePuzzleSubmit = async () => {
@@ -908,10 +1041,10 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setIsSubmitting(true);
     try {
       if (isEdit && editData) {
-        await updateStudyLesson(editData.lesson.id, lessonInfo, chapters, displaySettings, moveAnnotations, selectedStudentIds, assignedTo || undefined);
+        await updateStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, moveAnnotations, selectedStudentIds, assignedTo || undefined);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createStudyLesson(lessonInfo, chapters, displaySettings, moveAnnotations, selectedStudentIds);
+        const id = await createStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, moveAnnotations, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
         setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null); setMoveAnnotations(new Map());
       }
@@ -925,13 +1058,47 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setIsSubmitting(true);
     try {
       if (isEdit && editData) {
-        await updateInteractiveStudyLesson(editData.lesson.id, lessonInfo, chapters, displaySettings, interactiveSolveMoves, moveAnnotations, selectedStudentIds, assignedTo || undefined);
+        await updateInteractiveStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, moveAnnotations, selectedStudentIds, assignedTo || undefined);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createInteractiveStudyLesson(lessonInfo, chapters, displaySettings, interactiveSolveMoves, moveAnnotations, selectedStudentIds);
+        const id = await createInteractiveStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, moveAnnotations, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
         setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null);
         setMoveAnnotations(new Map()); setInteractiveSolveMoves({});
+      }
+    } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleMcqSubmit = async () => {
+    if (!validateLesson()) return;
+    if (mcqQuestions.length === 0) { alert("Please add at least one question"); return; }
+    setIsSubmitting(true);
+    try {
+      if (isEdit && editData) {
+        await updateMcqLesson(editData.lesson.id, lessonInfo, mcqQuestions, selectedStudentIds, assignedTo || undefined);
+        setSavedLessonId(editData.lesson.id); setIsCompleted(true);
+      } else {
+        const id = await createMcqLesson(lessonInfo, mcqQuestions, selectedStudentIds);
+        setSavedLessonId(id); setIsCompleted(true);
+        setMcqQuestions([]);
+      }
+    } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleQaSubmit = async () => {
+    if (!validateLesson()) return;
+    if (qaCards.length === 0) { alert("Please add at least one flashcard"); return; }
+    setIsSubmitting(true);
+    try {
+      if (isEdit && editData) {
+        await updateQaLesson(editData.lesson.id, lessonInfo, qaCards, selectedStudentIds, assignedTo || undefined);
+        setSavedLessonId(editData.lesson.id); setIsCompleted(true);
+      } else {
+        const id = await createQaLesson(lessonInfo, qaCards, selectedStudentIds);
+        setSavedLessonId(id); setIsCompleted(true);
+        setQaCards([]);
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
     finally { setIsSubmitting(false); }
@@ -1039,6 +1206,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
             <Input id="puzzle-hint" value={puzzleHintInput} onChange={e => setPuzzleHintInput(e.target.value)} placeholder="e.g. Look for a forcing move on the kingside" />
           </div>
 
+          <TimerConfigField value={puzzleTimerInput} onChange={setPuzzleTimerInput} />
+
           <div className="flex gap-2">
             <Button onClick={handleAddPuzzle} className="flex-1" disabled={!solutionInput.trim()}>
               {editingPuzzleId ? <><Check className="w-4 h-4 mr-2" />Save changes</> : <><Plus className="w-4 h-4 mr-2" />Add puzzle</>}
@@ -1064,7 +1233,11 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
                   <Chessboard position={puzzle.fen} boardWidth={80} arePiecesDraggable={false} customBoardStyle={{ borderRadius: "4px" }} boardOrientation={puzzle.orientation} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground mb-0.5">#{index + 1}</p>
+                  <p className="text-xs text-muted-foreground mb-0.5">
+                    #{index + 1}
+                    {puzzle.rating ? ` · ★ ${puzzle.rating}` : ""}
+                    {puzzle.timer?.enabled ? ` · ${puzzle.timer.seconds}s` : ""}
+                  </p>
                   {puzzle.description && <p className="text-sm truncate">{puzzle.description}</p>}
                   <p className="text-xs text-muted-foreground font-mono mt-0.5 truncate">{puzzle.solution}</p>
                 </div>
@@ -1323,6 +1496,13 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         </Button>
       </div>
 
+      <StudySettingsPanel
+        displaySettings={studyDisplaySettings}
+        onDisplaySettingsChange={setStudyDisplaySettings}
+        timer={studyTimer}
+        onTimerChange={setStudyTimer}
+      />
+
       <StudyEditorBoard
         chapters={chapters}
         selectedChapterIndex={selectedChapterIndex}
@@ -1380,6 +1560,13 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         </Button>
       </div>
 
+      <StudySettingsPanel
+        displaySettings={studyDisplaySettings}
+        onDisplaySettingsChange={setStudyDisplaySettings}
+        timer={studyTimer}
+        onTimerChange={setStudyTimer}
+      />
+
       <InteractiveStudyEditorBoard
         chapters={chapters}
         selectedChapterIndex={selectedChapterIndex}
@@ -1424,6 +1611,36 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+
+  // ── MCQ editor ─────────────────────────────────────────────────────────────
+
+  const renderMcqEditor = () => (
+    <div className="space-y-4">
+      <McqEditorPanel questions={mcqQuestions} onChange={setMcqQuestions} />
+      {mcqQuestions.length > 0 && (
+        isCompleted && savedLessonId ? (
+          <SuccessBanner lessonId={savedLessonId} label="Multiple choice lesson" mode={mode} onCreateAnother={handleCreateAnother} />
+        ) : (
+          <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleMcqSubmit} />
+        )
+      )}
+    </div>
+  );
+
+  // ── Q&A editor ─────────────────────────────────────────────────────────────
+
+  const renderQaEditor = () => (
+    <div className="space-y-4">
+      <QaEditorPanel cards={qaCards} onChange={setQaCards} />
+      {qaCards.length > 0 && (
+        isCompleted && savedLessonId ? (
+          <SuccessBanner lessonId={savedLessonId} label="Q&A lesson" mode={mode} onCreateAnother={handleCreateAnother} />
+        ) : (
+          <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleQaSubmit} />
+        )
       )}
     </div>
   );
@@ -1491,6 +1708,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         {selectedType === "puzzle"      && renderPuzzleEditor()}
         {selectedType === "study"       && renderStudyEditor()}
         {selectedType === "interactive" && renderInteractiveEditor()}
+        {selectedType === "mcq"         && renderMcqEditor()}
+        {selectedType === "qa"          && renderQaEditor()}
       </div>
     </>
   );

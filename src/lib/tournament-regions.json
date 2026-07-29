@@ -91,11 +91,11 @@
     "matchedOn": "capricorn district"
   },
   "12e3b626-b962-477c-8a66-930046c42500": {
-    "province": null,
-    "district": null,
-    "confidence": 0,
-    "method": "unmatched",
-    "matchedOn": null
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "chess haven"
   },
   "1377f702-0b71-4231-868f-ab55e2ab48cb": {
     "province": "Limpopo",
@@ -253,10 +253,10 @@
   },
   "320499de-86b4-4d45-bc8d-5272d35335cd": {
     "province": "Limpopo",
-    "district": null,
-    "confidence": 0.77,
+    "district": "Capricorn",
+    "confidence": 0.82,
     "method": "organizer",
-    "matchedOn": "limpopo"
+    "matchedOn": "chess limpopo"
   },
   "32c9593e-4e1f-4291-955d-9e2f010d3c80": {
     "province": null,
@@ -596,10 +596,10 @@
   },
   "72da7641-784d-4c34-a335-1515aece7a46": {
     "province": "Limpopo",
-    "district": null,
-    "confidence": 0.77,
+    "district": "Capricorn",
+    "confidence": 0.82,
     "method": "organizer",
-    "matchedOn": "limpopo"
+    "matchedOn": "chess limpopo"
   },
   "72e5e22d-4792-486d-9a69-c1fa1f673e3b": {
     "province": "Limpopo",
@@ -799,10 +799,10 @@
   },
   "9c141b3a-0a60-4555-845e-da37bc951794": {
     "province": "Limpopo",
-    "district": null,
-    "confidence": 0.77,
+    "district": "Capricorn",
+    "confidence": 0.82,
     "method": "organizer",
-    "matchedOn": "limpopo"
+    "matchedOn": "chess limpopo"
   },
   "9d79a2a7-bf12-4234-9e6d-7b160d992380": {
     "province": "Limpopo",
@@ -1043,11 +1043,11 @@
     "matchedOn": "polokwane"
   },
   "cf1e3b2c-76f2-4703-bb20-c2b6a151344a": {
-    "province": null,
-    "district": null,
-    "confidence": 0,
-    "method": "unmatched",
-    "matchedOn": null
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "chess haven"
   },
   "d12e5c0e-124b-446f-8742-9d107c4b28d3": {
     "province": "Limpopo",
@@ -1114,10 +1114,10 @@
   },
   "e335ce27-e386-47f3-867f-fa84937a721a": {
     "province": "Limpopo",
-    "district": null,
-    "confidence": 0.77,
+    "district": "Capricorn",
+    "confidence": 0.82,
     "method": "organizer",
-    "matchedOn": "limpopo"
+    "matchedOn": "chess limpopo"
   },
   "e60c2d4c-938e-407c-be44-b3f8d1c05002": {
     "province": "Limpopo",
@@ -1135,10 +1135,10 @@
   },
   "e7b38e28-0ed6-4de6-9676-4ae297e87744": {
     "province": "Limpopo",
-    "district": null,
-    "confidence": 0.77,
+    "district": "Capricorn",
+    "confidence": 0.82,
     "method": "organizer",
-    "matchedOn": "limpopo"
+    "matchedOn": "chess limpopo"
   },
   "e7fe671f-87ce-49d7-89b7-6f6c1db4aad7": {
     "province": "Limpopo",
@@ -1518,6 +1518,13 @@
     "method": "location-exact",
     "matchedOn": "gqeberha"
   },
+  "8929f7a4-d03f-4459-9253-63c92bb4f947": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "limpopo chess"
+  },
   "49f29256-f5a9-4039-a93c-c269ea7b1f88": {
     "province": "Eastern Cape",
     "district": "Nelson Mandela Bay",
@@ -1594,5 +1601,40 @@
     "confidence": 0.9,
     "method": "location-exact",
     "matchedOn": "eastern cape"
+  },
+  "476fee33-ffe5-46ba-b2f8-9d678896939c": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "limpopo chess"
+  },
+  "b5fdd3c7-a450-4cc0-8808-233fff33d742": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn tvet college"
+  },
+  "8458020d-ae87-4adb-8c05-ea9a9abaa794": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn tvet college"
+  },
+  "f9efb88b-e6dd-4e5e-9fa9-a0e28f26c607": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "0da9b6aa-9516-4399-901e-978cc29187c3": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "name",
+    "matchedOn": "capricorn"
   }
 }

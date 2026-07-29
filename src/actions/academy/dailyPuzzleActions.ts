@@ -19,9 +19,12 @@ async function requireCoach() {
 
 // ── Coach: curate today's pool ──────────────────────────────────────────────────
 
-export async function saveDailyPuzzleSet(puzzles: StoredPuzzle[]): Promise<void> {
+export async function saveDailyPuzzleSet(
+  puzzles: StoredPuzzle[],
+  assignedStudentIds: string[] = [],
+): Promise<void> {
   const profile = await requireCoach()
-  await dailyPuzzleService.upsertTodaysSet(profile.id, puzzles)
+  await dailyPuzzleService.upsertTodaysSet(profile.id, puzzles, assignedStudentIds)
   revalidatePath('/academy/puzzles')
   revalidatePath('/academy')
 }
@@ -29,6 +32,11 @@ export async function saveDailyPuzzleSet(puzzles: StoredPuzzle[]): Promise<void>
 export async function getCoachTodaySet(): Promise<DailyPuzzleSet | null> {
   const profile = await requireCoach()
   return dailyPuzzleService.getTodaysSetForCoach(profile.id)
+}
+
+export async function fetchMyStudentsForDailyPuzzles(): Promise<Array<{ id: string; full_name: string }>> {
+  const profile = await requireCoach()
+  return dailyPuzzleService.getMyStudentsForDailyPuzzles(profile.id)
 }
 
 // ── Student: record a puzzle attempt ────────────────────────────────────────────

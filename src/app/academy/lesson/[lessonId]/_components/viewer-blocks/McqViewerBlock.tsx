@@ -1,15 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { CheckCircle2, XCircle, ChevronRight } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
+import { successAnimation, errorAnimation, tapAnimation } from '@/components/microinteractions/presets'
+import { cn } from '@/lib/utils'
+import BlockMediaPreview, { type BlockMedia } from '@/components/BlockMediaPreview'
 
 interface McqViewerBlockProps {
   data: {
     question?: string
     options?: Array<{ id: string; text: string; isCorrect: boolean }>
     explanation?: string
+    media?: BlockMedia
   }
   onSolved: () => void
 }
@@ -17,6 +21,8 @@ interface McqViewerBlockProps {
 export default function McqViewerBlock({ data, onSolved }: McqViewerBlockProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
+
+  const { spring, reduced } = useMotionProfile()
 
   const question = data.question || ''
   const options = data.options || []
@@ -43,91 +49,123 @@ export default function McqViewerBlock({ data, onSolved }: McqViewerBlockProps) 
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full">
-      <div className="lg:w-3/5 space-y-4">
-        <div>
-          <h3 className="font-semibold text-lg">Multiple Choice</h3>
+    <div className="flex flex-col lg:flex-row gap-3 h-full overflow-hidden">
+      {/* Question column */}
+      <div className="flex-1 flex flex-col gap-1 min-w-0">
+        <div className="flex items-center justify-between px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border text-xs font-medium shrink-0">
+          <span className="font-semibold">Multiple Choice</span>
         </div>
 
-        <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          <p className="text-lg font-medium">{question}</p>
+        <div className="px-3 py-3 bg-slate-100 dark:bg-slate-800 rounded text-sm font-medium shrink-0">
+          {question}
         </div>
 
-        <div className="space-y-2">
-          {options.map((option) => {
+        <div className="flex flex-col gap-1.5">
+          {options.map(option => {
             const isSelected = selectedId === option.id
             const isCorrectOption = option.isCorrect
             const showAsCorrect = showResult && isCorrectOption
             const showAsWrong = showResult && isSelected && !isCorrectOption
 
             return (
-              <button
+              <motion.button
                 key={option.id}
+                whileTap={tapAnimation(reduced)}
+                animate={showAsWrong ? errorAnimation(reduced) : showAsCorrect ? successAnimation(spring, reduced) : undefined}
                 onClick={() => handleSelect(option.id)}
                 disabled={showResult}
-                className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                className={cn(
+                  'flex items-center gap-2.5 w-full px-3 py-2 rounded-sm border text-left text-sm transition-colors',
                   showAsCorrect
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
                     : showAsWrong
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
                     : isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                }`}
+                    ? 'border-foreground bg-accent'
+                    : 'border-border hover:bg-accent',
+                )}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      showAsCorrect
-                        ? 'border-green-500 bg-green-500'
-                        : showAsWrong
-                        ? 'border-red-500 bg-red-500'
-                        : isSelected
-                        ? 'border-blue-500'
-                        : 'border-gray-300'
-                    }`}
-                  >
-                    {showAsCorrect && <CheckCircle2 className="w-3 h-3 text-white" />}
-                    {showAsWrong && <XCircle className="w-3 h-3 text-white" />}
-                  </div>
-                  <span className="flex-1">{option.text}</span>
+                <div
+                  className={cn(
+                    'w-4 h-4 shrink-0 rounded-full border flex items-center justify-center',
+                    showAsCorrect
+                      ? 'border-emerald-500 bg-emerald-500'
+                      : showAsWrong
+                      ? 'border-red-500 bg-red-500'
+                      : isSelected
+                      ? 'border-foreground'
+                      : 'border-border',
+                  )}
+                >
+                  {showAsCorrect && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
+                  {showAsWrong && <XCircle className="w-2.5 h-2.5 text-white" />}
                 </div>
-              </button>
+                <span className="flex-1">{option.text}</span>
+              </motion.button>
             )
           })}
         </div>
       </div>
 
-      <div className="lg:w-2/5 space-y-4">
-        {showResult && isCorrect && explanation && (
-          <Card>
-            <CardContent className="p-4">
-              <h4 className="font-semibold mb-2">Explanation</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{explanation}</p>
-            </CardContent>
-          </Card>
+      {/* Right panel */}
+      <div className="flex-1 flex flex-col gap-1 min-w-0">
+        {data.media && (
+          <div className="mb-1 shrink-0">
+            <BlockMediaPreview media={data.media} />
+          </div>
         )}
 
-        {!showResult ? (
-          <Button onClick={handleSubmit} disabled={!selectedId} className="w-full">
-            Submit Answer
-          </Button>
-        ) : isCorrect ? (
-          <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg text-center">
-            <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <p className="font-medium text-green-700">Correct!</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="p-4 bg-red-50 dark:bg-red-900/30 rounded-lg text-center">
-              <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-              <p className="font-medium text-red-700">Incorrect</p>
-            </div>
-            <Button variant="outline" onClick={handleRetry} className="w-full">
-              Try Again
-            </Button>
+        {showResult && (
+          isCorrect ? (
+            <motion.div
+              animate={successAnimation(spring, reduced)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded bg-green-100 dark:bg-green-900/30 shrink-0"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+              <span className="text-xs text-green-700 dark:text-green-300 font-medium">Correct! Well done!</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              animate={errorAnimation(reduced)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded bg-red-50 dark:bg-red-900/20 shrink-0"
+            >
+              <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <span className="text-xs text-red-700 dark:text-red-300">Not quite — try again.</span>
+            </motion.div>
+          )
+        )}
+
+        {showResult && isCorrect && explanation && (
+          <div className="flex items-start gap-1.5 px-2 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded text-xs text-amber-800 dark:text-amber-200 shrink-0">
+            {explanation}
           </div>
         )}
+
+        <div className="mt-auto flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+          {!showResult ? (
+            <motion.button
+              whileTap={tapAnimation(reduced)}
+              onClick={handleSubmit}
+              disabled={!selectedId}
+              className={cn(
+                'flex-1 h-10 flex items-center justify-center gap-1.5 text-sm font-medium transition-colors',
+                selectedId
+                  ? 'bg-foreground text-background hover:opacity-90'
+                  : 'text-muted-foreground disabled:opacity-30',
+              )}
+            >
+              Submit Answer
+            </motion.button>
+          ) : !isCorrect ? (
+            <motion.button
+              whileTap={tapAnimation(reduced)}
+              onClick={handleRetry}
+              className="flex-1 h-10 flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" /> Try Again
+            </motion.button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

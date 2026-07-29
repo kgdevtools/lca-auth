@@ -175,6 +175,10 @@ export async function assignCoachToStudent(
 
   revalidatePath('/academy/admin/assignments')
   revalidatePath('/academy/students')
+  revalidatePath(`/academy/students/${studentId}`)
+  revalidatePath('/academy')
+  revalidatePath('/academy/puzzles')
+  revalidatePath('/user/overview')
 }
 
 /**
@@ -207,6 +211,10 @@ export async function addCoachToStudent(
 
   revalidatePath('/academy/admin/assignments')
   revalidatePath('/academy/students')
+  revalidatePath(`/academy/students/${studentId}`)
+  revalidatePath('/academy')
+  revalidatePath('/academy/puzzles')
+  revalidatePath('/user/overview')
 }
 
 /**
@@ -230,6 +238,10 @@ export async function removeCoachFromStudent(
 
   revalidatePath('/academy/admin/assignments')
   revalidatePath('/academy/students')
+  revalidatePath(`/academy/students/${studentId}`)
+  revalidatePath('/academy')
+  revalidatePath('/academy/puzzles')
+  revalidatePath('/user/overview')
 }
 
 /**
@@ -249,6 +261,10 @@ export async function unassignCoach(studentId: string): Promise<void> {
 
   revalidatePath('/academy/admin/assignments')
   revalidatePath('/academy/students')
+  revalidatePath(`/academy/students/${studentId}`)
+  revalidatePath('/academy')
+  revalidatePath('/academy/puzzles')
+  revalidatePath('/user/overview')
 }
 
 /**

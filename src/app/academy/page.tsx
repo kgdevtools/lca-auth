@@ -61,10 +61,14 @@ export default async function AcademyDashboard() {
         .select("total_points, level, current_streak_days, lessons_completed")
         .eq("student_id", profile.id)
         .single(),
+      // A student can have more than one coach row — `.maybeSingle()` alone throws
+      // once a second row exists, which reads back as "no coach" for the student.
       supabase
         .from("coach_students")
         .select("coach_id, coach_name")
         .eq("student_id", profile.id)
+        .order("assigned_at", { ascending: false })
+        .limit(1)
         .maybeSingle(),
       supabase
         .from("lesson_students")

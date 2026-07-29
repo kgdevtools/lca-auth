@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Loader2, RefreshCw, Trash2, Check, Puzzle as PuzzleIcon } from 'lucide-react'
+import { Loader2, RefreshCw, Trash2, Check, Puzzle as PuzzleIcon, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { saveDailyPuzzleSet } from '@/actions/academy/dailyPuzzleActions'
@@ -24,9 +24,11 @@ const DIFFICULTIES = ['easier', 'normal', 'harder', 'mixed'] as const
 
 interface Props {
   initialPuzzles: StoredPuzzle[]
+  initialAssignedStudentIds: string[]
+  students: Array<{ id: string; full_name: string }>
 }
 
-export default function CoachPuzzleCuration({ initialPuzzles }: Props) {
+export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStudentIds, students }: Props) {
   const [theme, setTheme]           = useState<string>('mixed')
   const [difficulty, setDifficulty] = useState<string>('normal')
   const [count, setCount]           = useState(12)
@@ -35,6 +37,7 @@ export default function CoachPuzzleCuration({ initialPuzzles }: Props) {
   const [error, setError]           = useState<string | null>(null)
   const [saved, setSaved]           = useState(initialPuzzles.length > 0)
   const [isSaving, startSave]       = useTransition()
+  const [assignedIds, setAssignedIds] = useState<string[]>(initialAssignedStudentIds)
 
   const handleFetch = async () => {
     setFetching(true)
@@ -67,12 +70,17 @@ export default function CoachPuzzleCuration({ initialPuzzles }: Props) {
   const handlePublish = () => {
     startSave(async () => {
       try {
-        await saveDailyPuzzleSet(puzzles)
+        await saveDailyPuzzleSet(puzzles, assignedIds)
         setSaved(true)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to publish')
       }
     })
+  }
+
+  const toggleStudent = (id: string) => {
+    setAssignedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    setSaved(false)
   }
 
   const ratings = puzzles.map(p => p.rating ?? 0).filter(Boolean)
@@ -149,6 +157,42 @@ export default function CoachPuzzleCuration({ initialPuzzles }: Props) {
         </div>
 
         {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+
+      {/* Student tagging */}
+      <div className="rounded-md border border-border bg-card p-4 space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Visible to {assignedIds.length === 0 ? 'all your students' : `${assignedIds.length} student${assignedIds.length === 1 ? '' : 's'}`}
+          </p>
+        </div>
+        {students.length === 0 ? (
+          <p className="text-xs text-muted-foreground">You have no students assigned yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {students.map(s => {
+              const active = assignedIds.includes(s.id)
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => toggleStudent(s.id)}
+                  className={cn(
+                    'text-xs px-2.5 py-1 rounded-sm border transition-colors',
+                    active
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+                  )}
+                >
+                  {s.full_name}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <p className="text-[10px] text-muted-foreground/70">
+          Leave everyone deselected to publish to all of your students.
+        </p>
       </div>
 
       {/* Pool */}

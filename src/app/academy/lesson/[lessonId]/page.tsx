@@ -58,6 +58,7 @@ export default async function LessonViewerPage({ params }: PageProps) {
       }}
       gamificationSummary={gamificationSummary}
       academyRating={ratingSummary?.rating ?? null}
+      ratedCount={ratingSummary?.ratedCount ?? 0}
     />
   )
 }

@@ -264,15 +264,17 @@ export async function updateTimeSpent(
 }
 
 export async function trackPuzzleBlockOutcome(
-  lessonId: string,
-  outcome:  PuzzleOutcome,
-): Promise<{ pointsEarned: number }> {
+  lessonId:     string,
+  outcome:      PuzzleOutcome,
+  blockKey:     string,
+  puzzleRating: number | null,
+): Promise<{ pointsEarned: number; rating: { before: number; after: number } | null }> {
   const { profile } = await getCurrentUserWithProfile()
   try {
-    return await onPuzzleBlockSolved(profile.id, lessonId, outcome)
+    return await onPuzzleBlockSolved(profile.id, lessonId, outcome, blockKey, puzzleRating)
   } catch (e) {
     console.error('[gamification] trackPuzzleBlockOutcome failed:', e)
-    return { pointsEarned: 0 }
+    return { pointsEarned: 0, rating: null }
   }
 }
 

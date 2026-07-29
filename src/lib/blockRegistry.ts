@@ -82,6 +82,14 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockDefinition> = {
     description: 'Study with embedded solve points',
     defaultData: DEFAULT_BLOCK_DATA[BLOCK_TYPES.INTERACTIVE_STUDY],
   },
+  [BLOCK_TYPES.PUZZLE_STORM]: {
+    type: BLOCK_TYPES.PUZZLE_STORM,
+    label: 'Puzzle Storm',
+    icon: '⚡',
+    category: BLOCK_CATEGORIES.INTERACTIVE,
+    description: 'Timed tactical challenge — solve as many puzzles as possible before the clock runs out',
+    defaultData: DEFAULT_BLOCK_DATA[BLOCK_TYPES.PUZZLE_STORM],
+  },
   [BLOCK_TYPES.RICH_TEXT]: {
     type: BLOCK_TYPES.RICH_TEXT,
     label: 'Rich Text',
