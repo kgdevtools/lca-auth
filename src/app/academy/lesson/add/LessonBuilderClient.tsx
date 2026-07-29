@@ -1,24 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Chess } from "chess.js";
-import { AnalysisPanel } from "@/components/analysis/AnalysisPanel";
 import { LessonTypeSelectionModal, type LessonType } from "@/components/lessons/LessonTypeSelectionModal";
-import { BoardEditor } from "@/components/lessons/BoardEditor";
 import { TimerConfigField, DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
 import { Chessboard } from "react-chessboard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  X, Plus, RotateCcw, Trash2, ChevronUp, ChevronDown, ChevronLeft,
+  X, Plus, RotateCcw, ChevronDown,
   Check, Loader2, ArrowRight, ChevronRight, Pencil,
 } from "lucide-react";
 import {
@@ -39,18 +37,6 @@ import type { LessonWithCategory, LessonBlock } from "@/repositories/lesson/less
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface PuzzleData {
-  id: string;
-  fen: string;
-  pgn?: string;
-  solution: string;
-  description: string;
-  hint?: string;
-  orientation: 'white' | 'black';
-  rating?: number | null;
-  timer?: TimerConfig;
-}
 
 interface BatchPreview {
   lichessId: string; fen: string; pgn: string; solution: string[]; themes: string[]
@@ -182,7 +168,7 @@ function contentTypeToLessonType(ct: string): LessonType {
   return 'puzzle';
 }
 
-function blocksToEditPuzzles(blocks: LessonBlock[]): PuzzleData[] {
+function blocksToEditPuzzles(blocks: LessonBlock[]): AuthoredPuzzle[] {
   return blocks
     .filter(b => b.type === 'puzzle')
     .map(b => {
@@ -190,11 +176,11 @@ function blocksToEditPuzzles(blocks: LessonBlock[]): PuzzleData[] {
       return {
         id: b.id,
         fen: String(d.fen ?? ''),
-        solution: Array.isArray(d.solution) ? d.solution.join(' ') : String(d.solution ?? ''),
+        solution: Array.isArray(d.solution) ? d.solution : String(d.solution ?? '').split(/\s+/).filter(Boolean),
         description: Array.isArray(d.themes) ? d.themes.join(', ') : String(d.themes ?? ''),
-        hint: String(d.hint ?? ''),
+        hint: d.hint ? String(d.hint) : undefined,
         orientation: (d.orientation as 'white' | 'black') ?? 'white',
-        rating: typeof d.rating === 'number' ? d.rating : null,
+        rating: typeof d.rating === 'number' ? d.rating : undefined,
         timer: d.timer as TimerConfig | undefined,
       };
     });
@@ -640,6 +626,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     return null;
   });
   const [showModal, setShowModal] = useState(() => !isEdit && !selectedType);
+  const [isLessonDetailsOpen, setIsLessonDetailsOpen] = useState(false);
 
   // MCQ / Q&A state
   const [mcqQuestions, setMcqQuestions] = useState<McqQuestionData[]>(() =>
@@ -649,19 +636,12 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     isEdit && editData ? blocksToEditQa(editData.lesson.blocks) : []
   );
 
-  // Puzzle state
-  const [puzzles, setPuzzles] = useState<PuzzleData[]>(() =>
+  // Puzzle state — PuzzleAuthoringPanel owns per-puzzle editing internally;
+  // this file only holds the list + the Lichess single/batch import flow
+  // (kept separate — a bulk review grid isn't a single-puzzle authoring UI).
+  const [puzzles, setPuzzles] = useState<AuthoredPuzzle[]>(() =>
     isEdit && editData ? blocksToEditPuzzles(editData.lesson.blocks) : []
   );
-  const [editingPuzzleId, setEditingPuzzleId] = useState<string | null>(null);
-  const [editingOrientation, setEditingOrientation] = useState<'white' | 'black' | undefined>(undefined);
-  const [currentFen, setCurrentFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-  const [fenError, setFenError] = useState<string | null>(null);
-  const [solutionInput, setSolutionInput] = useState("");
-  const [puzzleDescInput, setPuzzleDescInput] = useState("");
-  const [puzzleHintInput, setPuzzleHintInput] = useState("");
-  const [puzzleTimerInput, setPuzzleTimerInput] = useState<TimerConfig>(DEFAULT_TIMER);
-  const [editingPuzzleRating, setEditingPuzzleRating] = useState<number | null>(null);
   const [lichessUrl, setLichessUrl] = useState("");
   const [isLichessImportOpen, setIsLichessImportOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -681,18 +661,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [stormTimeLimit, setStormTimeLimit] = useState<number>(() =>
     isEdit && editData ? blocksToEditStorm(editData.lesson.blocks).timeLimit : 180
   );
-
-  // Puzzle engine eval state
-  const [puzzleEvalScore, setPuzzleEvalScore] = useState<number | null>(null);
-  const [puzzleEvalMate, setPuzzleEvalMate] = useState<number | null>(null);
-  const [puzzleEngineEnabled, setPuzzleEngineEnabled] = useState(false);
-
-  // Puzzle PGN import state
-  const [puzzlePgnText, setPuzzlePgnText] = useState('');
-  const [puzzlePgnError, setPuzzlePgnError] = useState<string | null>(null);
-  const [puzzlePgnFenHistory, setPuzzlePgnFenHistory] = useState<string[]>([]);
-  const [puzzlePgnMoveHistory, setPuzzlePgnMoveHistory] = useState<string[]>([]);
-  const [puzzlePgnPlyIndex, setPuzzlePgnPlyIndex] = useState(0);
 
   // Study state
   const [chapters, setChapters] = useState<StudyChapter[]>(() =>
@@ -795,11 +763,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
 
   const handleCreateAnother = () => {
     setMcqQuestions([]); setQaCards([]);
-    setPuzzles([]); setEditingPuzzleId(null); setEditingOrientation(undefined);
-    setCurrentFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); setFenError(null);
-    setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput("");
-    setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
-    setPuzzlePgnText(""); setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); setPuzzlePgnPlyIndex(0);
+    setPuzzles([]);
     setStormPuzzles([]); setStormTimeLimit(180);
     setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null);
     setStudyDisplaySettings({ showEval: true, showClocks: true, showArrows: true, showHighlights: true });
@@ -808,34 +772,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setLessonInfo({ title: "", slug: "", description: "", categoryId: "", difficulty: "", estimatedDurationMinutes: "", tags: [], published: true });
     setIsCompleted(false); setSavedLessonId(null); setIsSubmitting(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFenChange = useCallback((value: string) => {
-    setCurrentFen(value);
-    try { new Chess(value); setFenError(null); }
-    catch { setFenError("Invalid FEN position"); }
-  }, []);
-
-  const handleParsePuzzlePgn = () => {
-    setPuzzlePgnError(null);
-    const raw = puzzlePgnText.trim();
-    if (!raw) return;
-    try {
-      const loader = new Chess();
-      loader.loadPgn(raw);
-      const moves = loader.history();
-      if (moves.length === 0) { setPuzzlePgnError('No moves found in PGN.'); return; }
-      const fenHistory: string[] = [];
-      const replay = new Chess();
-      fenHistory.push(replay.fen());
-      for (const san of moves) { replay.move(san); fenHistory.push(replay.fen()); }
-      const lastPly = fenHistory.length - 1;
-      setPuzzlePgnFenHistory(fenHistory); setPuzzlePgnMoveHistory(moves);
-      setPuzzlePgnPlyIndex(lastPly); handleFenChange(fenHistory[lastPly]);
-    } catch {
-      setPuzzlePgnError('Could not parse PGN. Check the format and try again.');
-      setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]);
-    }
   };
 
   const handleTitleChange = (title: string) => {
@@ -860,59 +796,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setSelectedStudentIds(prev => prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]);
   };
 
-  const handleAddPuzzle = () => {
-    if (!currentFen || !solutionInput.trim()) return;
-    let sol = solutionInput.trim();
-    if (!sol.includes("-")) {
-      try {
-        const g = new Chess(currentFen);
-        const result = g.move(sol);
-        if (result) sol = `${result.from}-${result.to}`;
-      } catch {}
-    }
-    const turn = currentFen.split(' ')[1];
-    const orientation: 'white' | 'black' = turn === 'b' ? 'black' : 'white';
-    const timer = puzzleTimerInput.enabled ? puzzleTimerInput : undefined;
-    if (editingPuzzleId) {
-      setPuzzles(prev => prev.map(p => p.id === editingPuzzleId
-        ? { ...p, fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation, timer, rating: editingPuzzleRating }
-        : p
-      ));
-      setEditingPuzzleId(null);
-    } else {
-      setPuzzles(prev => [...prev, { id: generateId(), fen: currentFen, solution: sol, description: puzzleDescInput.trim(), hint: puzzleHintInput.trim(), orientation, timer }]);
-    }
-    setSolutionInput(""); setPuzzleDescInput(""); setPuzzleHintInput(""); setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
-  };
-
-  const handleEditPuzzle = (puzzle: PuzzleData) => {
-    setCurrentFen(puzzle.fen); setEditingOrientation(puzzle.orientation);
-    setSolutionInput(puzzle.solution); setPuzzleDescInput(puzzle.description); setPuzzleHintInput(puzzle.hint || '');
-    setPuzzleTimerInput(puzzle.timer ?? DEFAULT_TIMER); setEditingPuzzleRating(puzzle.rating ?? null);
-    setEditingPuzzleId(puzzle.id);
-    const pgn = puzzle.pgn || '';
-    setPuzzlePgnText(pgn); setPuzzlePgnError(null);
-    if (pgn) {
-      try {
-        const loader = new Chess(); loader.loadPgn(pgn);
-        const moves = loader.history();
-        if (moves.length > 0) {
-          const fenHistory: string[] = [];
-          const replay = new Chess(); fenHistory.push(replay.fen());
-          for (const san of moves) { replay.move(san); fenHistory.push(replay.fen()); }
-          setPuzzlePgnFenHistory(fenHistory); setPuzzlePgnMoveHistory(moves); setPuzzlePgnPlyIndex(fenHistory.length - 1);
-        }
-      } catch { setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); }
-    } else { setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingPuzzleId(null); setEditingOrientation(undefined);
-    setSolutionInput(''); setPuzzleDescInput(''); setPuzzleHintInput('');
-    setPuzzleTimerInput(DEFAULT_TIMER); setEditingPuzzleRating(null);
-    setPuzzlePgnText(''); setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]);
-  };
-
   const closeImportModal = () => {
     setIsLichessImportOpen(false); setImportTab('single'); setBatchPreviews([]); setLichessUrl("");
   };
@@ -929,10 +812,10 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
       const importedTurn = (data.fen as string)?.split(' ')?.[1];
       setPuzzles(prev => [...prev, {
         id: generateId(), fen: data.fen,
-        solution: data.solution?.join(" ") || "",
+        solution: data.solution || [],
         description: data.themes?.join(", ") || "",
         orientation: importedTurn === 'b' ? 'black' : 'white',
-        rating: typeof data.rating === 'number' ? data.rating : null,
+        rating: typeof data.rating === 'number' ? data.rating : undefined,
       }]);
     } catch { alert("Failed to import puzzle"); }
     finally { setIsImporting(false); closeImportModal(); }
@@ -958,10 +841,14 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   };
 
   const handleBatchImport = () => {
-    const toAdd = batchPreviews.filter(p => !p.removed).map(p => ({
-      id: generateId(), fen: p.fen, pgn: p.pgn,
-      solution: p.editSolution, description: p.editThemes, hint: p.editHint, orientation: p.editOrientation,
-      rating: p.rating,
+    const toAdd: AuthoredPuzzle[] = batchPreviews.filter(p => !p.removed).map(p => ({
+      id: generateId(),
+      fen: p.fen,
+      solution: p.editSolution.trim().split(/\s+/).filter(Boolean),
+      description: p.editThemes,
+      hint: p.editHint.trim() || undefined,
+      orientation: p.editOrientation,
+      rating: p.rating ?? undefined,
     }));
     setPuzzles(prev => [...prev, ...toAdd]);
     closeImportModal();
@@ -1058,12 +945,22 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     if (!validateLesson()) return;
     if (puzzles.length === 0) { alert("At least one puzzle is required"); return; }
     setIsSubmitting(true);
+    const puzzlesPayload = puzzles.map(p => ({
+      id: p.id,
+      fen: p.fen,
+      solution: p.solution.join(' '),
+      description: p.description,
+      hint: p.hint,
+      orientation: p.orientation,
+      rating: p.rating ?? null,
+      timer: p.timer,
+    }));
     try {
       if (isEdit && editData) {
-        await updatePuzzleLesson(editData.lesson.id, lessonInfo, puzzles, selectedStudentIds, assignedTo || undefined);
+        await updatePuzzleLesson(editData.lesson.id, lessonInfo, puzzlesPayload, selectedStudentIds, assignedTo || undefined);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createPuzzleLesson(lessonInfo, puzzles, selectedStudentIds);
+        const id = await createPuzzleLesson(lessonInfo, puzzlesPayload, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
@@ -1176,148 +1073,16 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 min-w-0">
-        <div className="rounded-lg border border-border bg-card p-4 min-w-0 space-y-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Board editor</p>
-          <BoardEditor
-            initialFen={currentFen}
-            initialOrientation={editingOrientation}
-            onFenChange={handleFenChange}
-            evalScore={puzzleEvalScore}
-            evalMate={puzzleEvalMate}
-            engineEnabled={puzzleEngineEnabled}
-          />
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4 space-y-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puzzle details</p>
-          <AnalysisPanel
-            fen={currentFen}
-            onToggle={enabled => { setPuzzleEngineEnabled(enabled); if (!enabled) { setPuzzleEvalScore(null); setPuzzleEvalMate(null); } }}
-            onEvalUpdate={(score, mate) => { setPuzzleEvalScore(score); setPuzzleEvalMate(mate); }}
-          />
-
-          <div className="space-y-1.5">
-            <Label htmlFor="fen" className="text-xs text-muted-foreground">FEN position</Label>
-            <Input id="fen" value={currentFen} onChange={e => handleFenChange(e.target.value)} className="font-mono text-xs" />
-            {fenError && <p className="text-xs text-destructive">{fenError}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Set position from PGN</Label>
-            <Textarea
-              value={puzzlePgnText}
-              onChange={e => { setPuzzlePgnText(e.target.value); setPuzzlePgnError(null); if (!e.target.value.trim()) { setPuzzlePgnFenHistory([]); setPuzzlePgnMoveHistory([]); } }}
-              placeholder={'Paste PGN or bare move-text (Lichess game.pgn)\n\ne4 e5 Nf3 Nc6 Bc4 Nf6 ...'}
-              className="font-mono text-[11px] resize-none"
-              rows={3}
-            />
-            {puzzlePgnError && <p className="text-[10px] text-destructive">{puzzlePgnError}</p>}
-            {puzzlePgnFenHistory.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => { const i = Math.max(0, puzzlePgnPlyIndex - 1); setPuzzlePgnPlyIndex(i); handleFenChange(puzzlePgnFenHistory[i]); }}
-                  disabled={puzzlePgnPlyIndex === 0}
-                  className="flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-25 transition-colors"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="text-[11px] text-muted-foreground tabular-nums flex-1 min-w-0 truncate">
-                  Ply {puzzlePgnPlyIndex} / {puzzlePgnFenHistory.length - 1}
-                  {puzzlePgnPlyIndex > 0 && (
-                    <span className="ml-1.5 font-mono font-medium text-foreground">
-                      {Math.ceil(puzzlePgnPlyIndex / 2)}{puzzlePgnPlyIndex % 2 === 1 ? '.' : '...'}{' '}
-                      {puzzlePgnMoveHistory[puzzlePgnPlyIndex - 1]}
-                    </span>
-                  )}
-                </span>
-                <button
-                  onClick={() => { const i = Math.min(puzzlePgnFenHistory.length - 1, puzzlePgnPlyIndex + 1); setPuzzlePgnPlyIndex(i); handleFenChange(puzzlePgnFenHistory[i]); }}
-                  disabled={puzzlePgnPlyIndex === puzzlePgnFenHistory.length - 1}
-                  className="flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:text-foreground disabled:opacity-25 transition-colors"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-            <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={handleParsePuzzlePgn} disabled={!puzzlePgnText.trim()}>
-              Parse PGN
-            </Button>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="solution" className="text-xs text-muted-foreground">Solution</Label>
-            <Textarea
-              id="solution" value={solutionInput} onChange={e => setSolutionInput(e.target.value)}
-              placeholder="e.g. Nf6# or Qxh7+ Kxh7 Rh1#"
-              className="font-mono text-sm resize-none" rows={3}
-            />
-            <p className="text-xs text-muted-foreground">Separate moves with spaces (SAN notation)</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="puzzle-desc" className="text-xs text-muted-foreground">Theme / description</Label>
-            <Input id="puzzle-desc" value={puzzleDescInput} onChange={e => setPuzzleDescInput(e.target.value)} placeholder="e.g. pin, fork, discovered attack" />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="puzzle-hint" className="text-xs text-muted-foreground">Hint (optional)</Label>
-            <Input id="puzzle-hint" value={puzzleHintInput} onChange={e => setPuzzleHintInput(e.target.value)} placeholder="e.g. Look for a forcing move on the kingside" />
-          </div>
-
-          <TimerConfigField value={puzzleTimerInput} onChange={setPuzzleTimerInput} />
-
-          <div className="flex gap-2">
-            <Button onClick={handleAddPuzzle} className="flex-1" disabled={!solutionInput.trim()}>
-              {editingPuzzleId ? <><Check className="w-4 h-4 mr-2" />Save changes</> : <><Plus className="w-4 h-4 mr-2" />Add puzzle</>}
-            </Button>
-            {editingPuzzleId && <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>}
-          </div>
-        </div>
-      </div>
+      {/* showLichessImport=false: the button above already covers single + batch import */}
+      <PuzzleAuthoringPanel puzzles={puzzles} onPuzzlesChange={setPuzzles} showLichessImport={false} />
 
       {puzzles.length > 0 && (
-        <div className="rounded-lg border border-border bg-card">
-          <div className="px-4 py-3 border-b border-border">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puzzles ({puzzles.length})</p>
-          </div>
-          <div className="divide-y divide-border">
-            {puzzles.map((puzzle, index) => (
-              <div key={puzzle.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${editingPuzzleId === puzzle.id ? 'bg-primary/5 border-l-2 border-primary' : ''}`}>
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => { if (index === 0) return; const arr = [...puzzles]; [arr[index], arr[index-1]] = [arr[index-1], arr[index]]; setPuzzles(arr); }} disabled={index === 0} className="p-0.5 hover:bg-muted rounded disabled:opacity-20"><ChevronUp className="w-3 h-3" /></button>
-                  <button onClick={() => { if (index === puzzles.length-1) return; const arr = [...puzzles]; [arr[index], arr[index+1]] = [arr[index+1], arr[index]]; setPuzzles(arr); }} disabled={index === puzzles.length-1} className="p-0.5 hover:bg-muted rounded disabled:opacity-20"><ChevronDown className="w-3 h-3" /></button>
-                </div>
-                <div className="flex-shrink-0 w-[80px] h-[80px]">
-                  <Chessboard position={puzzle.fen} boardWidth={80} arePiecesDraggable={false} customBoardStyle={{ borderRadius: "4px" }} boardOrientation={puzzle.orientation} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground mb-0.5">
-                    #{index + 1}
-                    {puzzle.rating ? ` · ★ ${puzzle.rating}` : ""}
-                    {puzzle.timer?.enabled ? ` · ${puzzle.timer.seconds}s` : ""}
-                  </p>
-                  {puzzle.description && <p className="text-sm truncate">{puzzle.description}</p>}
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5 truncate">{puzzle.solution}</p>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => handleEditPuzzle(puzzle)} className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => { if (editingPuzzleId === puzzle.id) handleCancelEdit(); setPuzzles(prev => prev.filter(p => p.id !== puzzle.id)); }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-4 py-3 border-t border-border">
-            {isCompleted && savedLessonId ? (
-              <SuccessBanner lessonId={savedLessonId} label="Puzzle lesson" mode={mode} onCreateAnother={handleCreateAnother} />
-            ) : (
-              <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handlePuzzleSubmit} />
-            )}
-          </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          {isCompleted && savedLessonId ? (
+            <SuccessBanner lessonId={savedLessonId} label="Puzzle lesson" mode={mode} onCreateAnother={handleCreateAnother} />
+          ) : (
+            <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handlePuzzleSubmit} />
+          )}
         </div>
       )}
 
@@ -1776,13 +1541,24 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
           )}
         </div>
 
-        {/* Lesson details — collapsible */}
+        {/* Lesson details — modal, opened on demand instead of taking up scroll space */}
         {selectedType && (
-          <CollapsibleSection
-            label="Lesson details"
-            preview={lessonInfo.title || "Untitled lesson"}
-            defaultOpen={isEdit}
-          >
+          <div className="rounded-lg border border-border bg-card px-5 py-3 flex items-center justify-between gap-3 min-w-0">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lesson details</p>
+              <p className="text-sm text-foreground/70 truncate">{lessonInfo.title || "Untitled lesson"}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setIsLessonDetailsOpen(true)} className="flex-shrink-0">
+              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
+            </Button>
+          </div>
+        )}
+
+        <Dialog open={isLessonDetailsOpen} onOpenChange={setIsLessonDetailsOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Lesson details</DialogTitle>
+            </DialogHeader>
             <LessonInfoForm
               lessonInfo={lessonInfo}
               categories={categories}
@@ -1800,8 +1576,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
               assignedTo={assignedTo}
               onAssignedToChange={isEdit && editData?.isAdmin ? setAssignedTo : undefined}
             />
-          </CollapsibleSection>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {/* Type-specific editor */}
         {selectedType === "puzzle"      && renderPuzzleEditor()}

@@ -28,12 +28,15 @@ import {
 import { cn } from "@/lib/utils";
 import { BoardEditor } from "@/components/lessons/BoardEditor";
 import { AnalysisPanel } from "@/components/analysis/AnalysisPanel";
+import { TimerConfigField, DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
 
 export interface PuzzleData {
   id: string;
   fen: string;
   solution: string[]; // SAN, solver's move first
   description: string;
+  hint?: string;
+  timer?: TimerConfig;
   themes?: string[];
   rating?: number;
   orientation?: "white" | "black";
@@ -42,6 +45,8 @@ export interface PuzzleData {
 interface PuzzleAuthoringPanelProps {
   puzzles: PuzzleData[];
   onPuzzlesChange: (puzzles: PuzzleData[]) => void;
+  /** Hide the built-in single-URL Lichess import — set false when the call site already has its own (e.g. a richer single+batch modal). */
+  showLichessImport?: boolean;
 }
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -65,7 +70,7 @@ function parseLichessPuzzleUrl(url: string): { puzzleId?: string; fen?: string }
 type BoardMode = "setup" | "solution";
 type PanelTab = "puzzles" | "moves" | "edit";
 
-export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthoringPanelProps) {
+export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImport = true }: PuzzleAuthoringPanelProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [boardMode, setBoardMode] = useState<BoardMode>("setup");
   const [activeTab, setActiveTab] = useState<PanelTab>("puzzles");
@@ -74,9 +79,17 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
   const [boardFen, setBoardFen] = useState(STARTING_FEN);
   const [solutionMoves, setSolutionMoves] = useState<string[]>([]);
   const [description, setDescription] = useState("");
+  const [hint, setHint] = useState("");
+  const [timer, setTimer] = useState<TimerConfig>(DEFAULT_TIMER);
+  const [rating, setRating] = useState<number | undefined>(undefined);
+  const [draftOrientation, setDraftOrientation] = useState<"white" | "black" | undefined>(undefined);
 
   const [moveFrom, setMoveFrom] = useState<Square | "">("");
   const [optionSquares, setOptionSquares] = useState<Record<string, React.CSSProperties>>({});
+
+  const [typedSolutionOpen, setTypedSolutionOpen] = useState(false);
+  const [typedSolutionText, setTypedSolutionText] = useState("");
+  const [typedSolutionError, setTypedSolutionError] = useState<string | null>(null);
 
   const [isLichessImportOpen, setIsLichessImportOpen] = useState(false);
   const [lichessUrl, setLichessUrl] = useState("");
@@ -107,12 +120,19 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
     setBoardFen(STARTING_FEN);
     setSolutionMoves([]);
     setDescription("");
+    setHint("");
+    setTimer(DEFAULT_TIMER);
+    setRating(undefined);
+    setDraftOrientation(undefined);
     setMoveFrom("");
     setOptionSquares({});
     setPgnImportText("");
     setPgnParseError(null);
     setPgnFenHistory([]);
     setPgnMoveHistory([]);
+    setTypedSolutionOpen(false);
+    setTypedSolutionText("");
+    setTypedSolutionError(null);
   }, []);
 
   const handleNewPuzzle = useCallback(() => {
@@ -130,8 +150,15 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
     setBoardFen(p.fen);
     setSolutionMoves(p.solution);
     setDescription(p.description);
+    setHint(p.hint ?? "");
+    setTimer(p.timer ?? DEFAULT_TIMER);
+    setRating(p.rating);
+    setDraftOrientation(p.orientation);
     setMoveFrom("");
     setOptionSquares({});
+    setTypedSolutionOpen(false);
+    setTypedSolutionText("");
+    setTypedSolutionError(null);
     setBoardMode("solution");
     setActiveTab("edit");
   }, [puzzles]);
@@ -145,6 +172,9 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
       fen: startingFen,
       solution: solutionMoves,
       description,
+      hint: hint.trim() || undefined,
+      timer: timer.enabled ? timer : undefined,
+      rating,
       orientation: startingFen.split(" ")[1] === "w" ? "white" : "black",
     };
     if (editingIndex != null) {
@@ -155,7 +185,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
       onPuzzlesChange([...puzzles, draft]);
       setEditingIndex(puzzles.length);
     }
-  }, [canSave, editingIndex, puzzles, startingFen, solutionMoves, description, onPuzzlesChange]);
+  }, [canSave, editingIndex, puzzles, startingFen, solutionMoves, description, hint, timer, rating, onPuzzlesChange]);
 
   const handleDeletePuzzle = useCallback((index: number) => {
     const next = puzzles.filter((_, i) => i !== index);
@@ -239,6 +269,31 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
     setSolutionMoves(next);
   }, [solutionMoves, startingFen]);
 
+  // Escape hatch alongside click-to-move: type the whole line as SAN/dash-UCI
+  // text (e.g. "Qxh7+ Kxh7 Rh1#" or "h7-h8=Q"), applied in one shot.
+  const applyTypedSolution = useCallback(() => {
+    setTypedSolutionError(null);
+    const tokens = typedSolutionText.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return;
+    const game = new Chess(startingFen);
+    const sans: string[] = [];
+    for (const token of tokens) {
+      const dashMatch = /^([a-h][1-8])-([a-h][1-8])(=([qrbn]))?$/i.exec(token);
+      const move = dashMatch
+        ? game.move({ from: dashMatch[1], to: dashMatch[2], promotion: (dashMatch[4]?.toLowerCase() ?? 'q') as any })
+        : game.move(token);
+      if (!move) {
+        setTypedSolutionError(`Couldn't parse "${token}" as a legal move at that point in the line.`);
+        return;
+      }
+      sans.push(move.san);
+    }
+    setSolutionMoves(sans);
+    setBoardFen(game.fen());
+    setTypedSolutionOpen(false);
+    setTypedSolutionText("");
+  }, [typedSolutionText, startingFen]);
+
   // ── PGN import (setup mode) ──────────────────────────────────────────────────
   const handleParsePgn = useCallback(() => {
     setPgnParseError(null);
@@ -304,6 +359,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
   }, [lichessUrl, puzzles, onPuzzlesChange]);
 
   const customSquareStyles: Record<string, React.CSSProperties> = { ...optionSquares };
+  const puzzleThumbOrientation = (p: PuzzleData) => p.orientation ?? "white";
 
   const panelHeight = boardWidth > 0 ? boardWidth : undefined;
   const editingLabel = editingIndex != null ? (puzzles[editingIndex]?.description || "this puzzle") : "new puzzle draft";
@@ -329,7 +385,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
 
         {boardMode === "setup" ? (
           <div className="space-y-2">
-            <BoardEditor initialFen={boardFen} onFenChange={setBoardFen} />
+            <BoardEditor initialFen={boardFen} initialOrientation={draftOrientation} onFenChange={setBoardFen} />
             <div className="rounded-sm border border-border bg-muted/20 p-2.5 space-y-2">
               <Label className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Import from PGN</Label>
               <Textarea
@@ -384,6 +440,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
                 onSquareClick={onSquareClick}
                 onPieceDrop={onPieceDrop}
                 customSquareStyles={customSquareStyles}
+                boardOrientation={draftOrientation ?? "white"}
                 arePiecesDraggable
               />
             </div>
@@ -391,7 +448,25 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
               <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={undoLastMove} disabled={solutionMoves.length === 0}>
                 Undo move
               </Button>
+              <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setTypedSolutionOpen(o => !o)}>
+                {typedSolutionOpen ? "Hide typed entry" : "Type moves instead"}
+              </Button>
             </div>
+            {typedSolutionOpen && (
+              <div className="rounded-sm border border-border bg-muted/20 p-2.5 space-y-2">
+                <Textarea
+                  value={typedSolutionText}
+                  onChange={(e) => { setTypedSolutionText(e.target.value); setTypedSolutionError(null); }}
+                  placeholder={'e.g. Qxh7+ Kxh7 Rh1# — replaces any moves recorded above'}
+                  className="font-mono text-xs resize-none"
+                  rows={2}
+                />
+                {typedSolutionError && <p className="text-[10px] text-destructive">{typedSolutionError}</p>}
+                <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={applyTypedSolution} disabled={!typedSolutionText.trim()}>
+                  Apply
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -424,9 +499,11 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
                 <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleNewPuzzle}>
                   <Plus className="w-3.5 h-3.5 mr-1" /> New puzzle
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setIsLichessImportOpen(true)}>
-                  <Link2 className="w-3.5 h-3.5 mr-1" /> Lichess
-                </Button>
+                {showLichessImport && (
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => setIsLichessImportOpen(true)}>
+                    <Link2 className="w-3.5 h-3.5 mr-1" /> Lichess
+                  </Button>
+                )}
               </div>
 
               {puzzles.length === 0 ? (
@@ -453,8 +530,21 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
                           <ChevronDown className="w-3 h-3" />
                         </button>
                       </div>
+                      <div className="w-9 h-9 shrink-0 pointer-events-none">
+                        <Chessboard
+                          position={puzzle.fen}
+                          boardWidth={36}
+                          arePiecesDraggable={false}
+                          areArrowsAllowed={false}
+                          boardOrientation={puzzleThumbOrientation(puzzle)}
+                          customBoardStyle={{ borderRadius: "3px" }}
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">Puzzle #{index + 1}</p>
+                        <p className="text-xs font-semibold truncate">
+                          Puzzle #{index + 1}
+                          {puzzle.timer?.enabled && <span className="ml-1 text-muted-foreground font-normal">· {puzzle.timer.seconds}s</span>}
+                        </p>
                         <p className="text-[11px] text-muted-foreground truncate">{puzzle.description || "No description"}</p>
                       </div>
                       {puzzle.rating && <span className="text-[10px] font-mono text-muted-foreground shrink-0">★{puzzle.rating}</span>}
@@ -497,6 +587,17 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
                   className="h-8 text-sm"
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="puzzle-hint" className="text-xs">Hint (optional)</Label>
+                <Input
+                  id="puzzle-hint"
+                  value={hint}
+                  onChange={(e) => setHint(e.target.value)}
+                  placeholder="e.g. Look for a forcing move on the kingside"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <TimerConfigField value={timer} onChange={setTimer} />
               <Button onClick={handleSaveDraft} disabled={!canSave} className="w-full h-8 text-xs">
                 <Save className="w-3.5 h-3.5 mr-1.5" />
                 {editingIndex != null ? "Update puzzle" : "Save puzzle"}
@@ -510,6 +611,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
       </div>
 
       {/* Lichess Import Modal */}
+      {showLichessImport && (
       <Dialog open={isLichessImportOpen} onOpenChange={setIsLichessImportOpen}>
         <DialogContent>
           <DialogHeader>
@@ -531,6 +633,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange }: PuzzleAuthori
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }
