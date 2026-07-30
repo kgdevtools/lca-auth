@@ -4,11 +4,12 @@ interface BlockProgressDotsProps {
   total: number
   current: number
   completed: Set<number>
+  orientation?: 'horizontal' | 'vertical'
 }
 
-export default function BlockProgressDots({ total, current, completed }: BlockProgressDotsProps) {
+export default function BlockProgressDots({ total, current, completed, orientation = 'horizontal' }: BlockProgressDotsProps) {
   return (
-    <div className="flex justify-center gap-1.5">
+    <div className={orientation === 'vertical' ? 'flex flex-col items-center gap-1.5' : 'flex justify-center gap-1.5'}>
       {Array.from({ length: total }, (_, i) => {
         const isCompleted = completed.has(i)
         const isCurrent = i === current

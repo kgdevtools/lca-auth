@@ -3,13 +3,13 @@
 import { useReducer, useCallback, useEffect, useTransition, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Zap, LogOut } from 'lucide-react'
+import { Zap, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getBlockDefinition, type BlockType } from '@/lib/blockRegistry'
 import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
 import { successAnimation } from '@/components/microinteractions/presets'
 import { MotionButton } from '@/components/microinteractions/MotionButton'
-import KnightProgressPath from './KnightProgressPath'
+import KnightPathRail from './KnightPathRail'
 import LessonCompleteScreen from './LessonCompleteScreen'
 import PuzzleViewerBlock from './viewer-blocks/PuzzleViewerBlock'
 import McqViewerBlock from './viewer-blocks/McqViewerBlock'
@@ -231,20 +231,6 @@ function ViewerBlockRenderer({
   )
 }
 
-// ── Peek stub ─────────────────────────────────────────────────────────────────
-// Title-only ghost card for the adjacent (prev/next) block — desktop only, never
-// a full block render (boards are heavy, and it must not leak puzzle/answer content).
-
-function PeekStub({ block }: { block: LessonBlock }) {
-  const definition = getBlockDefinition(block.type as BlockType)
-  return (
-    <div className="hidden lg:flex w-16 h-24 flex-col items-center justify-center gap-1 rounded-sm border border-border bg-card opacity-40 scale-[0.85] pointer-events-none select-none shadow-sm">
-      <span className="text-xl leading-none">{definition?.icon}</span>
-      <span className="text-[9px] text-muted-foreground text-center px-1 truncate w-full">{definition?.label}</span>
-    </div>
-  )
-}
-
 // ── Main shell ────────────────────────────────────────────────────────────────
 
 export default function LessonViewerShell({ lesson, gamificationSummary, academyRating: initialAcademyRating, ratedCount: initialRatedCount }: LessonViewerShellProps) {
@@ -459,122 +445,100 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
     )
   }
 
-  const prevPeekBlock = state.currentIndex > 0 ? lesson.blocks[state.currentIndex - 1] : null
-  const nextPeekBlock = state.currentIndex < lesson.blocks.length - 1 ? lesson.blocks[state.currentIndex + 1] : null
+  const currentBlockDef = getBlockDefinition(currentBlock.type as BlockType)
 
   return (
     <div className="container mx-auto px-3 py-3 max-w-7xl overflow-hidden">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{lesson.title}</h1>
-          {lesson.description && (
-            <p className="text-gray-600 dark:text-gray-400">{lesson.description}</p>
-          )}
-        </div>
-        <div className="shrink-0 flex items-center gap-1.5 select-none">
-          <MotionButton
-            variant="ghost"
-            size="sm"
-            onClick={handleQuit}
-            className="h-8 text-muted-foreground hover:text-foreground"
-            title="Quit lesson"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </MotionButton>
-          {academyRating !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg" title="Academy rating">
-              <span className="text-amber-400 text-xs leading-none">★</span>
-              {academyRating}
+      <div className="flex gap-3 items-start">
+        {/* Main column — header and content share this exact width so the
+            heading lines up over the board and Quit/Rating lines up over the
+            moves/data column, instead of the header spanning the full page
+            width while the content narrows to lg:max-w-4xl underneath it. */}
+        <div className="flex-1 min-w-0">
+          <div className="lg:max-w-4xl lg:mx-auto mb-3 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold truncate">{lesson.title}</h1>
+              {lesson.description && (
+                <p className="text-gray-600 dark:text-gray-400 truncate">{lesson.description}</p>
+              )}
             </div>
-          )}
-          {sessionPoints > 0 && (
-            <motion.div
-              animate={pointsChipControls}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              +{sessionPoints} pts
-            </motion.div>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full">
-        {/* Peek: title-only ghost stubs of the adjacent blocks, desktop only. The
-            card narrows on lg: so there's gutter space for them to sit in — full
-            width (no stubs) below that breakpoint. */}
-        <div className="relative">
-          {prevPeekBlock && (
-            <div className="hidden lg:flex absolute inset-y-0 left-0 items-center">
-              <PeekStub block={prevPeekBlock} />
-            </div>
-          )}
-          {nextPeekBlock && (
-            <div className="hidden lg:flex absolute inset-y-0 right-0 items-center">
-              <PeekStub block={nextPeekBlock} />
-            </div>
-          )}
-
-          {/* perspective lives on this non-transformed ancestor — CSS perspective has
-              no effect on the element that also carries the rotateY transform itself. */}
-          <div className="lg:max-w-4xl lg:mx-auto" style={{ perspective: 1200 }}>
-            <AnimatePresence mode="wait" custom={state.direction}>
-              <motion.div
-                key={state.currentIndex}
-                custom={state.direction}
-                variants={blockVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.5, type: 'spring', ...spring }}
-                className="h-full"
+            <div className="shrink-0 flex items-center gap-1.5 select-none">
+              {currentBlockDef?.icon && (
+                <span className="text-lg leading-none select-none" title={currentBlockDef.label}>
+                  {currentBlockDef.icon}
+                </span>
+              )}
+              <MotionButton
+                variant="ghost"
+                size="sm"
+                onClick={handleQuit}
+                className="h-8 text-muted-foreground hover:text-foreground"
+                title="Quit lesson"
               >
-                <ViewerBlockRenderer
-                  block={currentBlock}
-                  onSolved={handleSolved}
-                  onPrev={handlePrev}
-                  canPrev={state.currentIndex > 0}
-                  lessonId={lesson.id}
-                  onBlockComplete={handleBlockComplete}
-                  sessionPoints={sessionPoints}
-                  puzzleStreak={puzzleStreak}
-                  studentLevel={gamificationSummary?.level ?? 1}
-                  studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
-                  currentStreak={gamificationSummary?.currentStreak ?? 0}
-                  academyRating={academyRating}
-                  ratedCount={ratedCount}
-                  onRatingPreview={handleRatingPreview}
-                  onRatingCommit={handleRatingCommit}
-                />
-              </motion.div>
-            </AnimatePresence>
+                <LogOut className="w-3.5 h-3.5" />
+              </MotionButton>
+              {academyRating !== null && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg" title="Academy rating">
+                  <span className="text-amber-400 text-xs leading-none">★</span>
+                  {academyRating}
+                </div>
+              )}
+              {sessionPoints > 0 && (
+                <motion.div
+                  animate={pointsChipControls}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  +{sessionPoints} pts
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          <div className="w-full">
+            {/* perspective lives on this non-transformed ancestor — CSS perspective has
+                no effect on the element that also carries the rotateY transform itself. */}
+            <div className="lg:max-w-4xl lg:mx-auto" style={{ perspective: 1200 }}>
+              <AnimatePresence mode="wait" custom={state.direction}>
+                <motion.div
+                  key={state.currentIndex}
+                  custom={state.direction}
+                  variants={blockVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.5, type: 'spring', ...spring }}
+                  className="h-full"
+                >
+                  <ViewerBlockRenderer
+                    block={currentBlock}
+                    onSolved={handleSolved}
+                    onPrev={handlePrev}
+                    canPrev={state.currentIndex > 0}
+                    lessonId={lesson.id}
+                    onBlockComplete={handleBlockComplete}
+                    sessionPoints={sessionPoints}
+                    puzzleStreak={puzzleStreak}
+                    studentLevel={gamificationSummary?.level ?? 1}
+                    studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
+                    currentStreak={gamificationSummary?.currentStreak ?? 0}
+                    academyRating={academyRating}
+                    ratedCount={ratedCount}
+                    onRatingPreview={handleRatingPreview}
+                    onRatingCommit={handleRatingCommit}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
-        <div className="mt-3">
-          <KnightProgressPath
-            total={lesson.blocks.length}
-            current={state.currentIndex}
-            completed={state.completedIds}
-          />
-        </div>
-
-        {currentBlock.type !== 'puzzle' && (
-          <div className="flex justify-between mt-2">
-            <MotionButton
-              variant="outline"
-              onClick={handlePrev}
-              disabled={state.currentIndex === 0}
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Previous
-            </MotionButton>
-            <MotionButton onClick={handleSolved} className="gap-2">
-              {state.currentIndex >= lesson.blocks.length - 1 ? 'Finish' : 'Next'}
-              <ChevronRight className="w-4 h-4" />
-            </MotionButton>
-          </div>
-        )}
+        {/* Progress rail — separate, full-height, collapsible; see KnightPathRail. */}
+        <KnightPathRail
+          total={lesson.blocks.length}
+          current={state.currentIndex}
+          completed={state.completedIds}
+        />
       </div>
     </div>
   )

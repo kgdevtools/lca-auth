@@ -9,12 +9,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import {
-  Plus, Trash2, Pencil, RotateCcw, X, Highlighter, ArrowUp,
+  Plus, Trash2, Pencil, RotateCcw,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react'
 import { parsePgn, type MoveAnnotation } from '@/lib/pgnParser'
 import { cn } from '@/lib/utils'
 import { AnalysisPanel } from '@/components/analysis/AnalysisPanel'
+import { DecorationMenu, type DecorationCommit, type EditingKind } from '@/components/lessons/DecorationMenu'
+import { ARROW_RENDER_COLOR, HIGHLIGHT_RENDER_COLOR, type AnimationEffect, type DecorationColor } from '@/lib/decorations'
 
 interface StudyChapter {
   id: string
@@ -38,16 +40,19 @@ interface StudyEditorBoardProps {
   onAddChapter: () => void
   moveAnnotations: Map<string, MoveAnnotation>
   onAnnotationsChange: (annotations: Map<string, MoveAnnotation>) => void
+  // Live PGN sync — called whenever the user plays a move on the board, or
+  // edits the PGN/FEN fields directly.
+  onChapterPgnChange?: (index: number, pgn: string) => void
 }
 
-type DrawMode = 'none' | 'arrow' | 'highlight'
-
-const ARROW_COLORS = [
-  { name: 'Green',  value: 'G', color: 'green',  hex: '#22c55e' },
-  { name: 'Red',    value: 'R', color: 'red',    hex: '#ef4444' },
-  { name: 'Blue',   value: 'B', color: 'blue',   hex: '#3b82f6' },
-  { name: 'Yellow', value: 'Y', color: 'yellow', hex: '#eab308' },
-]
+// Right-click a square to open the decoration menu (Arrow / Highlight /
+// Animate) — same engine as blunderbored's board (lib/decorations.ts +
+// components/lessons/DecorationMenu.tsx). "Armed" tools commit on the next
+// left click: an arrow needs one more square (the right-clicked square was
+// already the `from`); a zone highlight accumulates squares until "Done".
+type ArmedTool =
+  | { kind: 'arrow'; from: string; color: DecorationColor }
+  | { kind: 'zone-highlight'; color: DecorationColor }
 
 // ── Eval helpers ─────────────────────────────────────────────────────────────
 
@@ -83,19 +88,27 @@ export default function StudyEditorBoard({
   onAddChapter,
   moveAnnotations,
   onAnnotationsChange,
+  onChapterPgnChange,
 }: StudyEditorBoardProps) {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1)
   const [boardFen, setBoardFen]                 = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white')
   const [showAddChapter, setShowAddChapter]     = useState(false)
-  const [drawMode, setDrawMode]                 = useState<DrawMode>('none')
-  const [arrowColor, setArrowColor]             = useState('G')
-  const [arrowStart, setArrowStart]             = useState<string | null>(null)
+  const [armedTool, setArmedTool]               = useState<ArmedTool | null>(null)
+  const [pendingZoneSquares, setPendingZoneSquares] = useState<string[]>([])
+  const [menuAnchorSquare, setMenuAnchorSquare] = useState<string | null>(null)
+  const [menuPos, setMenuPos]                   = useState<{ x: number; y: number } | null>(null)
+  const pointerPosRef = useRef({ x: 0, y: 0 })
+  // One-shot Animate flourish — same lifecycle as blunderbored's BoardShell
+  // (a class present for ~700ms via a customSquare wrapper, then removed).
+  const [activeAnimation, setActiveAnimation] = useState<{ square: string; effect: AnimationEffect } | null>(null)
   const [evalScore, setEvalScore]               = useState<number | null>(null)
   const [evalMate, setEvalMate]                 = useState<number | null>(null)
   const [engineEnabled, setEngineEnabled]       = useState(false)
   const [editingChapterIdx, setEditingChapterIdx]     = useState<number | null>(null)
   const [editingChapterName, setEditingChapterName]   = useState('')
+  const [fenDraft, setFenDraft] = useState('')
+  const [fenError, setFenError] = useState<string | null>(null)
 
   // Responsive board sizing — constrained by whichever is smaller: column width or available height
   // Available height = column height minus toolbar (44px) + nav row (44px) + padding (32px) = ~120px reserved
@@ -125,7 +138,7 @@ export default function StudyEditorBoard({
   const drawnHighlights  = currentAnno?.highlights ?? []
 
   const updateCurrentAnnotations = useCallback(
-    (arrows: Array<{ from: string; to: string; color: string }>, highlights: string[]) => {
+    (arrows: MoveAnnotation['arrows'], highlights: MoveAnnotation['highlights']) => {
       if (!currentAnnoKey) return
       const next = new Map(moveAnnotations)
       if (arrows.length === 0 && highlights.length === 0) {
@@ -145,6 +158,85 @@ export default function StudyEditorBoard({
     onAnnotationsChange(next)
   }
 
+  // ── Decorations: right-click menu, armed-tool click-to-commit ────────────────
+
+  const findDecorationAt = useCallback((square: string): EditingKind => {
+    if (drawnArrows.some(a => a.from === square || a.to === square)) return 'arrow'
+    if (drawnHighlights.some(h => (h.squares ?? [h.square]).includes(square))) return 'highlight'
+    return null
+  }, [drawnArrows, drawnHighlights])
+
+  const handleSquareRightClick = useCallback((square: string) => {
+    setArmedTool(null)
+    setPendingZoneSquares([])
+    setMenuAnchorSquare(square)
+    setMenuPos(pointerPosRef.current)
+  }, [])
+
+  const handleMenuCommit = useCallback((commit: DecorationCommit) => {
+    const square = menuAnchorSquare
+    if (!square) return
+    switch (commit.kind) {
+      case 'recolor':
+        if (drawnArrows.some(a => a.from === square || a.to === square)) {
+          updateCurrentAnnotations(
+            drawnArrows.map(a => (a.from === square || a.to === square) ? { ...a, color: commit.color } : a),
+            drawnHighlights,
+          )
+        } else {
+          updateCurrentAnnotations(
+            drawnArrows,
+            drawnHighlights.map(h => (h.squares ?? [h.square]).includes(square) ? { ...h, color: commit.color } : h),
+          )
+        }
+        break
+      case 'delete':
+        updateCurrentAnnotations(
+          drawnArrows.filter(a => a.from !== square && a.to !== square),
+          drawnHighlights.filter(h => !(h.squares ?? [h.square]).includes(square)),
+        )
+        break
+      case 'arrow':
+        setArmedTool({ kind: 'arrow', from: square, color: commit.color })
+        break
+      case 'highlight':
+        if (commit.target === 'square') {
+          updateCurrentAnnotations(drawnArrows, [...drawnHighlights.filter(h => h.square !== square), { square, color: commit.color }])
+        } else {
+          setArmedTool({ kind: 'zone-highlight', color: commit.color })
+          setPendingZoneSquares([square])
+        }
+        break
+      case 'animate':
+        setActiveAnimation({ square, effect: commit.effect })
+        setTimeout(() => setActiveAnimation((prev) => (prev?.square === square ? null : prev)), 700)
+        break
+      case 'replay':
+        break // no persisted animation decoration exists yet to replay
+    }
+  }, [menuAnchorSquare, drawnArrows, drawnHighlights, updateCurrentAnnotations])
+
+  const commitZone = useCallback(() => {
+    if (armedTool?.kind !== 'zone-highlight' || pendingZoneSquares.length === 0) return
+    updateCurrentAnnotations(drawnArrows, [
+      ...drawnHighlights.filter(h => !pendingZoneSquares.includes(h.square)),
+      { square: pendingZoneSquares[0], color: armedTool.color, squares: pendingZoneSquares },
+    ])
+    setArmedTool(null)
+    setPendingZoneSquares([])
+  }, [armedTool, pendingZoneSquares, drawnArrows, drawnHighlights, updateCurrentAnnotations])
+
+  useEffect(() => {
+    if (!armedTool) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setArmedTool(null)
+      setPendingZoneSquares([])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [armedTool])
+
   // ── PGN ─────────────────────────────────────────────────────────────────────
 
   const parsedPgn = useMemo(() => {
@@ -161,6 +253,10 @@ export default function StudyEditorBoard({
     }
     return hist
   }, [parsedPgn])
+
+  const activePosition = fenHistory
+    ? (fenHistory[currentMoveIndex + 1] ?? fenHistory[0])
+    : boardFen
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -182,57 +278,110 @@ export default function StudyEditorBoard({
   // ── Board interaction ────────────────────────────────────────────────────────
 
   const handleSquareClick = useCallback((square: Square) => {
-    if (drawMode === 'arrow') {
-      if (!arrowStart) {
-        setArrowStart(square)
-      } else {
-        if (arrowStart !== square) {
-          const colorName = ARROW_COLORS.find(c => c.value === arrowColor)?.color || 'green'
-          updateCurrentAnnotations([...drawnArrows, { from: arrowStart, to: square, color: colorName }], drawnHighlights)
-        }
-        setArrowStart(null)
+    if (!armedTool) return
+    if (armedTool.kind === 'arrow') {
+      if (square !== armedTool.from) {
+        updateCurrentAnnotations([...drawnArrows, { from: armedTool.from, to: square, color: armedTool.color }], drawnHighlights)
       }
-    } else if (drawMode === 'highlight') {
-      if (drawnHighlights.includes(square)) {
-        updateCurrentAnnotations(drawnArrows, drawnHighlights.filter(s => s !== square))
-      } else {
-        updateCurrentAnnotations(drawnArrows, [...drawnHighlights, square])
-      }
+      setArmedTool(null)
+      return
     }
-  }, [drawMode, arrowStart, drawnArrows, drawnHighlights, arrowColor, updateCurrentAnnotations])
+    // zone-highlight: accumulate squares, toggling membership; commit via commitZone()
+    setPendingZoneSquares(prev => prev.includes(square) ? prev.filter(s => s !== square) : [...prev, square])
+  }, [armedTool, drawnArrows, drawnHighlights, updateCurrentAnnotations])
 
+  // Real, legal moves — synced into the chapter's PGN (or the fresh-draft
+  // pgnInput) in the same handler, same render pass as the move itself.
+  // Previously this only free-dragged pieces with no legality check and
+  // never touched the moves list at all.
   const handlePieceDrop = useCallback((source: Square, target: Square): boolean => {
-    const g = new Chess(boardFen)
-    const piece = g.get(source)
-    if (!piece) return false
-    g.remove(source)
-    g.put(piece, target)
-    setBoardFen(g.fen())
+    const game = new Chess(activePosition)
+    let result
+    try {
+      result = game.move({ from: source, to: target, promotion: 'q' })
+    } catch {
+      return false
+    }
+    if (!result) return false
+
+    const keepMoves = parsedPgn ? parsedPgn.moves.slice(0, currentMoveIndex + 1) : []
+    const replay = new Chess()
+    for (const m of keepMoves) { try { replay.move(m.san) } catch { break } }
+    replay.move(result.san)
+    const newPgn = replay.pgn()
+
+    setBoardFen(game.fen())
+    setCurrentMoveIndex(currentMoveIndex + 1)
+
+    if (selectedChapterIndex !== null) {
+      onChapterPgnChange?.(selectedChapterIndex, newPgn)
+    } else {
+      setPgnInput(newPgn)
+    }
     return true
-  }, [boardFen])
+  }, [activePosition, parsedPgn, currentMoveIndex, selectedChapterIndex, onChapterPgnChange, setPgnInput])
+
+  // Blur/Enter commit (matches blunderbored's PuzzleEditTab, not live-per-
+  // keystroke) — sets a fresh starting position on whichever chapter is
+  // selected, or the draft otherwise, and the board reflects it immediately.
+  const applyFenDraft = useCallback((raw: string) => {
+    const trimmed = raw.trim()
+    if (!trimmed) { setFenError('FEN cannot be empty.'); return }
+    try {
+      new Chess(trimmed)
+    } catch {
+      setFenError("That FEN isn't valid.")
+      return
+    }
+    setFenError(null)
+    const syntheticPgn = `[SetUp "1"]\n[FEN "${trimmed}"]\n\n*`
+    if (selectedChapterIndex !== null) {
+      onChapterPgnChange?.(selectedChapterIndex, syntheticPgn)
+    } else {
+      setPgnInput(syntheticPgn)
+    }
+    setBoardFen(trimmed)
+    setCurrentMoveIndex(-1)
+  }, [selectedChapterIndex, onChapterPgnChange, setPgnInput])
 
   const handleChapterSelect = (index: number) => {
     onSelectChapter(index)
     setBoardOrientation(chapters[index].orientation)
     setCurrentMoveIndex(-1)
     setBoardFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')
-    setArrowStart(null)
+    setArmedTool(null)
+    setPendingZoneSquares([])
   }
 
   // ── Visuals ──────────────────────────────────────────────────────────────────
 
   const customSquareStyles: Record<string, React.CSSProperties> = {}
-  drawnHighlights.forEach(sq => { customSquareStyles[sq] = { backgroundColor: 'rgba(234,179,8,0.45)' } })
-  if (arrowStart) customSquareStyles[arrowStart] = { backgroundColor: 'rgba(59,130,246,0.35)' }
-
-  const customArrows = drawnArrows.map(a => {
-    const hex = ARROW_COLORS.find(c => c.color === a.color)?.hex || '#22c55e'
-    return [a.from, a.to, hex] as [string, string, string]
+  drawnHighlights.forEach(h => {
+    const color = HIGHLIGHT_RENDER_COLOR[h.color ?? 'G']
+    for (const sq of (h.squares ?? [h.square])) customSquareStyles[sq] = { backgroundColor: color }
   })
+  pendingZoneSquares.forEach(sq => { customSquareStyles[sq] = { backgroundColor: 'rgba(59,130,246,0.35)' } })
+  if (armedTool?.kind === 'arrow') customSquareStyles[armedTool.from] = { backgroundColor: 'rgba(59,130,246,0.35)' }
 
-  const activePosition = fenHistory
-    ? (fenHistory[currentMoveIndex + 1] ?? fenHistory[0])
-    : boardFen
+  const customArrows = drawnArrows.map(a => [a.from, a.to, ARROW_RENDER_COLOR[a.color ?? 'G']] as [string, string, string])
+
+  // Wraps the piece on the animating square in a decoration-{effect} class
+  // for ~700ms — same mechanism as blunderbored's BoardShell (a customSquare
+  // render-prop, not a separate overlay).
+  const customSquareRenderer = useMemo(() => {
+    if (!activeAnimation) return undefined
+    const { square: animSquare, effect } = activeAnimation
+    return function DecoratedSquare({ children, square, style }: { children: React.ReactNode; square: string; style: Record<string, string | number> }) {
+      const isAnimating = square === animSquare
+      return (
+        <div style={{ ...style, position: 'relative' }}>
+          <div className={isAnimating ? `decoration-${effect}` : undefined} style={{ width: '100%', height: '100%', position: 'relative' }}>
+            {children}
+          </div>
+        </div>
+      )
+    }
+  }, [activeAnimation])
 
   // ── Small reusable buttons ───────────────────────────────────────────────────
 
@@ -252,13 +401,16 @@ export default function StudyEditorBoard({
     </button>
   )
 
+  // Board Controls — blunderbored BoardTransport styling: flex-1, no
+  // per-button borders/dividers, separation is purely the parent's gap-0.5 +
+  // each button's own background.
   const NavBtn = ({ onClick, disabled, children }: {
     onClick: () => void; disabled?: boolean; children: React.ReactNode
   }) => (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 disabled:opacity-25 transition-colors"
+      className="flex-1 py-1.5 rounded-sm text-sm transition-colors grid place-items-center bg-muted hover:bg-accent text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
     >
       {children}
     </button>
@@ -277,48 +429,31 @@ export default function StudyEditorBoard({
 
         {/* Board + EvalBar */}
         <div className="flex items-center justify-center p-4 flex-shrink-0">
-          <div className="flex gap-1.5 items-end">
+          <div className="flex gap-1.5 items-end" onContextMenu={e => { pointerPosRef.current = { x: e.clientX, y: e.clientY } }}>
             <EvalBar score={evalScore} mate={evalMate} isEnabled={engineEnabled} height={boardSize} />
             <Chessboard
               position={activePosition}
               boardWidth={boardSize}
               onSquareClick={handleSquareClick}
+              onSquareRightClick={handleSquareRightClick}
               onPieceDrop={handlePieceDrop}
               arePiecesDraggable={true}
               boardOrientation={selectedChapter?.orientation || boardOrientation}
               customSquareStyles={customSquareStyles}
               customArrows={customArrows.length > 0 ? (customArrows as unknown as [Square, Square, string?][]) : undefined}
+              customSquare={customSquareRenderer as any}
               customBoardStyle={{ borderRadius: '5px' }}
             />
           </div>
         </div>
 
-        {/* Annotation toolbar */}
+        {/* Board toolbar — arrows/highlights are drawn via right-click now (DecorationMenu) */}
         <div className="flex-shrink-0 flex items-center gap-1.5 flex-wrap px-4 py-2 border-t border-border bg-muted/20">
-          <ToolBtn active={drawMode === 'arrow'} onClick={() => setDrawMode(drawMode === 'arrow' ? 'none' : 'arrow')}>
-            <ArrowUp className="w-3 h-3" /> Arrow
-          </ToolBtn>
+          <p className="text-[10px] text-muted-foreground/70 flex-1">Right-click a square to draw</p>
 
-          {drawMode === 'arrow' && (
-            <div className="flex items-center gap-1">
-              {ARROW_COLORS.map(c => (
-                <button
-                  key={c.value}
-                  onClick={() => setArrowColor(c.value)}
-                  title={c.name}
-                  className={cn(
-                    'w-3.5 h-3.5 rounded-full border-2 transition-all',
-                    arrowColor === c.value ? 'border-foreground scale-125' : 'border-transparent opacity-50 hover:opacity-80'
-                  )}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-            </div>
+          {armedTool?.kind === 'zone-highlight' && (
+            <ToolBtn onClick={commitZone}>Done ({pendingZoneSquares.length})</ToolBtn>
           )}
-
-          <ToolBtn active={drawMode === 'highlight'} onClick={() => setDrawMode(drawMode === 'highlight' ? 'none' : 'highlight')}>
-            <Highlighter className="w-3 h-3" /> Highlight
-          </ToolBtn>
 
           <ToolBtn onClick={() => setBoardOrientation(p => p === 'white' ? 'black' : 'white')}>
             <RotateCcw className="w-3 h-3" /> Flip
@@ -326,12 +461,22 @@ export default function StudyEditorBoard({
 
           {(drawnArrows.length > 0 || drawnHighlights.length > 0) && (
             <ToolBtn danger onClick={handleClearAnnotations}>
-              <X className="w-3 h-3" /> Clear
+              <Trash2 className="w-3 h-3" /> Clear
             </ToolBtn>
           )}
         </div>
 
       </div>
+
+      {menuAnchorSquare && menuPos && (
+        <DecorationMenu
+          x={menuPos.x}
+          y={menuPos.y}
+          editing={findDecorationAt(menuAnchorSquare)}
+          onCommit={handleMenuCommit}
+          onClose={() => setMenuAnchorSquare(null)}
+        />
+      )}
 
       {/* ══ RIGHT: Chapters panel ═══════════════════════════════════════════════ */}
       <div className="flex flex-col min-w-0 overflow-hidden bg-muted/10 border border-border rounded-lg">
@@ -381,6 +526,19 @@ export default function StudyEditorBoard({
                 className="h-8 text-sm"
                 autoFocus
               />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Starting FEN (optional)</Label>
+              <Input
+                value={fenDraft}
+                onChange={e => setFenDraft(e.target.value)}
+                onBlur={() => { if (fenDraft.trim()) applyFenDraft(fenDraft) }}
+                onKeyDown={e => { if (e.key === 'Enter' && fenDraft.trim()) { applyFenDraft(fenDraft); (e.target as HTMLInputElement).blur() } }}
+                placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                className={cn('h-8 text-xs font-mono', fenError && 'border-destructive focus-visible:ring-destructive')}
+              />
+              {fenError && <p className="text-[10px] text-destructive">{fenError}</p>}
             </div>
 
             <div className="space-y-1">
@@ -533,20 +691,20 @@ export default function StudyEditorBoard({
                 })()}
               </div>
             </div>
-            <div className="flex-shrink-0 flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <NavBtn onClick={goToStart}><ChevronsLeft className="w-3.5 h-3.5" /></NavBtn>
+            <div className="flex-shrink-0 space-y-1">
+              <div className="flex gap-0.5">
+                <NavBtn onClick={goToStart}><ChevronsLeft className="w-4 h-4" /></NavBtn>
                 <NavBtn onClick={() => goTo(Math.max(0, currentMoveIndex - 1))} disabled={currentMoveIndex < 0}>
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </NavBtn>
                 <NavBtn onClick={() => goTo(currentMoveIndex + 1)} disabled={currentMoveIndex >= parsedPgn.moves.length - 1}>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </NavBtn>
-                <NavBtn onClick={goToEnd}><ChevronsRight className="w-3.5 h-3.5" /></NavBtn>
+                <NavBtn onClick={goToEnd}><ChevronsRight className="w-4 h-4" /></NavBtn>
               </div>
-              <span className="text-[11px] text-muted-foreground tabular-nums">
+              <p className="text-center text-[11px] text-muted-foreground tabular-nums">
                 {currentMoveIndex >= 0 ? `${currentMoveIndex + 1}` : '0'} / {parsedPgn.moves.length}
-              </span>
+              </p>
             </div>
           </div>
         ) : (

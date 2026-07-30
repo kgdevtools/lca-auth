@@ -102,7 +102,7 @@ function NavLink({
       onClick={onClick}
       title={isCollapsed ? item.title : undefined}
       className={cn(
-        "flex items-center px-2.5 py-1.5 rounded-sm transition-all duration-150 truncate",
+        "flex items-center px-2 py-1.5 rounded-sm transition-all duration-150 truncate",
         isCollapsed ? "justify-center" : "",
         isActive
           ? "bg-primary/10 text-primary"
@@ -110,13 +110,13 @@ function NavLink({
       )}
     >
       {Icon && isCollapsed && (
-        <Icon className="flex-shrink-0 w-5 h-5" />
+        <Icon className="flex-shrink-0 w-4 h-4" />
       )}
       {!isCollapsed && (
         <>
-          {Icon && <Icon className="flex-shrink-0 w-3.5 h-3.5 mr-2" />}
+          {Icon && <Icon className="flex-shrink-0 w-3.5 h-3.5 mr-1.5" />}
           <span className={cn(
-            "font-mono font-bold text-[13.5px] tracking-tightest leading-tight truncate",
+            "font-mono font-bold text-xs tracking-tightest leading-tight truncate",
             !Icon && indent ? "pl-0" : ""
           )}>{item.title}</span>
         </>
@@ -156,14 +156,14 @@ function SidebarContent({
   return (
     <>
       {/* Header */}
-      <div className="px-3 pt-6 pb-4 border-b border-border">
+      <div className="px-2.5 pt-4 pb-3 border-b border-border">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
-            <div>
-              <h1 className="text-sm font-bold text-foreground tracking-tighter leading-tight font-mono">
+            <div className="min-w-0">
+              <h1 className="text-xs font-bold text-foreground tracking-tighter leading-tight font-mono truncate">
                 Chess Academy
               </h1>
-              <p className="text-xs text-muted-foreground tracking-tight leading-tight">
+              <p className="text-[10px] text-muted-foreground tracking-tight leading-tight truncate">
                 Admin Dashboard
               </p>
             </div>
@@ -220,9 +220,9 @@ function SidebarContent({
               {/* Group header — collapsible toggle */}
               <button
                 onClick={() => onToggleGroup(group.id)}
-                className="w-full flex items-center justify-between px-2 py-1 rounded-sm hover:bg-accent/20 transition-colors text-left mb-0.5"
+                className="w-full flex items-center justify-between px-1.5 py-1 rounded-sm hover:bg-accent/20 transition-colors text-left mb-0.5"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <GroupIcon
                     className={cn(
                       "w-3 h-3 flex-shrink-0",
@@ -231,7 +231,7 @@ function SidebarContent({
                   />
                   <span
                     className={cn(
-                      "text-[10px] font-mono font-bold tracking-widest uppercase",
+                      "text-[9px] font-mono font-bold tracking-widest uppercase truncate",
                       groupIsActive ? "text-foreground" : "text-muted-foreground/50"
                     )}
                   >
@@ -250,12 +250,12 @@ function SidebarContent({
               {/* Animated items */}
               <div
                 style={{
-                  maxHeight: isOpen ? `${group.items.length * 44}px` : "0px",
+                  maxHeight: isOpen ? `${group.items.length * 40}px` : "0px",
                   overflow: "hidden",
                   transition: "max-height 220ms ease-in-out",
                 }}
               >
-                <div className="ml-2 pl-3 border-l border-border/40 space-y-0.5 pb-1">
+                <div className="ml-1.5 pl-2 border-l border-border/40 space-y-0.5 pb-1">
                   {group.items.map((item) => (
                     <NavLink
                       key={item.href}
@@ -274,26 +274,26 @@ function SidebarContent({
       </nav>
 
       {/* Profile footer */}
-      <div className="px-3 py-3 border-t border-border">
+      <div className="px-2.5 py-2 border-t border-border">
         <Link
           href="/user/profile"
           title={isCollapsed ? (profile?.full_name || "My Profile") : undefined}
           className={cn(
-            "flex items-center gap-2.5 p-2 rounded-sm hover:bg-accent/50 transition-colors",
+            "flex items-center gap-2 p-1.5 rounded-sm hover:bg-accent/50 transition-colors",
             isCollapsed && "justify-center"
           )}
         >
           <Avatar
             name={profile?.full_name || user?.email || "Admin"}
-            size={32}
+            size={26}
             className="flex-shrink-0"
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate tracking-tight leading-tight">
+              <p className="text-xs font-medium text-foreground truncate tracking-tight leading-tight">
                 {profile?.full_name || "Admin"}
               </p>
-              <p className="text-xs text-muted-foreground truncate tracking-tight leading-tight">
+              <p className="text-[10px] text-muted-foreground truncate tracking-tight leading-tight">
                 {user?.email}
               </p>
             </div>
@@ -373,7 +373,7 @@ export default function AdminSidebar({
       <div
         className={cn(
           "fixed top-20 bottom-0 left-0 z-50 flex flex-col lg:hidden",
-          "w-72 bg-background border-r border-border shadow-xl",
+          "w-56 bg-background border-r border-border shadow-xl",
           "transform transition-transform duration-300 ease-in-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
@@ -391,7 +391,7 @@ export default function AdminSidebar({
         className={cn(
           "hidden lg:flex lg:flex-col",
           "fixed top-20 bottom-0 left-0 z-30",
-          collapsed ? "w-16" : "w-72",
+          collapsed ? "w-12" : "w-56",
           "bg-background border-r border-border shadow-lg",
           "transition-all duration-300 ease-in-out"
         )}
@@ -407,7 +407,7 @@ export default function AdminSidebar({
       <div
         className={cn(
           "hidden lg:block flex-shrink-0 transition-all duration-300",
-          collapsed ? "w-16" : "w-72"
+          collapsed ? "w-12" : "w-56"
         )}
       />
     </>

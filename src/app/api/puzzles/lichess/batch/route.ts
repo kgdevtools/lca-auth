@@ -4,12 +4,12 @@ import { Chess } from 'chess.js'
 const VALID_DIFFICULTIES = ['easiest', 'easier', 'normal', 'harder', 'hardest'] as const
 type Difficulty = typeof VALID_DIFFICULTIES[number]
 
-// Full list of valid Lichess puzzle angles — used for random selection when themes=mixed
+// Full list of valid Lichess puzzle angles — used for random selection when themes=mixed.
+// Opening-name angles (caroKann, kingsGambit, etc.) are deliberately excluded — they 404
+// against Lichess's real /api/puzzle/batch/{theme} endpoint (confirmed: tactical motifs
+// like "fork" return 200, opening names don't — that endpoint only supports tactical/mate/
+// endgame/strategy angles, not opening filtering).
 const ALL_THEMES = [
-  // Openings
-  'caroKann', 'slavDefense', 'frenchDefense', 'sicilianDefense', 'italianGame',
-  'spanishGame', 'kingsGambit', 'queensGambit', 'englishOpening', 'scotchGame',
-  'viennaGame', 'kingIndianDefense', 'nimzoIndianDefense', 'dutchDefense',
   // Tactics
   'fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'deflection',
   'hangingPiece', 'trappedPiece', 'attraction', 'interference', 'clearance',

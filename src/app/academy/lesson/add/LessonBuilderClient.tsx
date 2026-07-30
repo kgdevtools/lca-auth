@@ -16,8 +16,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput } from "@/components/
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  X, Plus, RotateCcw, ChevronDown,
-  Check, Loader2, ArrowRight, ChevronRight, Pencil,
+  X, Plus, RotateCcw,
+  Check, Loader2, ArrowRight, ChevronRight, Pencil, SlidersHorizontal,
 } from "lucide-react";
 import {
   createPuzzleLesson, createStudyLesson, createInteractiveStudyLesson,
@@ -68,23 +68,10 @@ export interface LessonBuilderClientProps {
 
 const DIFFICULTY_LEVELS = ["beginner", "intermediate", "advanced", "expert"];
 
+// No "Openings" group — Lichess's /api/puzzle/batch/{theme} endpoint 404s on opening-name
+// angles (confirmed: tactical motifs work, openings don't); only tactical/mate/endgame/
+// strategy angles are actually supported there.
 const BATCH_THEMES = [
-  { group: 'Openings', options: [
-    { value: 'caroKann',         label: 'Caro-Kann'       },
-    { value: 'slavDefense',      label: 'Slav Defense'    },
-    { value: 'frenchDefense',    label: 'French Defense'  },
-    { value: 'sicilianDefense',  label: 'Sicilian Defense'},
-    { value: 'italianGame',      label: 'Italian Game'    },
-    { value: 'spanishGame',      label: 'Spanish Game'    },
-    { value: 'kingsGambit',      label: "King's Gambit"   },
-    { value: 'queensGambit',     label: "Queen's Gambit"  },
-    { value: 'englishOpening',   label: 'English Opening' },
-    { value: 'scotchGame',       label: 'Scotch Game'     },
-    { value: 'viennaGame',       label: 'Vienna Game'     },
-    { value: 'kingIndianDefense',  label: "King's Indian"   },
-    { value: 'nimzoIndianDefense', label: 'Nimzo-Indian'    },
-    { value: 'dutchDefense',     label: 'Dutch Defense'   },
-  ]},
   { group: 'Tactics', options: [
     { value: 'fork',             label: 'Fork'             },
     { value: 'pin',              label: 'Pin'              },
@@ -271,30 +258,6 @@ function blocksToEditQa(blocks: LessonBlock[]): QaCardData[] {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function CollapsibleSection({
-  label, preview, defaultOpen = false, children,
-}: {
-  label: string; preview?: string; defaultOpen?: boolean; children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-muted/30 transition-colors"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-          {!open && preview && <span className="text-sm text-foreground/70 truncate">{preview}</span>}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && <div className="px-5 pb-5 pt-1 border-t border-border">{children}</div>}
-    </div>
-  );
-}
-
 function StudySettingsPanel({
   displaySettings, onDisplaySettingsChange, timer, onTimerChange,
 }: {
@@ -310,23 +273,22 @@ function StudySettingsPanel({
     { key: 'showHighlights', label: 'Square highlights' },
   ];
   return (
-    <CollapsibleSection label="Display settings" preview="What students see while viewing this study">
-      <div className="space-y-3 pt-1">
-        <div className="grid grid-cols-2 gap-2.5">
-          {TOGGLES.map(t => (
-            <div key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-border px-3 py-2">
-              <Label htmlFor={`ds-${t.key}`} className="text-xs">{t.label}</Label>
-              <Switch
-                id={`ds-${t.key}`}
-                checked={displaySettings[t.key]}
-                onCheckedChange={v => onDisplaySettingsChange({ ...displaySettings, [t.key]: v })}
-              />
-            </div>
-          ))}
-        </div>
-        <TimerConfigField value={timer} onChange={onTimerChange} />
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Display settings</p>
+      <div className="grid grid-cols-2 gap-2.5">
+        {TOGGLES.map(t => (
+          <div key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-border px-3 py-2">
+            <Label htmlFor={`ds-${t.key}`} className="text-xs">{t.label}</Label>
+            <Switch
+              id={`ds-${t.key}`}
+              checked={displaySettings[t.key]}
+              onCheckedChange={v => onDisplaySettingsChange({ ...displaySettings, [t.key]: v })}
+            />
+          </div>
+        ))}
       </div>
-    </CollapsibleSection>
+      <TimerConfigField value={timer} onChange={onTimerChange} />
+    </div>
   );
 }
 
@@ -1320,13 +1282,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         </Button>
       </div>
 
-      <StudySettingsPanel
-        displaySettings={studyDisplaySettings}
-        onDisplaySettingsChange={setStudyDisplaySettings}
-        timer={studyTimer}
-        onTimerChange={setStudyTimer}
-      />
-
       <StudyEditorBoard
         chapters={chapters}
         selectedChapterIndex={selectedChapterIndex}
@@ -1342,6 +1297,9 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         onAddChapter={handleAddChapter}
         moveAnnotations={moveAnnotations}
         onAnnotationsChange={setMoveAnnotations}
+        onChapterPgnChange={(index, pgn) =>
+          setChapters(prev => prev.map((ch, i) => i === index ? { ...ch, pgn } : ch))
+        }
       />
 
       {isCompleted && savedLessonId ? (
@@ -1374,22 +1332,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
 
   const renderInteractiveEditor = () => (
     <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" size="sm" onClick={() => setIsLichessStudyImportOpen(true)}>
-          <LichessKnightIcon size={16} /><span className="ml-1.5">Import Lichess study</span>
-        </Button>
-        <input type="file" accept=".pgn,.pgn.txt" ref={el => setFileInputEl(el)} onChange={handleFileUpload} className="hidden" />
-        <Button variant="outline" size="sm" onClick={() => fileInputEl?.click()}>
-          <Plus className="w-3.5 h-3.5 mr-1.5" /> Upload PGN
-        </Button>
-      </div>
-
-      <StudySettingsPanel
-        displaySettings={studyDisplaySettings}
-        onDisplaySettingsChange={setStudyDisplaySettings}
-        timer={studyTimer}
-        onTimerChange={setStudyTimer}
-      />
+      <input type="file" accept=".pgn,.pgn.txt" ref={el => setFileInputEl(el)} onChange={handleFileUpload} className="hidden" />
 
       <InteractiveStudyEditorBoard
         chapters={chapters}
@@ -1411,13 +1354,16 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         onChapterPgnChange={(index, pgn) =>
           setChapters(prev => prev.map((ch, i) => i === index ? { ...ch, pgn } : ch))
         }
+        onOpenLichessImport={() => setIsLichessStudyImportOpen(true)}
+        onUploadPgnClick={() => fileInputEl?.click()}
+        onSubmit={handleInteractiveSubmit}
+        submitLabel={submitLabel}
+        isSubmitting={isSubmitting}
+        isCompleted={isCompleted}
+        savedLessonId={savedLessonId}
+        mode={mode}
+        onCreateAnother={handleCreateAnother}
       />
-
-      {isCompleted && savedLessonId ? (
-        <SuccessBanner lessonId={savedLessonId} label="Interactive study" mode={mode} onCreateAnother={handleCreateAnother} />
-      ) : (
-        <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleInteractiveSubmit} />
-      )}
 
       {isLichessStudyImportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
@@ -1475,27 +1421,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
 
   const renderStormEditor = () => (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-card p-4 space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time limit</p>
-        <div className="flex flex-wrap gap-1.5">
-          {STORM_TIME_PRESETS.map(preset => (
-            <button
-              key={preset.value}
-              onClick={() => setStormTimeLimit(preset.value)}
-              className={cn(
-                'text-xs px-2.5 py-1 rounded-sm border transition-colors',
-                stormTimeLimit === preset.value
-                  ? 'bg-foreground text-background border-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
-              )}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <PuzzleAuthoringPanel puzzles={stormPuzzles} onPuzzlesChange={setStormPuzzles} />
+      <PuzzleAuthoringPanel puzzles={stormPuzzles} onPuzzlesChange={setStormPuzzles} showTimer={false} />
 
       {stormPuzzles.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
@@ -1508,6 +1434,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
       )}
     </div>
   );
+
+  const isDetailsIncomplete = !lessonInfo.title.trim() || !lessonInfo.slug.trim();
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1532,27 +1460,43 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
               <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted-foreground capitalize">
                 {selectedType}
               </span>
+              {(selectedType === "study" || selectedType === "interactive") && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-xs" title="Display settings">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80">
+                    <StudySettingsPanel
+                      displaySettings={studyDisplaySettings}
+                      onDisplaySettingsChange={setStudyDisplaySettings}
+                      timer={studyTimer}
+                      onTimerChange={setStudyTimer}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
               {!isEdit && (
                 <Button variant="outline" size="sm" onClick={handleReset} className="text-xs">
                   <RotateCcw className="w-3 h-3 mr-1" /> Change
                 </Button>
               )}
+              <Button
+                variant={isDetailsIncomplete ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsLessonDetailsOpen(true)}
+                className={cn(
+                  "text-xs gap-1.5",
+                  isDetailsIncomplete && "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 animate-bounce"
+                )}
+              >
+                {isDetailsIncomplete ? <Pencil className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                {isDetailsIncomplete ? "Add lesson details" : "Lesson details"}
+              </Button>
             </div>
           )}
         </div>
-
-        {/* Lesson details — modal, opened on demand instead of taking up scroll space */}
-        {selectedType && (
-          <div className="rounded-lg border border-border bg-card px-5 py-3 flex items-center justify-between gap-3 min-w-0">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lesson details</p>
-              <p className="text-sm text-foreground/70 truncate">{lessonInfo.title || "Untitled lesson"}</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setIsLessonDetailsOpen(true)} className="flex-shrink-0">
-              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
-            </Button>
-          </div>
-        )}
 
         <Dialog open={isLessonDetailsOpen} onOpenChange={setIsLessonDetailsOpen}>
           <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -1576,6 +1520,27 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
               assignedTo={assignedTo}
               onAssignedToChange={isEdit && editData?.isAdmin ? setAssignedTo : undefined}
             />
+            {selectedType === "puzzle_storm" && (
+              <div className="pt-3 border-t border-border space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Time limit</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {STORM_TIME_PRESETS.map(preset => (
+                    <button
+                      key={preset.value}
+                      onClick={() => setStormTimeLimit(preset.value)}
+                      className={cn(
+                        'text-xs px-2.5 py-1 rounded-sm border transition-colors',
+                        stormTimeLimit === preset.value
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

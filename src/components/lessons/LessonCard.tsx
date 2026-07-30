@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Pencil, Trash2, Loader2, CheckCircle2, Circle } from 'lucide-react'
+import { Pencil, Trash2, Loader2, CheckCircle2, Circle, Users } from 'lucide-react'
 import { deleteLessonAction } from '@/app/academy/lesson/add/actions'
+import { LESSON_DIFFICULTY_RATING } from '@/lib/academyRating'
 import { cn } from '@/lib/utils'
 
 interface LessonCardProps {
@@ -22,6 +23,29 @@ interface LessonCardProps {
   lessonStatus?: string
   isSelected?: boolean
   onToggleSelect?: (id: string) => void
+  /** Coach/admin view only — students this lesson is assigned to. */
+  assignedStudents?: Array<{ id: string; full_name: string }>
+}
+
+// ── Gamification tier ────────────────────────────────────────────────────────
+// Lessons are authored with beginner/intermediate/advanced/expert difficulty,
+// but the rating/points math (LESSON_DIFFICULTY_RATING, DIFF_MULT below) only
+// knows easy/medium/hard — map one to the other so the level badge and rating
+// shown here are the *actual* value this lesson feeds into a student's Elo,
+// not a label that never matches and silently falls back to a flat default.
+const DIFFICULTY_TO_TIER: Record<string, 'easy' | 'medium' | 'hard'> = {
+  beginner: 'easy', intermediate: 'medium', advanced: 'hard', expert: 'hard',
+  easy: 'easy', medium: 'medium', hard: 'hard',
+}
+
+const TIER_LEVEL: Record<'easy' | 'medium' | 'hard', { level: number; icon: string }> = {
+  easy:   { level: 1, icon: '♙' },
+  medium: { level: 2, icon: '♘' },
+  hard:   { level: 3, icon: '♖' },
+}
+
+function getTier(difficulty: string | null | undefined): 'easy' | 'medium' | 'hard' {
+  return DIFFICULTY_TO_TIER[(difficulty ?? 'easy').toLowerCase()] ?? 'easy'
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,11 +71,11 @@ function getTypeMeta(type: string): TypeMeta {
 }
 
 const BASE_PTS: Record<string, number>  = { puzzle: 15, study: 20, interactive: 25 }
-const DIFF_MULT: Record<string, number> = { easy: 1.0, medium: 1.25, hard: 1.5 }
+const DIFF_MULT: Record<'easy' | 'medium' | 'hard', number> = { easy: 1.0, medium: 1.25, hard: 1.5 }
 
 function estimatePoints(type: string, difficulty: string | null | undefined): number {
   const base = BASE_PTS[type] ?? 15
-  const mult = DIFF_MULT[(difficulty ?? 'easy').toLowerCase()] ?? 1.0
+  const mult = DIFF_MULT[getTier(difficulty)]
   return Math.round(base * mult)
 }
 
@@ -71,6 +95,7 @@ export default function LessonCard({
   lessonStatus,
   isSelected,
   onToggleSelect,
+  assignedStudents,
 }: LessonCardProps) {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -79,6 +104,9 @@ export default function LessonCard({
   const rawType           = getLessonType(content_type, blocks)
   const { label, badge }  = getTypeMeta(rawType)
   const pts               = estimatePoints(rawType, difficulty)
+  const tier              = getTier(difficulty)
+  const { level, icon: levelIcon } = TIER_LEVEL[tier]
+  const tierRating        = LESSON_DIFFICULTY_RATING[tier]
   const isCompleted       = lessonStatus === 'completed'
   const isInProgress      = lessonStatus === 'in_progress'
   const showStatus        = lessonStatus !== undefined
@@ -229,9 +257,20 @@ export default function LessonCard({
           </h3>
 
           {/* Description */}
-          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 flex-1 mb-4">
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 flex-1 mb-2">
             {description || 'No description provided.'}
           </p>
+
+          {/* Assigned students — coach/admin view only */}
+          {assignedStudents && assignedStudents.length > 0 && (
+            <div className="flex items-center gap-1 mb-2 min-w-0">
+              <Users className="w-3 h-3 text-muted-foreground/60 flex-shrink-0" />
+              <span className="text-[10px] text-muted-foreground truncate">
+                {assignedStudents.slice(0, 2).map(s => s.full_name).join(', ')}
+                {assignedStudents.length > 2 && ` +${assignedStudents.length - 2} more`}
+              </span>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="flex items-end justify-between pt-3 border-t border-border/60 gap-2">
@@ -246,11 +285,18 @@ export default function LessonCard({
               </span>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                title={`Level ${level} · counts as ${tierRating} rating`}
+              >
+                <span className="leading-none">{levelIcon}</span>
+                {tierRating}
+              </span>
               <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                 ~{pts} pts
               </span>
-              <span className="text-[11px] text-muted-foreground">{formattedDate}</span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">{formattedDate}</span>
             </div>
           </div>
         </div>

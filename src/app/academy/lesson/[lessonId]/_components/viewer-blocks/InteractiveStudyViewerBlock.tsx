@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Chess, type Move, type Square } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   ChevronsLeft,
@@ -16,8 +15,15 @@ import {
   Target,
   Sparkles,
   Star,
+  Menu,
+  ArrowLeft,
+  MessageSquare,
+  AlignLeft,
+  List as ListIcon,
+  Check,
 } from 'lucide-react'
 import { parsePgn, type ParsedPgnMove } from '@/lib/pgnParser'
+import { ARROW_RENDER_COLOR, HIGHLIGHT_RENDER_COLOR, type DecorationColor } from '@/lib/decorations'
 import { cn } from '@/lib/utils'
 import { trackInteractiveSolvePoint } from '@/services/progressService'
 import { blockStorageKey, readWithTtl } from '../lessonProgressStorage'
@@ -71,8 +77,8 @@ interface ParsedMove extends Move {
   comment?: string
   clock?: string
   eval?: string | number
-  arrows?: Array<{ from: string; to: string; color: string }>
-  highlights?: string[]
+  arrows?: Array<{ from: string; to: string; color?: DecorationColor }>
+  highlights?: Array<{ square: string; color?: DecorationColor; squares?: string[] }>
   nag?: string
 }
 
@@ -216,6 +222,33 @@ function FeedbackBox({ result, reason }: { result: SolveResult; reason: string |
   )
 }
 
+// ── Board Controls (blunderbored BoardTransport styling: flex-1, gap-0.5 from
+// the parent, no per-button borders/dividers — separation is purely the gap +
+// each button's own background) ────────────────────────────────────────────
+
+function TransportBtn({ onClick, disabled, active, children }: {
+  onClick: () => void; disabled?: boolean; active?: boolean; children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex-1 py-1.5 rounded-sm text-sm transition-colors grid place-items-center disabled:opacity-30 disabled:cursor-not-allowed',
+        active ? 'bg-foreground text-background' : 'bg-muted hover:bg-accent text-foreground'
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+// A comment string that's purely a machine annotation ([%clk]/[%eval]/[%cal]/[%csl])
+// isn't something to show as prose in a "rich text" overlay.
+function isDisplayableComment(c?: string): c is string {
+  return !!c && !c.includes('%clk') && !c.includes('%eval') && !c.includes('%cal') && !c.includes('%csl')
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InteractiveStudyViewerBlock({
@@ -229,6 +262,7 @@ export default function InteractiveStudyViewerBlock({
   const displaySettings = data.displaySettings || {}
   const showClocks    = displaySettings.showClocks    ?? true
   const showHighlights = displaySettings.showHighlights ?? true
+  const showArrows    = displaySettings.showArrows    ?? true
 
   // ── Core navigation state ─────────────────────────────────────────────────
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0)
@@ -237,6 +271,14 @@ export default function InteractiveStudyViewerBlock({
   const [fenHistory, setFenHistory]                   = useState<string[]>([FEN_START])
   const [headers, setHeaders]                         = useState<Record<string, string>>({})
   const [chapterDropdownOpen, setChapterDropdownOpen] = useState(false)
+
+  // ── Mobile-only layout state ───────────────────────────────────────────────
+  // The moves "stage" on mobile shows exactly one of: the move list itself
+  // (inline or list mode), a chapter picker, or a move's comment — as an
+  // overlay that covers the moves area rather than opening a separate modal.
+  const [mobileOverlay, setMobileOverlay]   = useState<'none' | 'chapters' | 'comment'>('none')
+  const [movesViewMode, setMovesViewMode]   = useState<'inline' | 'list'>('inline')
+  const [commentOverlayIdx, setCommentOverlayIdx] = useState<number | null>(null)
 
   // ── Solve state ────────────────────────────────────────────────────────────
   const [solvedMap, setSolvedMap]     = useState<Map<string, 'main' | 'alternative'>>(new Map())
@@ -386,8 +428,9 @@ export default function InteractiveStudyViewerBlock({
     if (showHighlights && !isSolveMode) {
       const move = parsedMoves[currentMoveIndex]
       if (move?.highlights) {
-        move.highlights.forEach(sq => {
-          styles[sq] = { backgroundColor: 'rgba(255, 255, 0, 0.5)' }
+        move.highlights.forEach(h => {
+          const color = HIGHLIGHT_RENDER_COLOR[h.color ?? 'G']
+          for (const sq of (h.squares ?? [h.square])) styles[sq] = { backgroundColor: color }
         })
       }
     }
@@ -420,6 +463,13 @@ export default function InteractiveStudyViewerBlock({
     return styles
   }, [isSolveMode, lastMove, wrongMoveMade, selectedSquare, legalMoves, currentMoveIndex,
       parsedMoves, showHighlights, customHighlights])
+
+  const customArrows = useMemo<[string, string, string][]>(() => {
+    if (!showArrows || isSolveMode) return []
+    const move = parsedMoves[currentMoveIndex]
+    if (!move?.arrows) return []
+    return move.arrows.map(a => [a.from, a.to, ARROW_RENDER_COLOR[a.color ?? 'G']])
+  }, [showArrows, isSolveMode, parsedMoves, currentMoveIndex])
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function clearSolveState() {
@@ -620,6 +670,49 @@ export default function InteractiveStudyViewerBlock({
     }
   }
 
+  // ── Mobile "list" view — one move-pair per row, a comment icon opens the
+  // overlay instead of the inline italic text (mobile's Rich text overlay). ──
+  const moveListRows: React.ReactNode[] = []
+  for (let i = 0; i <= Math.min(visibleUpTo, parsedMoves.length - 1); i += 2) {
+    const whiteMove = parsedMoves[i]
+    const blackMove = parsedMoves[i + 1] as ParsedMove | undefined
+    if (!whiteMove) break
+    const moveNum = Math.floor(i / 2) + 1
+    const rowComment = isDisplayableComment(blackMove?.comment) ? blackMove!.comment : (isDisplayableComment(whiteMove.comment) ? whiteMove.comment : undefined)
+    const commentIdx = isDisplayableComment(blackMove?.comment) ? i + 1 : i
+
+    moveListRows.push(
+      <div key={`row-${i}`} className="flex items-center gap-1.5 px-1 py-1 border-b border-border/40 last:border-0">
+        <span className="w-6 shrink-0 text-[11px] text-muted-foreground/50 font-mono">{moveNum}.</span>
+        <button
+          onClick={() => { if (i <= maxNavIndex) { setCurrentMoveIndex(i); clearSolveState() } }}
+          disabled={i > maxNavIndex}
+          className={cn('flex-1 min-w-0 text-left text-sm px-1 py-0.5 rounded-sm truncate', i === currentMoveIndex ? 'bg-amber-500 text-black' : 'hover:bg-muted disabled:opacity-40')}
+        >
+          {whiteMove.san}{whiteMove.nag || ''}
+        </button>
+        {blackMove ? (
+          <button
+            onClick={() => { if ((i + 1) <= maxNavIndex) { setCurrentMoveIndex(i + 1); clearSolveState() } }}
+            disabled={(i + 1) > maxNavIndex}
+            className={cn('flex-1 min-w-0 text-left text-sm px-1 py-0.5 rounded-sm truncate', (i + 1) === currentMoveIndex ? 'bg-amber-500 text-black' : 'hover:bg-muted disabled:opacity-40')}
+          >
+            {blackMove.san}{blackMove.nag || ''}
+          </button>
+        ) : <span className="flex-1" />}
+        {rowComment && (
+          <button
+            onClick={() => { setCommentOverlayIdx(commentIdx); setMobileOverlay('comment') }}
+            className="shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors"
+            title="View comment"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    )
+  }
+
   // ── End-of-chapter state ──────────────────────────────────────────────────
   const allSolvePointsSolved = chapterSolveMoves.every(sp => solvedMap.has(`${currentChapterIndex}:${sp.moveIndex}`))
   const atEndOfChapter       = currentMoveIndex >= parsedMoves.length - 1 && allSolvePointsSolved
@@ -646,10 +739,160 @@ export default function InteractiveStudyViewerBlock({
         }
       `}</style>
 
-      <div className="flex flex-col lg:flex-row gap-1 h-full overflow-hidden">
+      {/* ── Mobile layout — board, full-width Board Controls (+ chapter-list
+          toggle), chapter bar (+ list/inline toggle), and a single "stage"
+          that shows either the moves or an overlay (chapters / comment /
+          the current solve challenge) covering that same area. ── */}
+      <div className="lg:hidden flex flex-col h-full overflow-hidden gap-1.5">
+        <div className="flex justify-center overflow-hidden shrink-0">
+          <div
+            className="w-full aspect-square mx-auto"
+            style={{ maxWidth: 'min(100%, calc(100dvh - 22rem))', touchAction: isSolveMode ? 'none' : 'auto' }}
+          >
+            <Chessboard
+              position={boardFen}
+              onSquareClick={handleSquareClick}
+              onPieceDrop={(from, to) => { if (!isSolveMode) return false; return handleSolveMove(from, to) }}
+              arePiecesDraggable={isSolveMode}
+              boardOrientation={currentChapter?.orientation || 'white'}
+              customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+              customSquareStyles={customSquareStyles}
+              customArrows={customArrows.length > 0 ? (customArrows as unknown as [Square, Square, string?][]) : undefined}
+            />
+          </div>
+        </div>
+
+        <div className="shrink-0"><ScoreDisplay points={points} delta={pointsDelta} /></div>
+
+        {/* Board Controls — full width, no gaps beyond the shared 0.5 gap, no per-button borders */}
+        <div className="flex gap-0.5 shrink-0">
+          <TransportBtn onClick={handleStart} disabled={currentMoveIndex <= -1}><ChevronsLeft className="w-4 h-4" /></TransportBtn>
+          <TransportBtn onClick={handlePrev} disabled={currentMoveIndex <= -1}><ChevronLeft className="w-4 h-4" /></TransportBtn>
+          <TransportBtn onClick={handleNext} disabled={currentMoveIndex >= maxNavIndex}><ChevronRight className="w-4 h-4" /></TransportBtn>
+          <TransportBtn onClick={handleEnd} disabled={currentMoveIndex >= maxNavIndex}><ChevronsRight className="w-4 h-4" /></TransportBtn>
+          <TransportBtn onClick={() => setMobileOverlay(o => o === 'chapters' ? 'none' : 'chapters')} active={mobileOverlay === 'chapters'}>
+            <Menu className="w-4 h-4" />
+          </TransportBtn>
+        </div>
+
+        {/* Chapter bar + list/inline toggle */}
+        {chapters.length > 0 && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setMobileOverlay(o => o === 'chapters' ? 'none' : 'chapters')}
+              className="flex-1 min-w-0 flex items-center justify-between px-2 py-1.5 bg-muted rounded-sm text-xs font-medium"
+            >
+              <span className="truncate">{currentChapter?.name || 'Select chapter'}</span>
+              <ChevronDown className={cn('w-3 h-3 shrink-0 transition-transform', mobileOverlay === 'chapters' && 'rotate-180')} />
+            </button>
+            <div className="flex gap-0.5 shrink-0">
+              <button onClick={() => setMovesViewMode('list')} title="List view" className={cn('p-1.5 rounded-sm transition-colors', movesViewMode === 'list' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                <ListIcon className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setMovesViewMode('inline')} title="Inline view" className={cn('p-1.5 rounded-sm transition-colors', movesViewMode === 'inline' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                <AlignLeft className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Stage: moves, or whichever overlay is active */}
+        <div className="flex-1 min-h-0 rounded-sm bg-muted/20 border border-border overflow-hidden">
+          {mobileOverlay === 'chapters' ? (
+            <div className="h-full flex flex-col">
+              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0">
+                <button onClick={() => setMobileOverlay('none')} className="p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chapters</span>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {chapters.map((chapter, index) => {
+                  const chSolvePoints = chapter.solveMoves ?? []
+                  const chSolvedCount = chSolvePoints.filter(sp => solvedMap.has(`${index}:${sp.moveIndex}`)).length
+                  const chComplete = chSolvePoints.length > 0 && chSolvedCount === chSolvePoints.length
+                  return (
+                    <button
+                      key={chapter.id}
+                      onClick={() => { handleChapterChange(index); setMobileOverlay('none') }}
+                      className={cn(
+                        'w-full flex items-center gap-2 px-3 py-2 text-left text-sm border-b border-border/40 last:border-0 transition-colors',
+                        currentChapterIndex === index ? 'bg-foreground/5 font-medium' : 'hover:bg-muted/60'
+                      )}
+                    >
+                      {chComplete ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <span className="w-3.5 shrink-0" />}
+                      <span className="flex-1 min-w-0 truncate">{chapter.name}</span>
+                      {chSolvePoints.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">{chSolvedCount}/{chSolvePoints.length}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : mobileOverlay === 'comment' ? (
+            <div className="h-full flex flex-col">
+              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0">
+                <button onClick={() => setMobileOverlay('none')} className="p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comment</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3">
+                <p className="text-sm text-amber-700 dark:text-amber-300 italic leading-relaxed">
+                  {commentOverlayIdx != null ? parsedMoves[commentOverlayIdx]?.comment : ''}
+                </p>
+              </div>
+            </div>
+          ) : isSolveMode ? (
+            <div className="h-full flex flex-col items-center justify-center gap-2.5 p-4 text-center">
+              <Target className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500 mb-1">Your move</p>
+                <p className="text-sm text-amber-800 dark:text-amber-300 leading-snug">{nextUnsolved?.description || 'Find the best move'}</p>
+              </div>
+              <FeedbackBox result={solveResult} reason={illegalReason} />
+            </div>
+          ) : (
+            <div className="h-full overflow-y-auto p-1.5">
+              {movesViewMode === 'list'
+                ? <div>{moveListRows}</div>
+                : <div className="flex flex-wrap gap-x-1 gap-y-0.5">{moveElements}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Chapter progression — full width, no gaps, same pill-bar styling as PuzzleViewerBlock */}
+        <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+          <button
+            onClick={handlePrev}
+            disabled={currentMoveIndex <= -1 && currentChapterIndex === 0}
+            className="flex-1 h-9 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            Previous
+          </button>
+          {atEndOfChapter ? (
+            <button
+              onClick={handleNextChapter}
+              className={cn('flex-1 h-9 flex items-center justify-center gap-1 text-sm font-medium bg-foreground text-background hover:opacity-90 transition-opacity', !isLastChapter && 'animate-pulse')}
+            >
+              {isLastChapter ? 'Finish' : 'Next Chapter'}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleNext}
+              disabled={isSolveMode}
+              className={cn('flex-1 h-9 flex items-center justify-center gap-1 text-sm transition-colors', isSolveMode ? 'text-muted-foreground' : 'font-medium bg-foreground text-background hover:opacity-90')}
+            >
+              {isSolveMode ? <><Target className="w-3.5 h-3.5" />Find the move</> : <>Next<ChevronRight className="w-3.5 h-3.5" /></>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Desktop layout — unchanged ── */}
+      <div className="hidden lg:flex lg:flex-row gap-1 h-full overflow-hidden">
 
         {/* Board */}
-        <div className="lg:w-[45%] flex flex-col min-w-0">
+        <div className="lg:w-[55%] flex flex-col min-w-0">
           <div className="flex justify-center overflow-hidden">
             {/* Clamp to viewport height so board + controls always fit on mobile/tablet.
                 touch-action none only while solving so drag doesn't scroll the page. */}
@@ -668,6 +911,7 @@ export default function InteractiveStudyViewerBlock({
                 boardOrientation={currentChapter?.orientation || 'white'}
                 customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
                 customSquareStyles={customSquareStyles}
+                customArrows={customArrows.length > 0 ? (customArrows as unknown as [Square, Square, string?][]) : undefined}
               />
             </div>
           </div>
@@ -680,27 +924,30 @@ export default function InteractiveStudyViewerBlock({
             </div>
           )}
 
-          <div className="flex justify-center gap-0.5 flex-wrap mt-1">
-            <Button variant="outline" size="sm" onClick={handleStart} className="h-6 px-1.5">
-              <ChevronsLeft className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePrev} disabled={currentMoveIndex <= -1} className="h-6 px-1.5">
-              <ChevronLeft className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleNext} disabled={currentMoveIndex >= maxNavIndex} className="h-6 px-1.5">
-              <ChevronRight className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleEnd} className="h-6 px-1.5">
-              <ChevronsRight className="w-3 h-3" />
-            </Button>
-            {Object.keys(customHighlights).length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setCustomHighlights({})} className="h-6 px-1.5 text-xs">Clear</Button>
-            )}
+          {/* Board Controls — full width, no gaps, same pill-bar styling as PuzzleViewerBlock */}
+          <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden mt-1.5">
+            <button onClick={handleStart} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button onClick={handlePrev} disabled={currentMoveIndex <= -1} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button onClick={handleNext} disabled={currentMoveIndex >= maxNavIndex} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button onClick={handleEnd} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <ChevronsRight className="w-4 h-4" />
+            </button>
           </div>
+          {Object.keys(customHighlights).length > 0 && (
+            <button onClick={() => setCustomHighlights({})} className="mt-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors">
+              Clear highlights
+            </button>
+          )}
         </div>
 
         {/* Right panel */}
-        <div className="lg:w-[37%] flex flex-col gap-1.5 min-w-0">
+        <div className="lg:w-[45%] flex flex-col gap-1.5 min-w-0">
 
           {/* Score */}
           <ScoreDisplay points={points} delta={pointsDelta} />
@@ -768,40 +1015,37 @@ export default function InteractiveStudyViewerBlock({
           {/* Solve result feedback */}
           <FeedbackBox result={solveResult} reason={illegalReason} />
 
-          {/* Navigation */}
-          <div className="flex gap-2 mt-auto">
-            <Button
+          {/* Chapter progression — full width, no gaps, same pill-bar styling as PuzzleViewerBlock */}
+          <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden mt-auto">
+            <button
               onClick={handlePrev}
-              variant="outline"
-              size="sm"
               disabled={currentMoveIndex <= -1 && currentChapterIndex === 0}
-              className="h-8 rounded-sm"
+              className="flex-1 h-9 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors"
             >
-              <ChevronLeft className="w-3 h-3 mr-1" />
+              <ChevronLeft className="w-3.5 h-3.5" />
               Previous
-            </Button>
+            </button>
 
             {atEndOfChapter ? (
-              <Button
+              <button
                 onClick={handleNextChapter}
-                className={cn('h-8 flex-1 rounded-sm transition-all', !isLastChapter && 'animate-pulse')}
+                className={cn('flex-1 h-9 flex items-center justify-center gap-1 text-sm font-medium bg-foreground text-background hover:opacity-90 transition-opacity', !isLastChapter && 'animate-pulse')}
               >
                 {isLastChapter ? 'Finish' : 'Next Chapter'}
-                <ChevronRight className="w-3 h-3 ml-1" />
-              </Button>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             ) : (
-              <Button
+              <button
                 onClick={handleNext}
                 disabled={isSolveMode}
-                className="h-8 flex-1 rounded-sm"
-                variant={isSolveMode ? 'outline' : 'default'}
+                className={cn('flex-1 h-9 flex items-center justify-center gap-1 text-sm transition-colors', isSolveMode ? 'text-muted-foreground' : 'font-medium bg-foreground text-background hover:opacity-90')}
               >
                 {isSolveMode ? (
-                  <><Target className="w-3 h-3 mr-1" />Find the move</>
+                  <><Target className="w-3.5 h-3.5" />Find the move</>
                 ) : (
-                  <>Next<ChevronRight className="w-3 h-3 ml-1" /></>
+                  <>Next<ChevronRight className="w-3.5 h-3.5" /></>
                 )}
-              </Button>
+              </button>
             )}
           </div>
         </div>

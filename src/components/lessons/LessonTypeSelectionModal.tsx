@@ -83,15 +83,15 @@ export function LessonTypeSelectionModal({
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-xl [&>div]:rounded-md">
-        <DialogHeader className="pb-2">
+      <DialogContent className="sm:max-w-3xl [&>div]:rounded-md">
+        <DialogHeader className="pb-1">
           <DialogTitle className="text-xl font-semibold">New lesson</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Choose a lesson format to get started.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 py-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-1">
           {lessonTypes.map(type => {
             const isDisabled = DISABLED_TYPES.includes(type.id);
             const isSelected = selected === type.id;
@@ -101,7 +101,7 @@ export function LessonTypeSelectionModal({
                 onClick={() => !isDisabled && setSelected(type.id)}
                 disabled={isDisabled}
                 className={cn(
-                  "w-full text-left rounded-sm border px-4 py-3.5 transition-all relative",
+                  "w-full text-left rounded-sm border px-3.5 py-3 transition-all relative",
                   isDisabled
                     ? "opacity-40 cursor-not-allowed border-border"
                     : isSelected

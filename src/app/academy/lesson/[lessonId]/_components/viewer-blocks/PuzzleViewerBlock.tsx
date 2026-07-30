@@ -498,7 +498,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
   return (
     <div className="flex flex-col lg:flex-row gap-1 h-full overflow-hidden">
       {/* Board column */}
-      <div className="lg:w-[45%] flex flex-col min-w-0">
+      <div className="lg:w-1/2 flex flex-col min-w-0">
         <div className="flex justify-center overflow-hidden">
           {/* Clamp to viewport height so board + actions always fit on mobile/tablet */}
           <div className="w-full aspect-square mx-auto" style={{ maxWidth: 'min(100%, calc(100dvh - 14rem))' }}>
@@ -531,7 +531,7 @@ export default function PuzzleViewerBlock({ data, onSolved, onPrev, canPrev, les
       </div>
 
       {/* Right panel */}
-      <div className="lg:w-[47%] flex flex-col gap-1 min-w-0">
+      <div className="lg:w-1/2 flex flex-col gap-1 min-w-0">
         {/* Header */}
         <div className="flex flex-col gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border text-xs font-medium shrink-0">
           <div className="flex items-center justify-between gap-2">

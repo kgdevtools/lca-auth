@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import LessonListClient from '@/components/lessons/LessonListClient'
-import { getLessonsAssignedToStudent } from '@/repositories/lesson/lessonRepository'
+import { getLessonsAssignedToStudent, getAssignedStudentsForLessons } from '@/repositories/lesson/lessonRepository'
 
 export const metadata = {
   title: 'Lessons - LCA Academy',
@@ -23,6 +23,7 @@ interface LessonItem {
   blocks: Array<{ type?: string }> | null
   difficulty: string | null
   lessonStatus?: string
+  assignedStudents?: Array<{ id: string; full_name: string }>
 }
 
 export default async function AcademyLessonsPage() {
@@ -78,6 +79,11 @@ export default async function AcademyLessonsPage() {
       blocks:      l.blocks as Array<{ type?: string }> | null,
       difficulty:  l.difficulty ?? null,
     }))
+
+    // Coach/admin cards show who each lesson is assigned to — one bulk query
+    // instead of N+1 per-card fetches.
+    const assignedMap = await getAssignedStudentsForLessons(lessonList.map(l => l.id))
+    lessonList = lessonList.map(l => ({ ...l, assignedStudents: assignedMap[l.id] ?? [] }))
   }
 
   // For students: fetch lesson progress + sort To Do first

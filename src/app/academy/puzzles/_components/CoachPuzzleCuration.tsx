@@ -266,7 +266,7 @@ export default function CoachPuzzleCuration({ initialPuzzles, initialAssignedStu
           <DialogHeader>
             <DialogTitle>Add puzzles manually</DialogTitle>
           </DialogHeader>
-          <PuzzleAuthoringPanel puzzles={draftPuzzles} onPuzzlesChange={setDraftPuzzles} />
+          <PuzzleAuthoringPanel puzzles={draftPuzzles} onPuzzlesChange={setDraftPuzzles} showLichessImport={false} showTimer={false} />
           <DialogFooter>
             <Button onClick={handleDoneAuthoring}>
               Done{draftPuzzles.length > 0 ? ` — add ${draftPuzzles.length} to pool` : ''}

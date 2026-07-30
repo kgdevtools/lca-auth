@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js'
+import type { DecorationColor } from './decorations'
 
 export interface ParsedPgnMove {
   moveNumber: number
@@ -8,8 +9,8 @@ export interface ParsedPgnMove {
   comment?: string
   clock?: string
   eval?: string | number
-  arrows?: Array<{ from: string; to: string; color: string }>
-  highlights?: string[]
+  arrows?: Array<{ from: string; to: string; color: DecorationColor }>
+  highlights?: Array<{ square: string; color: DecorationColor; squares?: string[] }>
   variations?: ParsedPgnMove[][]
 }
 
@@ -27,8 +28,8 @@ export interface ParsedPgnStudy {
 export interface PgnAnnotations {
   clock?: string
   eval?: string | number | undefined
-  arrows?: Array<{ from: string; to: string; color: string }>
-  highlights?: string[]
+  arrows?: Array<{ from: string; to: string; color: DecorationColor }>
+  highlights?: Array<{ square: string; color: DecorationColor; squares?: string[] }>
 }
 
 const FEN_INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -123,38 +124,54 @@ export function parsePgnAnnotations(comment: string): PgnAnnotations {
     }
   }
 
-  const arrowMatch = comment.match(/\[%cal ([GRYBOP])([a-h][1-8][a-h][1-8](?:,[a-h][1-8][a-h][1-8])*)\]/)
-  if (arrowMatch && arrowMatch[2]) {
-    annotations.arrows = []
-    const color = arrowMatch[1]
-    const squares = arrowMatch[2].match(/[a-h][1-8]/g) || []
-    for (let i = 0; i < squares.length - 1; i++) {
-      annotations.arrows.push({
-        from: squares[i],
-        to: squares[i + 1],
-        color: getArrowColor(color),
-      })
+  // Per-entry `LETTERfromto` (e.g. "Ra1b2,Gc3d4") is the standard/current
+  // export format. Older exports from before per-decoration color existed
+  // concatenated tuples with no separator (still one letter per 5-char
+  // tuple, just no commas) — chunk those instead so old PGNs still parse.
+  const arrowMatch = comment.match(/\[%cal ([^\]]+)\]/)
+  if (arrowMatch && arrowMatch[1]) {
+    const raw = arrowMatch[1]
+    const chunks = raw.includes(',') ? raw.split(',') : (raw.match(/.{1,5}/g) ?? [])
+    const arrows: Array<{ from: string; to: string; color: DecorationColor }> = []
+    for (const chunk of chunks) {
+      const m = chunk.match(/^([GRYBOP])([a-h][1-8])([a-h][1-8])$/)
+      if (!m) continue
+      arrows.push({ from: m[2], to: m[3], color: mapLegacyColorLetter(m[1]) })
     }
+    if (arrows.length > 0) annotations.arrows = arrows
   }
 
-  const highlightMatch = comment.match(/\[%csl ([GRYBOP])([a-h][1-8](?:,[a-h][1-8])*)\]/)
-  if (highlightMatch && highlightMatch[2]) {
-    annotations.highlights = highlightMatch[2].split(',')
+  // Same idea for [%csl] — per-entry `LETTERsquare`, falling back to the last
+  // seen letter for older exports that only prefixed the first square.
+  const highlightMatch = comment.match(/\[%csl ([^\]]+)\]/)
+  if (highlightMatch && highlightMatch[1]) {
+    const entries = highlightMatch[1].split(',')
+    const highlights: Array<{ square: string; color: DecorationColor }> = []
+    let lastColor: DecorationColor = 'G'
+    for (const entry of entries) {
+      const m = entry.match(/^([GRYBOP])?([a-h][1-8])$/)
+      if (!m) continue
+      if (m[1]) lastColor = mapLegacyColorLetter(m[1])
+      highlights.push({ square: m[2], color: lastColor })
+    }
+    if (highlights.length > 0) annotations.highlights = highlights
   }
 
   return annotations
 }
 
-function getArrowColor(code: string): string {
-  const colors: Record<string, string> = {
-    G: 'green',
-    R: 'red',
-    Y: 'yellow',
-    B: 'blue',
-    O: 'orange',
-    P: 'purple',
+// Blunderbored's DecorationColor is R/G/B/Y/GRAY — older exports could carry
+// O(range)/P(urple), which map to the nearest supported color.
+function mapLegacyColorLetter(code: string): DecorationColor {
+  switch (code) {
+    case 'R': return 'R'
+    case 'G': return 'G'
+    case 'B': return 'B'
+    case 'Y': return 'Y'
+    case 'O': return 'Y'
+    case 'P': return 'B'
+    default: return 'G'
   }
-  return colors[code] || 'green'
 }
 
 export function parsePgn(pgn: string): ParsedPgnChapter {
@@ -405,30 +422,55 @@ export function convertUciToSan(uci: string, _fen: string): string {
   return `${from}-${to}`
 }
 
-const COLOR_TO_CODE: Record<string, string> = { green: 'G', red: 'R', yellow: 'Y', blue: 'B', orange: 'O', purple: 'P' }
-
 export function serializeAnnotations(
-  arrows: Array<{ from: string; to: string; color: string }>,
-  highlights: string[]
+  arrows: Array<{ from: string; to: string; color?: DecorationColor }>,
+  highlights: Array<{ square: string; color?: DecorationColor; squares?: string[] }>
 ): string {
   const parts: string[] = []
 
-  if (arrows.length > 0) {
-    const arrowStr = arrows.map(a => `${COLOR_TO_CODE[a.color] || 'G'}${a.from}${a.to}`).join('')
+  // GRAY is app-only and never round-trips through PGN — same rule as
+  // isPgnExportableArrow/isPgnExportableHighlight in lib/decorations.ts.
+  const exportableArrows = arrows.filter(a => a.color !== 'GRAY')
+  if (exportableArrows.length > 0) {
+    const arrowStr = exportableArrows.map(a => `${pgnLetterOrDefault(a.color)}${a.from}${a.to}`).join(',')
     parts.push(`[%cal ${arrowStr}]`)
   }
 
-  if (highlights.length > 0) {
-    const highlightStr = highlights.map(h => `G${h}`).join(',')
+  const exportableHighlights = highlights.filter(h => (!h.squares || h.squares.length <= 1) && h.color !== 'GRAY')
+  if (exportableHighlights.length > 0) {
+    const highlightStr = exportableHighlights.map(h => `${pgnLetterOrDefault(h.color)}${h.square}`).join(',')
     parts.push(`[%csl ${highlightStr}]`)
   }
 
   return parts.join(' ')
 }
 
+function pgnLetterOrDefault(color?: DecorationColor): string {
+  return color && color !== 'GRAY' ? color : 'G'
+}
+
 export interface MoveAnnotation {
-  arrows: Array<{ from: string; to: string; color: string }>
-  highlights: string[]
+  arrows: Array<{ from: string; to: string; color?: DecorationColor }>
+  highlights: Array<{ square: string; color?: DecorationColor; squares?: string[] }>
+}
+
+// Reads a MoveAnnotation from whatever shape happens to be in memory —
+// tolerates the pre-decoration-engine shape (`highlights: string[]`, no
+// per-square color) so old drafts don't crash the new editor UI.
+export function normalizeMoveAnnotation(raw: unknown): MoveAnnotation {
+  const a = (raw ?? {}) as { arrows?: unknown; highlights?: unknown }
+  const arrows = Array.isArray(a.arrows)
+    ? (a.arrows as Array<{ from: string; to: string; color?: string }>).map(x => ({
+        from: x.from, to: x.to, color: (x.color as DecorationColor) ?? 'G',
+      }))
+    : []
+  const rawHighlights = Array.isArray(a.highlights) ? a.highlights : []
+  const highlights = rawHighlights.map((h) =>
+    typeof h === 'string'
+      ? { square: h, color: 'G' as DecorationColor }
+      : { square: (h as { square: string }).square, color: ((h as { color?: DecorationColor }).color) ?? 'G', squares: (h as { squares?: string[] }).squares }
+  )
+  return { arrows, highlights }
 }
 
 export function injectAnnotationsIntoPgn(

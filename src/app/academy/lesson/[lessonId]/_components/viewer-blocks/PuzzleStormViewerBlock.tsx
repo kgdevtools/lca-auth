@@ -7,6 +7,7 @@ import { Zap, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { parseSolutionMove } from '@/lib/parseSolutionMove'
 import { savePuzzleStormScore, getPuzzleStormBest } from '@/services/puzzleStormService'
+import { trackPuzzleBlockOutcome } from '@/services/progressService'
 
 interface StormPuzzle {
   fen: string
@@ -99,13 +100,18 @@ export default function PuzzleStormViewerBlock({ data, lessonId, onSolved }: Puz
 
   const handleCorrect = useCallback(() => {
     setFlashClass('correct')
+    const solvedPuzzle = puzzles[puzzleIndexRef.current]
+    const blockKey = `storm-${puzzleIndexRef.current}`
+    if (lessonId) {
+      trackPuzzleBlockOutcome(lessonId, 'clean', blockKey, solvedPuzzle?.rating ?? null).catch(() => {})
+    }
     setTimeout(() => {
       setFlashClass(null)
       solvedRef.current += 1
       setSolved(solvedRef.current)
       advance()
     }, 800)
-  }, [advance])
+  }, [advance, puzzles, lessonId])
 
   const handleWrong = useCallback(() => {
     setFlashClass('wrong')
