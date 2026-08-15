@@ -10,10 +10,7 @@ import {
   ChevronLeft,
   Loader2,
   Home,
-  Settings,
-  Trophy,
   Monitor,
-  Puzzle,
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
@@ -32,15 +29,12 @@ const baseSidebarItems: SidebarItem[] = [
 
 const studentItems: SidebarItem[] = [
   { title: "Lessons",      href: "/academy/lesson",       icon: BookOpen  },
-  { title: "Puzzles",      href: "/academy/puzzles",      icon: Puzzle    },
   { title: "Classroom",    href: "/academy/classroom",    icon: Monitor   },
   { title: "My Reports",   href: "/academy/reports",      icon: BarChart3 },
-  { title: "Leaderboard",  href: "/academy/leaderboard",  icon: Trophy    },
 ];
 
 const coachItems: SidebarItem[] = [
-  { title: "Students",      href: "/academy/students",     icon: Users,    roles: ["coach", "admin"] },
-  { title: "Create Lesson", href: "/academy/lesson/add",   icon: Settings, roles: ["coach", "admin"] },
+  { title: "Students", href: "/academy/students", icon: Users, roles: ["coach", "admin"] },
 ];
 
 interface AcademySidebarProps {
@@ -78,14 +72,14 @@ function SidebarContent({
   return (
     <>
       {/* Header */}
-      <div className="px-3 py-5 border-b border-border">
+      <div className="px-2.5 py-3 border-b border-border">
         <div className="flex items-center justify-between gap-2">
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <h1 className="text-sm font-bold text-foreground tracking-tighter leading-tight font-mono">
+              <h1 className="text-xs font-bold text-foreground tracking-tighter leading-tight font-mono truncate">
                 LCA Academy Online
               </h1>
-              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">
                 Learning Platform
               </p>
             </div>
@@ -104,7 +98,7 @@ function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5 overflow-x-hidden">
+      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-0.5 overflow-x-hidden">
         {sidebarItems.map((item) => {
           const Icon      = item.icon;
           const isActive  = pathname === item.href || (item.href !== "/academy" && pathname.startsWith(item.href));
@@ -118,7 +112,7 @@ function SidebarContent({
               disabled={isLoading}
               title={isCollapsed ? item.title : undefined}
               className={`
-                w-full flex items-center px-2.5 py-2 rounded-sm text-sm font-medium
+                w-full flex items-center px-2 py-1.5 rounded-sm text-xs font-medium
                 transition-all duration-150 truncate
                 ${isCollapsed ? "justify-center" : ""}
                 ${isLoading ? "opacity-60 cursor-wait" : ""}
@@ -129,9 +123,9 @@ function SidebarContent({
               `}
             >
               {isLoading ? (
-                <Loader2 className={`${isCollapsed ? "w-4 h-4" : "w-4 h-4 mr-2.5"} animate-spin flex-shrink-0`} />
+                <Loader2 className={`${isCollapsed ? "w-4 h-4" : "w-3.5 h-3.5 mr-2"} animate-spin flex-shrink-0`} />
               ) : (
-                <Icon className={`${isCollapsed ? "w-4 h-4" : "w-4 h-4 mr-2.5"} flex-shrink-0`} />
+                <Icon className={`${isCollapsed ? "w-4 h-4" : "w-3.5 h-3.5 mr-2"} flex-shrink-0`} />
               )}
               {!isCollapsed && (
                 <span className="tracking-tight leading-tight truncate">{item.title}</span>
@@ -142,23 +136,23 @@ function SidebarContent({
       </nav>
 
       {/* User profile footer — links back to user overview */}
-      <div className="px-3 py-3 border-t border-border">
+      <div className="px-2.5 py-2 border-t border-border">
         <Link
           href="/user/profile"
-          className={`flex items-center gap-2.5 p-2 rounded-sm hover:bg-muted transition-colors ${isCollapsed ? "justify-center" : ""}`}
+          className={`flex items-center gap-2 p-1.5 rounded-sm hover:bg-muted transition-colors ${isCollapsed ? "justify-center" : ""}`}
           title={isCollapsed ? (profile?.full_name || "My Profile") : undefined}
         >
           <Avatar
             name={profile?.full_name || user?.email || "User"}
-            size={28}
+            size={24}
             className="flex-shrink-0"
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-foreground truncate tracking-tighter leading-tight font-mono">
+              <p className="text-[11px] font-semibold text-foreground truncate tracking-tighter leading-tight font-mono">
                 {profile?.full_name || user?.email || "User"}
               </p>
-              <p className="text-[11px] text-muted-foreground truncate leading-tight capitalize">
+              <p className="text-[10px] text-muted-foreground truncate leading-tight capitalize">
                 {profile?.role || "Student"}
               </p>
             </div>
@@ -215,8 +209,8 @@ export default function AcademySidebar({
     onNavigate: handleNavigate,
   };
 
-  const expandedW  = "w-56";
-  const collapsedW = "w-14";
+  const expandedW  = "w-44";
+  const collapsedW = "w-12";
 
   return (
     <>

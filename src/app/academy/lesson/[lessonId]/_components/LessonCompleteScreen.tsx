@@ -6,6 +6,8 @@ import { motion, type Variants } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { LEVEL_NAMES, type LevelNumber } from '@/lib/constants/achievements'
 import type { GamificationResult } from '@/services/gamificationService'
+import Confetti from '@/components/microinteractions/Confetti'
+import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
 
 // ── Level display data ────────────────────────────────────────────────────────
 
@@ -53,7 +55,13 @@ interface LessonCompleteScreenProps {
   lesson: { id: string; title: string }
   gamification: GamificationResult | null
   gamificationPending: boolean
+  /** true when this lesson was already completed before (so no fresh
+   *  completion bonus/XP/rating was granted this time) — distinguishes
+   *  "nothing to show" from "there was a real problem resolving it". */
+  alreadyCompleted?: boolean
   sessionSummary?: { breakdown: Array<{ label: string; pts: number }>; total: number }
+  /** 'quit' = bailed out mid-lesson (no completion bonus/rating was recorded) */
+  variant?: 'completed' | 'quit'
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -62,9 +70,23 @@ export default function LessonCompleteScreen({
   lesson,
   gamification: g,
   gamificationPending,
+  alreadyCompleted = false,
   sessionSummary,
+  variant = 'completed',
 }: LessonCompleteScreenProps) {
   const router = useRouter()
+  const { reduced } = useMotionProfile()
+
+  // Fire once, only for an actual completion (never on quit) and only once the
+  // real gamification result has resolved — a bigger burst on level-up reuses
+  // the same distinction the "Level up" pill already shows.
+  const [confettiFire, setConfettiFire] = useState(0)
+  const hasFiredRef = useRef(false)
+  useEffect(() => {
+    if (variant !== 'completed' || !g || hasFiredRef.current) return
+    hasFiredRef.current = true
+    setConfettiFire(f => f + 1)
+  }, [variant, g])
 
   const earnedDisplay = useCountUp(g?.pointsEarned ?? 0, !!g)
   const totalDisplay  = useCountUp(g?.newTotal     ?? 0, !!g)
@@ -109,6 +131,7 @@ export default function LessonCompleteScreen({
 
   return (
     <div className="max-w-xl mx-auto px-5 py-7">
+      <Confetti fire={confettiFire} particleCount={g?.levelUp ? 160 : 80} />
       <motion.div variants={stagger} initial="hidden" animate="show" transition={{ duration: 0.25 }} className="space-y-6">
 
         {/* Header */}
@@ -117,8 +140,13 @@ export default function LessonCompleteScreen({
             {lesson.title}
           </p>
           <h1 className="text-xl font-bold tracking-tight text-foreground leading-tight">
-            Lesson Complete
+            {variant === 'quit' ? 'Progress Saved' : 'Lesson Complete'}
           </h1>
+          {variant === 'quit' && (
+            <p className="text-xs text-muted-foreground mt-1">
+              You can pick up right where you left off next time.
+            </p>
+          )}
         </motion.div>
 
         <motion.div variants={fadeUp}>
@@ -127,26 +155,49 @@ export default function LessonCompleteScreen({
 
         {/* Stats cards */}
         <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-border bg-card px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Points earned</p>
-            {gamificationPending ? (
-              <div className="h-8 w-20 rounded bg-muted/50 animate-pulse mt-1" />
-            ) : (
+          {variant === 'quit' ? (
+            <div className="col-span-2 rounded-lg border border-border bg-card px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Points this session</p>
               <p className="text-2xl font-bold tracking-tight tabular-nums">
-                {g ? `+${earnedDisplay}` : '—'}
+                {sessionSummary?.total ? `+${sessionSummary.total}` : '0'}
               </p>
-            )}
-          </div>
-          <div className="rounded-lg border border-border bg-card px-4 py-3">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Total XP</p>
-            {gamificationPending ? (
-              <div className="h-8 w-20 rounded bg-muted/50 animate-pulse mt-1" />
-            ) : (
-              <p className="text-2xl font-bold tracking-tight tabular-nums">
-                {g ? totalDisplay : '—'}
+            </div>
+          ) : !gamificationPending && !g && alreadyCompleted ? (
+            // This lesson was already completed before — no fresh completion
+            // bonus/XP was granted (each lesson only pays out once), which is
+            // expected, not broken. Per-puzzle points from *this* replay still
+            // show for real in the Breakdown below (those aren't gated).
+            <div className="col-span-2 rounded-lg border border-border bg-card px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Already completed</p>
+              <p className="text-sm text-foreground">
+                No new completion XP this time — you already earned it the first time through.
+                {sessionSummary?.total ? ` Puzzle points from this run (${sessionSummary.total} pts) are shown below.` : ''}
               </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border border-border bg-card px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Points earned</p>
+                {gamificationPending ? (
+                  <div className="h-8 w-20 rounded bg-muted/50 animate-pulse mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold tracking-tight tabular-nums">
+                    {g ? `+${earnedDisplay}` : '—'}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-lg border border-border bg-card px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Total XP</p>
+                {gamificationPending ? (
+                  <div className="h-8 w-20 rounded bg-muted/50 animate-pulse mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold tracking-tight tabular-nums">
+                    {g ? totalDisplay : '—'}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Academy rating delta — only when this completion was a rated activity */}
           {g?.rating && (
@@ -222,7 +273,14 @@ export default function LessonCompleteScreen({
           <motion.div variants={fadeUp} className="rounded-lg border border-border bg-card px-4 py-3 space-y-2">
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline gap-2">
-                <span className="text-xl leading-none">{levelPiece}</span>
+                <motion.span
+                  className="text-xl leading-none"
+                  initial={{ scale: 1 }}
+                  animate={reduced ? undefined : { scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.8 }}
+                >
+                  {levelPiece}
+                </motion.span>
                 <span className="text-sm font-semibold tracking-tight">{levelName}</span>
                 {g.levelUp && (
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-500 dark:text-amber-400">
@@ -273,7 +331,16 @@ export default function LessonCompleteScreen({
 
         {/* Actions */}
         <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-2 pt-2">
-          <Button onClick={() => router.push('/academy/lesson')} className="flex-1">
+          {variant === 'quit' && (
+            <Button onClick={() => router.push(`/academy/lesson/${lesson.id}`)} className="flex-1">
+              Resume Lesson
+            </Button>
+          )}
+          <Button
+            variant={variant === 'quit' ? 'outline' : 'default'}
+            onClick={() => router.push('/academy/lesson')}
+            className="flex-1"
+          >
             Back to Lessons
           </Button>
           <Button variant="outline" onClick={() => router.push('/academy')} className="flex-1">

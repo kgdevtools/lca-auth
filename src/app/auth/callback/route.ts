@@ -70,9 +70,6 @@ export async function GET(request: NextRequest) {
     const isPasswordReset = requestUrl.searchParams.get('type') === 'recovery'
     if (isPasswordReset) {
       const response = NextResponse.redirect(new URL('/reset-password/confirm?' + requestUrl.searchParams, request.url))
-      // Debug: log cookies requested during password recovery
-      // eslint-disable-next-line no-console
-      console.log('Supabase cookies to write (recovery):', cookiesToWrite.map(c => c.name))
       // Apply any Supabase auth cookies so the recovery flow can proceed
       cookiesToWrite.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       return response
@@ -80,9 +77,6 @@ export async function GET(request: NextRequest) {
 
     // For regular login, include the auth cookies in the redirect response
     const response = NextResponse.redirect(new URL(redirectPath, request.url))
-    // Debug: log cookies requested during regular login
-    // eslint-disable-next-line no-console
-    console.log('Supabase cookies to write (login):', cookiesToWrite.map(c => c.name))
     cookiesToWrite.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
     return response
     

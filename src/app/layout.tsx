@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import AutoSyncProvider from "@/components/AutoSyncProvider";
 import HeaderMobileNav from "@/components/HeaderMobileNav";
 import { ScrollNavbar } from "@/components/ScrollNavbar";
+import { MessagesDropdown } from "@/components/messaging/MessagesDropdown";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -214,6 +215,7 @@ export default async function RootLayout({
                 <div className="flex items-center gap-2 flex-shrink-0 pr-2 sm:pr-4">
                   <ThemeToggle />
                   <HeaderMobileNav isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
+                  {user && <MessagesDropdown />}
                   {user ? (
                     <form
                       action={async () => {

@@ -4,12 +4,12 @@ import { Chess } from 'chess.js'
 const VALID_DIFFICULTIES = ['easiest', 'easier', 'normal', 'harder', 'hardest'] as const
 type Difficulty = typeof VALID_DIFFICULTIES[number]
 
-// Full list of valid Lichess puzzle angles — used for random selection when themes=mixed
+// Full list of valid Lichess puzzle angles — used for random selection when themes=mixed.
+// Opening-name angles (caroKann, kingsGambit, etc.) are deliberately excluded — they 404
+// against Lichess's real /api/puzzle/batch/{theme} endpoint (confirmed: tactical motifs
+// like "fork" return 200, opening names don't — that endpoint only supports tactical/mate/
+// endgame/strategy angles, not opening filtering).
 const ALL_THEMES = [
-  // Openings
-  'caroKann', 'slavDefense', 'frenchDefense', 'sicilianDefense', 'italianGame',
-  'spanishGame', 'kingsGambit', 'queensGambit', 'englishOpening', 'scotchGame',
-  'viennaGame', 'kingIndianDefense', 'nimzoIndianDefense', 'dutchDefense',
   // Tactics
   'fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'deflection',
   'hangingPiece', 'trappedPiece', 'attraction', 'interference', 'clearance',
@@ -79,6 +79,27 @@ function uciSolutionToSan(fen: string, uciMoves: string[]): string[] {
   })
 }
 
+class BatchFetchError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+function statusToMessage(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'Lichess rejected the API token (401/403). Check LICHESS_API_TOKEN in .env.'
+  }
+  if (status === 429) {
+    return 'Lichess rate limit reached (429). Wait a minute and try again.'
+  }
+  if (status >= 500) {
+    return `Lichess server error (${status}). Try again in a few seconds.`
+  }
+  return `Lichess batch fetch failed (${status}).`
+}
+
 async function fetchSingleBatch(
   theme: string,
   difficulty: Difficulty,
@@ -86,12 +107,19 @@ async function fetchSingleBatch(
   token: string
 ): Promise<any[]> {
   const url = `https://lichess.org/api/puzzle/batch/${theme}?nb=${nb}&difficulty=${difficulty}`
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    console.error(`[lichess-batch] Network error for theme=${theme} difficulty=${difficulty}:`, err)
+    throw new BatchFetchError('Could not reach Lichess. Check your internet connection or try again.', 0)
+  }
   if (!res.ok) {
-    console.error(`Lichess batch fetch failed for theme=${theme} difficulty=${difficulty}: ${res.status}`)
-    return []
+    console.error(`[lichess-batch] Fetch failed for theme=${theme} difficulty=${difficulty}: ${res.status}`)
+    throw new BatchFetchError(statusToMessage(res.status), res.status)
   }
   const data = await res.json()
   return data.puzzles ?? []
@@ -145,16 +173,21 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       pairs.map(({ theme, difficulty }) => fetchSingleBatch(theme, difficulty, nbPerCall, token))
     )
 
     // Flatten, deduplicate by puzzle id, map to output shape, shuffle, take first nb
     const seen = new Set<string>()
     const allPuzzles: any[] = []
+    let firstError: BatchFetchError | null = null
 
-    for (const batch of results) {
-      for (const item of batch) {
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        if (!firstError && result.reason instanceof BatchFetchError) firstError = result.reason
+        continue
+      }
+      for (const item of result.value) {
         const id: string = item.puzzle?.id
         if (!id || seen.has(id)) continue
         seen.add(id)
@@ -176,6 +209,12 @@ export async function GET(request: Request) {
           orientation: turn === 'b' ? 'black' : 'white',
         })
       }
+    }
+
+    // Every pair failed and nothing came back — surface the real reason (rate
+    // limit, bad token, network) instead of a silent empty result.
+    if (allPuzzles.length === 0 && firstError) {
+      return NextResponse.json({ error: firstError.message }, { status: firstError.status || 502 })
     }
 
     const puzzles = shuffle(allPuzzles).slice(0, nb)

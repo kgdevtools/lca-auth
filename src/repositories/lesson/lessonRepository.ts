@@ -365,6 +365,32 @@ export async function getCoachesForDropdown(): Promise<Array<{ id: string; full_
   return (data || []).map((c: { id: string; full_name: string | null }) => ({ id: c.id, full_name: c.full_name || 'Unknown' }))
 }
 
+/** Bulk variant of getStudentsAssignedToLesson — one query for a whole lessons-list page. */
+export async function getAssignedStudentsForLessons(
+  lessonIds: string[]
+): Promise<Record<string, Array<{ id: string; full_name: string }>>> {
+  if (lessonIds.length === 0) return {}
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('lesson_students')
+    .select('lesson_id, student:profiles!lesson_students_student_id_fkey(id, full_name)')
+    .in('lesson_id', lessonIds)
+
+  if (error) {
+    console.error('Error fetching assigned students for lessons:', error)
+    return {}
+  }
+
+  const map: Record<string, Array<{ id: string; full_name: string }>> = {}
+  for (const row of (data ?? []) as any[]) {
+    const s = row.student
+    if (!s) continue
+    if (!map[row.lesson_id]) map[row.lesson_id] = []
+    map[row.lesson_id].push({ id: s.id, full_name: s.full_name || 'Unknown' })
+  }
+  return map
+}
+
 export async function getStudentsAssignedToLesson(lessonId: string): Promise<string[]> {
   const supabase = await createClient()
   const { data, error } = await supabase

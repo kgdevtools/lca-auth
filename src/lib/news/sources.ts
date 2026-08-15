@@ -11,6 +11,14 @@ import type { NewsSource } from "./types";
 
 export const NEWS_SOURCES: NewsSource[] = [
   // ── Local (South Africa) ──────────────────────────────────────────
+  
+  
+  /*
+  * Add these sources too and give them an almost equal weighting with Chessa
+  * African Chess Lounge, Chesshub, Chessworks, Western Cape Province Chess
+  */
+  
+  
   {
     id: "chessa",
     name: "Chess South Africa",

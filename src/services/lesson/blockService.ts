@@ -70,6 +70,7 @@ export function getBlockCountByType(blocks: BlockData[]): Record<BlockType, numb
     [BLOCK_TYPES.LICHESS_STUDY]: 0,
     [BLOCK_TYPES.STUDY]: 0,
     [BLOCK_TYPES.INTERACTIVE_STUDY]: 0,
+    [BLOCK_TYPES.PUZZLE_STORM]: 0,
     [BLOCK_TYPES.RICH_TEXT]: 0,
   }
 

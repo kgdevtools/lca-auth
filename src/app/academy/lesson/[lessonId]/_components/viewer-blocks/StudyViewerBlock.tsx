@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Chess, type Move, type Square } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   ChevronsLeft,
@@ -16,6 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { parsePgn, type ParsedPgnMove } from '@/lib/pgnParser'
+import { ARROW_RENDER_COLOR, HIGHLIGHT_RENDER_COLOR, type DecorationColor } from '@/lib/decorations'
 import { cn } from '@/lib/utils'
 import { trackStudyChapterComplete } from '@/services/progressService'
 
@@ -49,8 +49,8 @@ interface ParsedMove extends Move {
   comment?: string
   clock?: string
   eval?: string | number
-  arrows?: Array<{ from: string; to: string; color: string }>
-  highlights?: string[]
+  arrows?: Array<{ from: string; to: string; color?: DecorationColor }>
+  highlights?: Array<{ square: string; color?: DecorationColor; squares?: string[] }>
   nag?: string
 }
 
@@ -220,8 +220,9 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
     if (showHighlights) {
       const move = parsedMoves[currentMoveIndex]
       if (move?.highlights) {
-        move.highlights.forEach(sq => {
-          styles[sq] = { backgroundColor: 'rgba(255, 255, 0, 0.5)' }
+        move.highlights.forEach(h => {
+          const color = HIGHLIGHT_RENDER_COLOR[h.color ?? 'G']
+          for (const sq of (h.squares ?? [h.square])) styles[sq] = { backgroundColor: color }
         })
       }
     }
@@ -242,6 +243,13 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
 
     return styles
   }, [currentMoveIndex, parsedMoves, showHighlights, highlightedSquares])
+
+  const customArrows = useMemo<[string, string, string][]>(() => {
+    if (!showArrows) return []
+    const move = parsedMoves[currentMoveIndex]
+    if (!move?.arrows) return []
+    return move.arrows.map(a => [a.from, a.to, ARROW_RENDER_COLOR[a.color ?? 'G']])
+  }, [showArrows, parsedMoves, currentMoveIndex])
 
   // Build moves with text comments inline
   const moveElements: React.ReactNode[] = []
@@ -291,7 +299,7 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
   return (
     <div className="flex flex-col lg:flex-row gap-1 h-full overflow-hidden">
       {/* Board Section */}
-      <div className="lg:w-[45%] flex flex-col min-w-0">
+      <div className="lg:w-[55%] flex flex-col min-w-0">
         <div className="flex justify-center overflow-hidden">
           <div className="w-full aspect-square max-w-full">
             <Chessboard
@@ -304,6 +312,7 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}
               customSquareStyles={customSquareStyles}
+              customArrows={customArrows.length > 0 ? (customArrows as unknown as [Square, Square, string?][]) : undefined}
             />
           </div>
         </div>
@@ -316,35 +325,36 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
           </div>
         )}
 
-        <div className="flex justify-center gap-0.5 flex-wrap mt-1">
-          <Button variant="outline" size="sm" onClick={handleStart} className="h-6 px-1.5">
-            <ChevronsLeft className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handlePrev} disabled={currentMoveIndex === 0} className="h-6 px-1.5">
-            <ChevronLeft className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={togglePlay} className="h-6 px-1.5">
-            {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleNext} className="h-6 px-1.5">
-            <ChevronRight className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleEnd} className="h-6 px-1.5">
-            <ChevronsRight className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleStart} className="h-6 px-1.5">
-            <RotateCcw className="w-3 h-3" />
-          </Button>
-          {Object.keys(highlightedSquares).length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearHighlights} className="h-6 px-1.5 text-xs">
-              Clear
-            </Button>
-          )}
+        {/* Board Controls — full width, no gaps, same pill-bar styling as PuzzleViewerBlock */}
+        <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden mt-1.5">
+          <button onClick={handleStart} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+          <button onClick={handlePrev} disabled={currentMoveIndex === 0} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={togglePlay} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          </button>
+          <button onClick={handleNext} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button onClick={handleEnd} className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+          <button onClick={handleStart} title="Reset" className="flex-1 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <RotateCcw className="w-4 h-4" />
+          </button>
         </div>
+        {Object.keys(highlightedSquares).length > 0 && (
+          <button onClick={clearHighlights} className="mt-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors">
+            Clear highlights
+          </button>
+        )}
       </div>
 
       {/* PGN/Chapters Section */}
-      <div className="lg:w-[37%] space-y-1 min-w-0">
+      <div className="lg:w-[45%] space-y-1 min-w-0">
         {/* Chapter Dropdown */}
         {chapters.length > 0 && (
           <div className="relative">
@@ -395,34 +405,23 @@ export default function StudyViewerBlock({ data, onSolved, lessonId, onBlockComp
           </div>
         </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex gap-2">
-          <Button
+        {/* Chapter progression — full width, no gaps, same pill-bar styling */}
+        <div className="flex shrink-0 bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+          <button
             onClick={handlePrev}
-            variant="outline"
-            size="sm"
             disabled={currentMoveIndex === 0 && currentChapterIndex === 0}
-            className="h-8"
+            className="flex-1 h-9 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 transition-colors"
           >
-            <ChevronLeft className="w-3 h-3 mr-1" />
+            <ChevronLeft className="w-3.5 h-3.5" />
             Previous
-          </Button>
-          <Button 
-            onClick={handleNext} 
-            className="h-8 flex-1"
+          </button>
+          <button
+            onClick={handleNext}
+            className="flex-1 h-9 flex items-center justify-center gap-1 text-sm font-medium bg-foreground text-background hover:opacity-90 transition-opacity"
           >
-            {currentChapterIndex < chapters.length - 1 ? (
-              <>
-                Next Chapter
-                <ChevronRight className="w-3 h-3 ml-1" />
-              </>
-            ) : (
-              <>
-                Finish
-                <ChevronRight className="w-3 h-3 ml-1" />
-              </>
-            )}
-          </Button>
+            {currentChapterIndex < chapters.length - 1 ? 'Next Chapter' : 'Finish'}
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

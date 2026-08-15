@@ -11,9 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type LessonType = "puzzle" | "study" | "interactive";
+export type LessonType = "puzzle" | "study" | "interactive" | "mcq" | "qa" | "puzzle_storm" | "combined";
 
-const DISABLED_TYPES: LessonType[] = ["study"];
+const DISABLED_TYPES: LessonType[] = [];
 
 interface LessonTypeSelectionModalProps {
   open: boolean;
@@ -49,6 +49,34 @@ const lessonTypes: Array<{
     tagline: "Hybrid combining study content with embedded exercises",
     features: ["All Study features", "Embedded puzzles", "MCQ & Q&A blocks", "Structured progression"],
   },
+  {
+    id: "mcq",
+    label: "Multiple Choice",
+    icon: "☑",
+    tagline: "Quiz-style questions with one correct answer each",
+    features: ["2-6 options per question", "Optional explanation", "Image or board media", "Timer per question"],
+  },
+  {
+    id: "qa",
+    label: "Q&A Flashcards",
+    icon: "❓",
+    tagline: "Short-answer flashcards, graded with fuzzy matching",
+    features: ["Free-text answers", "Typo-tolerant grading", "Image or board media", "Timer per card"],
+  },
+  {
+    id: "puzzle_storm",
+    label: "Puzzle Storm",
+    icon: "⚡",
+    tagline: "Timed tactical challenge — solve as many puzzles as you can before the clock runs out",
+    features: ["Lichess-style storm", "Configurable time limit", "Score & accuracy tracking", "Personal best"],
+  },
+  {
+    id: "combined",
+    label: "Combined",
+    icon: "🧱",
+    tagline: "Mix puzzle, MCQ and Q&A blocks in one coach-ordered sequence",
+    features: ["Any order, any mix", "Each block's own editor", "Puzzle set timer included", "Reorder freely"],
+  },
 ];
 
 export function LessonTypeSelectionModal({
@@ -62,15 +90,15 @@ export function LessonTypeSelectionModal({
 
   return (
     <Dialog open={open}>
-      <DialogContent className="sm:max-w-xl [&>div]:rounded-md">
-        <DialogHeader className="pb-2">
+      <DialogContent className="sm:max-w-3xl [&>div]:rounded-md">
+        <DialogHeader className="pb-1">
           <DialogTitle className="text-xl font-semibold">New lesson</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Choose a lesson format to get started.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 py-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-1">
           {lessonTypes.map(type => {
             const isDisabled = DISABLED_TYPES.includes(type.id);
             const isSelected = selected === type.id;
@@ -80,7 +108,7 @@ export function LessonTypeSelectionModal({
                 onClick={() => !isDisabled && setSelected(type.id)}
                 disabled={isDisabled}
                 className={cn(
-                  "w-full text-left rounded-sm border px-4 py-3.5 transition-all relative",
+                  "w-full text-left rounded-sm border px-3.5 py-3 transition-all relative",
                   isDisabled
                     ? "opacity-40 cursor-not-allowed border-border"
                     : isSelected

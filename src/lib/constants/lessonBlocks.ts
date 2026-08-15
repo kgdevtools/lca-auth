@@ -8,6 +8,7 @@ export const BLOCK_TYPES = {
   LICHESS_STUDY: 'lichess_study',
   STUDY: 'study',
   INTERACTIVE_STUDY: 'interactive_study',
+  PUZZLE_STORM: 'puzzle_storm',
   RICH_TEXT: 'rich_text',
 } as const
 
@@ -86,6 +87,13 @@ export const BLOCK_PALETTE: Array<{
     description: 'Study with embedded solve points',
   },
   {
+    type: BLOCK_TYPES.PUZZLE_STORM,
+    label: 'Puzzle Storm',
+    icon: '⚡',
+    category: BLOCK_CATEGORIES.INTERACTIVE,
+    description: 'Timed tactical challenge — solve as many puzzles as possible before the clock runs out',
+  },
+  {
     type: BLOCK_TYPES.RICH_TEXT,
     label: 'Rich Text',
     icon: '📝',
@@ -160,6 +168,10 @@ export const DEFAULT_BLOCK_DATA: Record<BlockType, Record<string, unknown>> = {
       showArrows: true,
       showHighlights: true,
     },
+  },
+  [BLOCK_TYPES.PUZZLE_STORM]: {
+    timeLimit: 180,
+    puzzles: [],
   },
   [BLOCK_TYPES.RICH_TEXT]: {
     content: '',

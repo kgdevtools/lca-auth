@@ -3,6 +3,7 @@ import { getLessonById, isLessonAssignedToStudent } from '@/repositories/lesson/
 import { getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
 import { getStudentGamificationSummary } from '@/services/gamificationService'
 import { getAcademyRatingSummary } from '@/services/academyRatingService'
+import { getLessonProgress } from '@/services/progressService'
 import LessonViewerShell from './_components/LessonViewerShell'
 
 interface PageProps {
@@ -41,10 +42,17 @@ export default async function LessonViewerPage({ params }: PageProps) {
   }
 
   const blocks = (lesson.blocks || []) as Array<{ id: string; type: string; data: Record<string, unknown> }>
-  const [gamificationSummary, ratingSummary] = await Promise.all([
+  const [gamificationSummary, ratingSummary, progress] = await Promise.all([
     isCoachOrAdmin ? Promise.resolve(null) : getStudentGamificationSummary(profile.id).catch(() => null),
     isCoachOrAdmin ? Promise.resolve(null) : getAcademyRatingSummary(profile.id).catch(() => null),
+    isCoachOrAdmin ? Promise.resolve(null) : getLessonProgress(lessonId).catch(() => null),
   ])
+
+  // Known up front (not just at the end, via markLessonComplete's own
+  // alreadyCompleted flag) — needed for the whole session, not just the
+  // final screen: a replay of an already-completed lesson earns nothing,
+  // and every puzzle block needs to know that from the start.
+  const alreadyCompletedBeforeSession = progress?.status === 'completed'
 
   return (
     <LessonViewerShell
@@ -58,6 +66,8 @@ export default async function LessonViewerPage({ params }: PageProps) {
       }}
       gamificationSummary={gamificationSummary}
       academyRating={ratingSummary?.rating ?? null}
+      ratedCount={ratingSummary?.ratedCount ?? 0}
+      alreadyCompletedBeforeSession={alreadyCompletedBeforeSession}
     />
   )
 }
