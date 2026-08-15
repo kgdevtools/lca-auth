@@ -3,7 +3,10 @@
 import { createClient } from '@/utils/supabase/server'
 import { ACHIEVEMENTS, LEVEL_NAMES, type AchievementStats, type LevelNumber } from '@/lib/constants/achievements'
 import { recordRatingEvent } from './academyRatingService'
-import { LESSON_DIFFICULTY_RATING, DEFAULT_SEED } from '@/lib/academyRating'
+import {
+  LESSON_DIFFICULTY_RATING, DEFAULT_SEED, comboMultiplier, timerBoostFraction,
+  DIFFICULTY_MULTIPLIER, PUZZLE_BLOCK_BASE, PUZZLE_RATING_ACTUAL, type PuzzleOutcome,
+} from '@/lib/academyRating'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -35,9 +38,6 @@ export interface StudentGamificationSummary {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const LESSON_COMPLETION_BONUS = 5
-
-const DIFFICULTY_MULTIPLIER: Record<string, number> = { easy: 1.0, medium: 1.25, hard: 1.5 }
-const PUZZLE_BLOCK_BASE: Record<string, number> = { clean: 10, wrong_first: 7, hint: 5, hint_wrong: 4, gave_up: 0 }
 
 function applyMultiplier(base: number, difficulty: string): number {
   return Math.round(base * (DIFFICULTY_MULTIPLIER[difficulty] ?? 1.0))
@@ -142,45 +142,76 @@ async function fetchStats(studentId: string): Promise<AchievementStats> {
 }
 
 // ── Public: per-block point events ────────────────────────────────────────────
-
-export type PuzzleOutcome = 'clean' | 'wrong_first' | 'hint' | 'hint_wrong' | 'gave_up'
-
-// Elo "actual" per outcome — only outcomes that actually solved the puzzle move
-// the rating; a skipped/given-up puzzle is not a rated attempt at all (null).
-const PUZZLE_RATING_ACTUAL: Record<PuzzleOutcome, number | null> = {
-  clean: 1, wrong_first: 1, hint: 1, hint_wrong: 0.5, gave_up: null,
-}
+// PuzzleOutcome / PUZZLE_BLOCK_BASE / PUZZLE_RATING_ACTUAL now live in
+// academyRating.ts (single source of truth — see its own doc comment). Not
+// re-exported here: a 'use server' file may only export async functions —
+// consumers (e.g. progressService.ts) import the type from academyRating.ts
+// directly instead.
 
 export async function onPuzzleBlockSolved(
-  studentId:    string,
-  lessonId:     string,
-  outcome:      PuzzleOutcome,
-  blockKey:     string,
-  puzzleRating: number | null,
+  studentId:     string,
+  lessonId:      string,
+  outcome:       PuzzleOutcome,
+  blockKey:      string,
+  puzzleRating:  number | null,
+  /** Consecutive-clean-solve count *including this attempt* (0 if this
+   *  attempt isn't a clean solve) — drives the combo multiplier. */
+  comboStreak = 0,
+  /** Seconds from puzzle-ready to solve — drives the speed bonus. */
+  elapsedSeconds = Infinity,
 ): Promise<{ pointsEarned: number; rating: { before: number; after: number } | null }> {
-  const base = PUZZLE_BLOCK_BASE[outcome] ?? 0
-  if (base === 0) return { pointsEarned: 0, rating: null }
-
   const supabase = await createClient()
+
+  // Replaying a lesson the student has already completed earns nothing —
+  // points/rating are a one-time reward for actually learning the material,
+  // not something to farm by re-solving the same puzzles. Server-side check
+  // (not just a client-side UI gate) so this can't be bypassed by a stale
+  // client that hasn't noticed the lesson is already complete.
+  const { data: progress } = await supabase
+    .from('lesson_progress')
+    .select('status')
+    .eq('student_id', studentId)
+    .eq('lesson_id', lessonId)
+    .maybeSingle()
+  if (progress?.status === 'completed') {
+    return { pointsEarned: 0, rating: null }
+  }
+
+  const base = PUZZLE_BLOCK_BASE[outcome] ?? 0
   const difficulty = await fetchLessonDifficulty(supabase, lessonId)
-  const pts = applyMultiplier(base, difficulty)
 
-  await callGrantPoints(studentId, pts, 'puzzle_block_solved', lessonId, 'lesson', {
-    outcome, difficulty, base_pts: base,
-  })
+  // Combo/speed boost — only ever amplifies a genuine win (a clean solve),
+  // never a reduced-credit or failed outcome, so it can't be used to soften
+  // a bad puzzle's penalty.
+  const isCleanWin = outcome === 'clean'
+  const boostMultiplier = isCleanWin
+    ? comboMultiplier(comboStreak) * (1 + timerBoostFraction(elapsedSeconds))
+    : 1
+  const pts = base > 0 ? Math.round(applyMultiplier(base, difficulty) * boostMultiplier) : 0
 
+  if (pts > 0) {
+    await callGrantPoints(studentId, pts, 'puzzle_block_solved', lessonId, 'lesson', {
+      outcome, difficulty, base_pts: base, boost_multiplier: boostMultiplier, combo_streak: comboStreak,
+    })
+  }
+
+  // Rating is tracked independently of points — a 0-point outcome (gave_up,
+  // timeout) still needs to record its loss.
   let rating: { before: number; after: number } | null = null
-  const actual = PUZZLE_RATING_ACTUAL[outcome]
-  if (actual !== null) {
-    try {
-      const opponentR = puzzleRating ?? LESSON_DIFFICULTY_RATING[difficulty] ?? DEFAULT_SEED
-      const r = await recordRatingEvent(studentId, {
-        source: 'puzzle', sourceRef: `${lessonId}:${blockKey}`, opponentR, actual,
-      })
-      if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
-    } catch (e) {
-      console.error('[gamification] rating event (puzzle) failed:', e)
-    }
+  try {
+    const actual = PUZZLE_RATING_ACTUAL[outcome]
+    const opponentR = puzzleRating ?? LESSON_DIFFICULTY_RATING[difficulty] ?? DEFAULT_SEED
+    const r = await recordRatingEvent(studentId, {
+      source: 'puzzle', sourceRef: `${lessonId}:${blockKey}`, opponentR, actual,
+      deltaMultiplier: boostMultiplier,
+    })
+    // r.applied === false means this exact puzzle block was already rated
+    // today (idempotent replay guard) — rating stays null so the caller
+    // knows to leave the displayed number alone / revert its optimistic
+    // preview, rather than silently keeping a value that never persisted.
+    if (r.applied) rating = { before: r.ratingBefore, after: r.ratingAfter }
+  } catch (e) {
+    console.error('[gamification] rating event (puzzle) failed:', e)
   }
 
   return { pointsEarned: pts, rating }
@@ -239,9 +270,15 @@ export async function onLessonCompleted(
   const contentType = lesson?.content_type ?? 'puzzle'
   const difficulty  = (lesson?.difficulty ?? 'easy').toLowerCase()
 
-  // Determine ledger action type for this lesson category
+  // Determine ledger action type for this lesson category. action_type is
+  // unconstrained TEXT (no CHECK, unlike lessons.content_type) — a new value
+  // here needs no migration.
   const isStudyType = contentType === 'study' || contentType === 'interactive_study'
-  const actionType  = isStudyType ? 'lesson_complete_study' : 'lesson_complete_puzzle'
+  const actionType  = isStudyType
+    ? 'lesson_complete_study'
+    : contentType === 'combined'
+      ? 'lesson_complete_combined'
+      : 'lesson_complete_puzzle'
 
   // Award the flat completion bonus (per-block points are tracked separately during the lesson).
   const completionResult = await callGrantPoints(
@@ -343,22 +380,6 @@ export async function triggerDailyActivity(studentId: string): Promise<void> {
     const stats = await fetchStats(studentId)
     await checkAndAwardAchievements(studentId, { ...stats, had_perfect_quiz: false })
   }
-}
-
-// ── Public: standalone daily-puzzle solve ──────────────────────────────────────
-// Points for a solved daily puzzle, scaled by puzzle rating (6–20). The rating
-// event + puzzles_solved counter are handled by record_rating_event (academy
-// rating service); this only grants the points ledger entry.
-
-export async function onDailyPuzzleSolved(
-  studentId:    string,
-  puzzleRating: number | null,
-): Promise<{ pointsEarned: number }> {
-  const pts = Math.max(6, Math.min(20, Math.round((puzzleRating ?? 1200) / 150)))
-  const r = await callGrantPoints(studentId, pts, 'daily_puzzle_solved', null, 'puzzle', {
-    puzzle_rating: puzzleRating,
-  })
-  return { pointsEarned: r ? pts : 0 }
 }
 
 // ── Public: coach manual award ─────────────────────────────────────────────────

@@ -47,6 +47,7 @@ export function pgnLetter(color?: DecorationColor): string | undefined {
 
 export interface ArrowDecoration {
   id: string
+  order: number
   from: string
   to: string
   color?: DecorationColor
@@ -54,6 +55,7 @@ export interface ArrowDecoration {
 
 export interface HighlightDecoration {
   id: string
+  order: number
   square: string // anchor square — the single square for a plain highlight
   squares?: string[] // present only for zone highlights (all covered squares, incl. `square`); app-only, never exported
   color?: DecorationColor
@@ -61,12 +63,26 @@ export interface HighlightDecoration {
 
 export type AnimationEffect = 'bounce' | 'pulsate' | 'shake'
 
+// Animations are always piece-scoped (bounce/pulsate/shake the piece on one
+// square).
 export interface AnimationDecoration {
   id: string
+  order: number
   square: string
   effect: AnimationEffect
   color?: DecorationColor
 }
+
+// One position/ply's full set of decorations — the persisted unit the
+// decorations engine (useBoardDecorations) reads/writes, keyed by an opaque
+// "where we are" string per board (chapter+move, puzzle ply, etc.).
+export interface StoredAnnotationSet {
+  arrows: ArrowDecoration[]
+  highlights: HighlightDecoration[]
+  animations: AnimationDecoration[]
+}
+
+export const EMPTY_ANNOTATION_SET: StoredAnnotationSet = { arrows: [], highlights: [], animations: [] }
 
 // A decoration only survives a PGN round-trip if standard PGN software could
 // parse it back: a single square in a standard color.

@@ -16,9 +16,8 @@ import {
   Pencil, ChevronDown, MessageSquarePlus,
   Check, HelpCircle, Cpu, Eye, Loader2, ArrowRight,
 } from 'lucide-react'
-import { parsePgn, type MoveAnnotation } from '@/lib/pgnParser'
-import { DecorationMenu, type DecorationCommit, type EditingKind } from '@/components/lessons/DecorationMenu'
-import { ARROW_RENDER_COLOR, HIGHLIGHT_RENDER_COLOR, type AnimationEffect, type DecorationColor } from '@/lib/decorations'
+import { parsePgn } from '@/lib/pgnParser'
+import { useBoardDecorations, type StoredAnnotationSet } from '@/hooks/useBoardDecorations'
 import { BoardEditor } from '@/components/lessons/BoardEditor'
 import { cn } from '@/lib/utils'
 import { AnalysisPanel } from '@/components/analysis/AnalysisPanel'
@@ -50,8 +49,8 @@ interface InteractiveStudyEditorBoardProps {
   pgnInput: string
   setPgnInput: (value: string) => void
   onAddChapter: () => void
-  moveAnnotations: Map<string, MoveAnnotation>
-  onAnnotationsChange: (annotations: Map<string, MoveAnnotation>) => void
+  annotations: Map<string, StoredAnnotationSet>
+  onAnnotationsChange: (annotations: Map<string, StoredAnnotationSet>) => void
   // Solve points
   solveMovesByChapterId: Record<string, SolvePoint[]>
   onSolveMovesByChapterIdChange: (v: Record<string, SolvePoint[]>) => void
@@ -78,14 +77,9 @@ interface InteractiveStudyEditorBoardProps {
 const BOARD_MAX = 480
 const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
-// Right-click a square to open the decoration menu (Arrow / Highlight /
-// Animate) — same engine as blunderbored's board (lib/decorations.ts +
-// DecorationMenu.tsx). "Armed" tools commit on the next left click: an arrow
-// only needs one more square (the right-clicked square was already the
-// `from`); a zone highlight accumulates squares until "Done".
-type ArmedTool =
-  | { kind: 'arrow'; from: string; color: DecorationColor }
-  | { kind: 'zone-highlight'; color: DecorationColor }
+// Right-click a square (or 3s long-press on touch) to open the decoration
+// menu (Arrow / Highlight / Animate) — powered by useBoardDecorations, the
+// shared engine ported from blunderbored's /board.
 
 type PanelTab = 'chapters' | 'moves' | 'edit'
 type BoardMode = 'setup' | 'solution'
@@ -249,7 +243,7 @@ export default function InteractiveStudyEditorBoard({
   pgnInput,
   setPgnInput,
   onAddChapter,
-  moveAnnotations,
+  annotations,
   onAnnotationsChange,
   solveMovesByChapterId,
   onSolveMovesByChapterIdChange,
@@ -289,16 +283,6 @@ export default function InteractiveStudyEditorBoard({
   const [commentDraft,         setCommentDraft]         = useState('')
   // Engine — icon-gated, no space reserved until switched on
   const [showEngine,           setShowEngine]           = useState(false)
-  // Decorations (right-click menu)
-  const [armedTool,            setArmedTool]            = useState<ArmedTool | null>(null)
-  const [pendingZoneSquares,   setPendingZoneSquares]   = useState<string[]>([])
-  const [decoMenuSquare,       setDecoMenuSquare]       = useState<string | null>(null)
-  const [decoMenuPos,          setDecoMenuPos]          = useState<{ x: number; y: number } | null>(null)
-  const pointerPosRef = useRef({ x: 0, y: 0 })
-  // One-shot Animate flourish — same lifecycle as blunderbored's BoardShell
-  // (a class present for ~700ms via a customSquare wrapper, then removed).
-  // Not persisted, matching last round's scoping.
-  const [activeAnimation, setActiveAnimation] = useState<{ square: string; effect: AnimationEffect } | null>(null)
   // Preview modal
   const [previewOpen,          setPreviewOpen]          = useState(false)
   const [previewMoveIndex,     setPreviewMoveIndex]     = useState(-1)
@@ -349,113 +333,19 @@ export default function InteractiveStudyEditorBoard({
     }
   }, [contextMenuIdx])
 
-  // Escape cancels an armed decoration tool / in-progress zone
-  useEffect(() => {
-    if (!armedTool) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setArmedTool(null)
-      setPendingZoneSquares([])
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [armedTool])
-
-  // ── Annotations ────────────────────────────────────────────────────────────
+  // ── Annotations / decorations ─────────────────────────────────────────────
 
   const selectedChapter  = selectedChapterIndex !== null ? chapters[selectedChapterIndex] : null
   const activePgn        = localPgnOverride ?? selectedChapter?.pgn ?? pgnInput
-  const currentAnnoKey   = currentMoveIndex >= 0 ? `${selectedChapterIndex ?? 'new'}:${currentMoveIndex}` : null
-  const currentAnno      = currentAnnoKey ? moveAnnotations.get(currentAnnoKey) : undefined
-  const drawnArrows      = currentAnno?.arrows     ?? []
-  const drawnHighlights  = currentAnno?.highlights ?? []
+  const currentAnnoKey   = `${selectedChapterIndex ?? 'new'}:${currentMoveIndex}`
 
-  const updateCurrentAnnotations = useCallback(
-    (arrows: MoveAnnotation['arrows'], highlights: MoveAnnotation['highlights']) => {
-      if (!currentAnnoKey) return
-      const next = new Map(moveAnnotations)
-      if (arrows.length === 0 && highlights.length === 0) {
-        next.delete(currentAnnoKey)
-      } else {
-        next.set(currentAnnoKey, { arrows, highlights })
-      }
-      onAnnotationsChange(next)
-    },
-    [currentAnnoKey, moveAnnotations, onAnnotationsChange]
-  )
-
-  const handleClearAnnotations = () => {
-    if (!currentAnnoKey) return
-    const next = new Map(moveAnnotations)
-    next.delete(currentAnnoKey)
-    onAnnotationsChange(next)
-  }
-
-  const findDecorationAt = useCallback((square: string): EditingKind => {
-    if (drawnArrows.some(a => a.from === square || a.to === square)) return 'arrow'
-    if (drawnHighlights.some(h => (h.squares ?? [h.square]).includes(square))) return 'highlight'
-    return null
-  }, [drawnArrows, drawnHighlights])
-
-  const handleSquareRightClick = useCallback((square: string) => {
-    setArmedTool(null)
-    setPendingZoneSquares([])
-    setDecoMenuSquare(square)
-    setDecoMenuPos(pointerPosRef.current)
-  }, [])
-
-  const handleMenuCommit = useCallback((commit: DecorationCommit) => {
-    const square = decoMenuSquare
-    if (!square) return
-    switch (commit.kind) {
-      case 'recolor':
-        if (drawnArrows.some(a => a.from === square || a.to === square)) {
-          updateCurrentAnnotations(
-            drawnArrows.map(a => (a.from === square || a.to === square) ? { ...a, color: commit.color } : a),
-            drawnHighlights,
-          )
-        } else {
-          updateCurrentAnnotations(
-            drawnArrows,
-            drawnHighlights.map(h => (h.squares ?? [h.square]).includes(square) ? { ...h, color: commit.color } : h),
-          )
-        }
-        break
-      case 'delete':
-        updateCurrentAnnotations(
-          drawnArrows.filter(a => a.from !== square && a.to !== square),
-          drawnHighlights.filter(h => !(h.squares ?? [h.square]).includes(square)),
-        )
-        break
-      case 'arrow':
-        setArmedTool({ kind: 'arrow', from: square, color: commit.color })
-        break
-      case 'highlight':
-        if (commit.target === 'square') {
-          updateCurrentAnnotations(drawnArrows, [...drawnHighlights.filter(h => h.square !== square), { square, color: commit.color }])
-        } else {
-          setArmedTool({ kind: 'zone-highlight', color: commit.color })
-          setPendingZoneSquares([square])
-        }
-        break
-      case 'animate':
-        setActiveAnimation({ square, effect: commit.effect })
-        setTimeout(() => setActiveAnimation((prev) => (prev?.square === square ? null : prev)), 700)
-        break
-      case 'replay':
-        break // no persisted animation decoration exists yet to replay
-    }
-  }, [decoMenuSquare, drawnArrows, drawnHighlights, updateCurrentAnnotations])
-
-  const commitZone = useCallback(() => {
-    if (armedTool?.kind !== 'zone-highlight' || pendingZoneSquares.length === 0) return
-    updateCurrentAnnotations(drawnArrows, [
-      ...drawnHighlights.filter(h => !pendingZoneSquares.includes(h.square)),
-      { square: pendingZoneSquares[0], color: armedTool.color, squares: pendingZoneSquares },
-    ])
-    setArmedTool(null)
-    setPendingZoneSquares([])
-  }, [armedTool, pendingZoneSquares, drawnArrows, drawnHighlights, updateCurrentAnnotations])
+  const boardContainerRef = useRef<HTMLDivElement>(null)
+  const decorations = useBoardDecorations({
+    currentKey: currentAnnoKey,
+    annotations,
+    onAnnotationsChange,
+    boardContainerRef,
+  })
 
   // ── PGN ───────────────────────────────────────────────────────────────────
 
@@ -541,21 +431,11 @@ export default function InteractiveStudyEditorBoard({
   }, [currentMoveIndex, pgnCount, parsedPgn, liveMoves, localPgnOverride,
       selectedChapter, selectedChapterIndex, onChapterPgnChange])
 
+  // Decoration arm/drag-to-finish is handled entirely by the hook's own
+  // pointer-capture overlay now (not through square clicks) — this handler
+  // is purely click-to-move, with a plain inert click (no selection, no
+  // piece under the cursor) focusing whatever decoration is anchored there.
   const handleSquareClick = useCallback((square: Square) => {
-    // Decoration commit takes priority over click-to-move
-    if (armedTool) {
-      if (armedTool.kind === 'arrow') {
-        if (square !== armedTool.from) {
-          updateCurrentAnnotations([...drawnArrows, { from: armedTool.from, to: square, color: armedTool.color }], drawnHighlights)
-        }
-        setArmedTool(null)
-      } else {
-        setPendingZoneSquares(prev => prev.includes(square) ? prev.filter(s => s !== square) : [...prev, square])
-      }
-      return
-    }
-
-    // Click-to-move
     if (selectedSquare) {
       if (selectedSquare === square) {
         setSelectedSquare(null)
@@ -569,14 +449,16 @@ export default function InteractiveStudyEditorBoard({
           setSelectedSquare(square)
         } else {
           setSelectedSquare(null)
+          decorations.focusSquare(square)
         }
       }
     } else {
       const g = new Chess(activePositionRef.current)
       const piece = g.get(square)
       if (piece) setSelectedSquare(square)
+      else decorations.focusSquare(square)
     }
-  }, [armedTool, drawnArrows, drawnHighlights, updateCurrentAnnotations, selectedSquare, handlePieceDrop])
+  }, [selectedSquare, handlePieceDrop, decorations])
 
   const resetDraft = useCallback(() => {
     setLiveMoves([])
@@ -787,52 +669,26 @@ export default function InteractiveStudyEditorBoard({
   activePositionRef.current = activePosition
 
   const legalTargets: Square[] = useMemo(() => {
-    if (!selectedSquare || armedTool) return []
+    if (!selectedSquare) return []
     try {
       const g = new Chess(activePosition)
       return g.moves({ square: selectedSquare, verbose: true }).map((m: any) => m.to as Square)
     } catch { return [] }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSquare, activePosition, armedTool])
+  }, [selectedSquare, activePosition])
 
+  // Selection/legal-move tints only — user decorations render through the
+  // hook's own customSquare/customArrows instead.
   const customSquareStyles = useMemo<Record<string, React.CSSProperties>>(() => {
     const styles: Record<string, React.CSSProperties> = {}
-    drawnHighlights.forEach(h => {
-      const color = HIGHLIGHT_RENDER_COLOR[h.color ?? 'G']
-      for (const sq of (h.squares ?? [h.square])) styles[sq] = { backgroundColor: color }
-    })
-    pendingZoneSquares.forEach(sq => { styles[sq] = { backgroundColor: 'rgba(59,130,246,0.35)' } })
-    if (armedTool?.kind === 'arrow') styles[armedTool.from] = { backgroundColor: 'rgba(59,130,246,0.35)' }
-    if (selectedSquare && !armedTool) {
+    if (selectedSquare) {
       styles[selectedSquare] = { backgroundColor: 'rgba(255,255,0,0.5)' }
       legalTargets.forEach(sq => {
         styles[sq] = { background: 'radial-gradient(circle, rgba(0,0,0,0.18) 28%, transparent 28%)' }
       })
     }
     return styles
-  }, [drawnHighlights, pendingZoneSquares, armedTool, selectedSquare, legalTargets])
-
-  const customArrows = useMemo(() =>
-    drawnArrows.map(a => [a.from, a.to, ARROW_RENDER_COLOR[a.color ?? 'G']] as [string, string, string])
-  , [drawnArrows])
-
-  // Wraps the piece on the animating square in a decoration-{effect} class
-  // for ~700ms — same mechanism as blunderbored's BoardShell (a customSquare
-  // render-prop, not a separate overlay).
-  const customSquareRenderer = useMemo(() => {
-    if (!activeAnimation) return undefined
-    const { square: animSquare, effect } = activeAnimation
-    return function DecoratedSquare({ children, square, style }: { children: React.ReactNode; square: string; style: Record<string, string | number> }) {
-      const isAnimating = square === animSquare
-      return (
-        <div style={{ ...style, position: 'relative' }}>
-          <div className={isAnimating ? `decoration-${effect}` : undefined} style={{ width: '100%', height: '100%', position: 'relative' }}>
-            {children}
-          </div>
-        </div>
-      )
-    }
-  }, [activeAnimation])
+  }, [selectedSquare, legalTargets])
 
   // ── Hover info ────────────────────────────────────────────────────────────
 
@@ -891,39 +747,46 @@ export default function InteractiveStudyEditorBoard({
             onSelectPiece={setSetupSelectedPiece}
             onSquareClick={handleSetupSquareClick}
             onPieceDrop={handleSetupPieceDrop}
+            annotations={annotations}
+            onAnnotationsChange={onAnnotationsChange}
+            decorationKey={`${selectedChapterIndex ?? 'new'}:setup`}
           />
         ) : (
-          <div className="w-full" style={{ aspectRatio: '1 / 1' }} onContextMenuCapture={e => { pointerPosRef.current = { x: e.clientX, y: e.clientY } }}>
+          <div
+            ref={boardContainerRef}
+            className="relative w-full"
+            style={{ aspectRatio: '1 / 1' }}
+            onPointerDown={decorations.onBoardPointerDown}
+            onContextMenu={decorations.onBoardContextMenu}
+            onTouchStart={decorations.onBoardTouchStart}
+            onTouchEnd={decorations.onBoardTouchEnd}
+            onTouchMove={decorations.onBoardTouchEnd}
+          >
             <Chessboard
               position={activePosition}
               onSquareClick={handleSquareClick}
-              onSquareRightClick={handleSquareRightClick}
               onPieceDrop={handlePieceDrop}
               arePiecesDraggable={true}
               areArrowsAllowed={false}
               animationDuration={150}
               boardOrientation={selectedChapter?.orientation || boardOrientation}
               customSquareStyles={customSquareStyles}
-              customArrows={customArrows.length > 0 ? (customArrows as any) : undefined}
-              customSquare={customSquareRenderer as any}
+              customArrows={decorations.customArrows.length > 0 ? (decorations.customArrows as any) : undefined}
+              customSquare={decorations.customSquare as any}
               customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
             />
+            {decorations.overlay}
           </div>
         )}
 
         {/* Secondary, board-content-specific controls — kept near the board
             since they act on what's currently drawn on it. Flip/Engine and
             the Start/Prev/Next/End scrubber live in the Moves tab now. */}
-        {(armedTool?.kind === 'zone-highlight' || drawnArrows.length > 0 || drawnHighlights.length > 0) && (
+        {boardMode === 'solution' && decorations.hasDecorations && (
           <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-            {armedTool?.kind === 'zone-highlight' && (
-              <ToolBtn onClick={commitZone}>Done ({pendingZoneSquares.length})</ToolBtn>
-            )}
-            {(drawnArrows.length > 0 || drawnHighlights.length > 0) && (
-              <ToolBtn danger onClick={handleClearAnnotations}>
-                <X className="w-3 h-3" /> Clear
-              </ToolBtn>
-            )}
+            <ToolBtn danger onClick={decorations.clearAll}>
+              <X className="w-3 h-3" /> Clear
+            </ToolBtn>
           </div>
         )}
       </div>
@@ -1420,17 +1283,6 @@ export default function InteractiveStudyEditorBoard({
           </div>
         )
       })()}
-
-      {/* Board decoration menu — right-click a square */}
-      {decoMenuSquare && decoMenuPos && (
-        <DecorationMenu
-          x={decoMenuPos.x}
-          y={decoMenuPos.y}
-          editing={findDecorationAt(decoMenuSquare)}
-          onCommit={handleMenuCommit}
-          onClose={() => setDecoMenuSquare(null)}
-        />
-      )}
 
       {/* Preview modal — clean, read-only student view of the current chapter */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

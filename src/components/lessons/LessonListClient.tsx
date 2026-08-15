@@ -20,6 +20,8 @@ interface LessonItem {
   difficulty: string | null
   lessonStatus?: string
   assignedStudents?: Array<{ id: string; full_name: string }>
+  sessionStats?: { points: number; ratingDelta: number }
+  attempts?: number
 }
 
 export default function LessonListClient({
@@ -88,6 +90,8 @@ export default function LessonListClient({
     isSelected:   selectedIds.has(lesson.id),
     onToggleSelect: showActions && !isStudent ? toggleSelect : undefined,
     assignedStudents: lesson.assignedStudents,
+    sessionStats: lesson.sessionStats,
+    attempts: lesson.attempts,
   })
 
   return (
@@ -118,7 +122,7 @@ export default function LessonListClient({
           jumping at fixed breakpoints, so tablets and landscape phones get as
           many columns as actually fit rather than being stuck at 1 or 2. */}
       {activelessons.length > 0 && (
-        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
+        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
           {activelessons.map(lesson => (
             <LessonCard key={lesson.id} {...cardProps(lesson)} />
           ))}

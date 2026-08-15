@@ -45,6 +45,55 @@ export function useBlockCountdown(totalSeconds: number, enabled: boolean, onExpi
   return secondsLeft
 }
 
+/**
+ * Lichess-style digital clock for the whole-puzzle-SET countdown (one clock
+ * for the entire batch, not per-puzzle) — dark block, bold monospace digits,
+ * reddens in the last 20% of the total, flashes destructive at 0.
+ */
+export function PuzzleSetClock({
+  secondsLeft, secondsTotal, className, size = 'chip',
+}: { secondsLeft: number; secondsTotal: number; className?: string; size?: 'chip' | 'large' }) {
+  const fraction = secondsTotal > 0 ? secondsLeft / secondsTotal : 1
+  const isTimeUp = secondsLeft <= 0
+  const isLowTime = !isTimeUp && fraction <= 0.2
+  const bg = isTimeUp ? 'bg-destructive/10 border-destructive/30' : 'bg-slate-900 dark:bg-slate-950 border-slate-700'
+  const digitColor = isTimeUp ? 'text-destructive' : isLowTime ? 'text-orange-400 animate-pulse' : 'text-white'
+
+  // 'large' fills whatever flex space it's given (the puzzle viewer's right
+  // panel uses this so the clock itself — not an empty gap — is what pushes
+  // the board-controls bar down to sit flush with the board's bottom edge).
+  if (size === 'large') {
+    return (
+      <div
+        className={cn('flex-1 min-h-0 flex flex-col items-center justify-center gap-1 rounded-sm border select-none', bg, className)}
+        title="Puzzle set timer — one clock for the whole set"
+      >
+        <span className={cn('text-[10px] uppercase tracking-wider font-semibold', isTimeUp ? 'text-destructive' : 'text-slate-400')}>
+          Set timer
+        </span>
+        <span className={cn('font-mono font-bold tabular-nums leading-none text-4xl sm:text-5xl', digitColor)}>
+          {formatBlockClock(secondsLeft)}
+        </span>
+      </div>
+    )
+  }
+
+  // No label here (just the digits) — this chip sits right next to the
+  // Session data chip on mobile, where every bit of width matters; `inline-flex`
+  // + no flex-grow so it hugs its own content instead of stretching to fill
+  // half the row like the Session chip next to it does.
+  return (
+    <div
+      className={cn('inline-flex items-center justify-center h-8 px-3 rounded-sm border select-none', bg, className)}
+      title="Puzzle set timer — one clock for the whole set"
+    >
+      <span className={cn('font-mono text-sm font-bold tabular-nums leading-none', digitColor)}>
+        {formatBlockClock(secondsLeft)}
+      </span>
+    </div>
+  )
+}
+
 /** Visual language matches the Daily Puzzles Rush-mode header timer. */
 export function BlockTimerChip({ secondsLeft, className }: { secondsLeft: number; className?: string }) {
   const isLowTime = secondsLeft <= 30 && secondsLeft > 0

@@ -10,8 +10,8 @@ import {
   onInteractiveSolvePointCleared,
   triggerDailyActivity,
   type GamificationResult,
-  type PuzzleOutcome,
 } from '@/services/gamificationService'
+import type { PuzzleOutcome } from '@/lib/academyRating'
 
 export interface LessonProgress {
   id: string
@@ -142,7 +142,7 @@ export async function startLesson(lessonId: string): Promise<LessonProgress> {
  */
 export async function markLessonComplete(
   lessonId: string
-): Promise<{ progress: LessonProgress; gamification: GamificationResult | null }> {
+): Promise<{ progress: LessonProgress; gamification: GamificationResult | null; alreadyCompleted: boolean }> {
   const supabase = await createClient()
   const { profile } = await getCurrentUserWithProfile()
 
@@ -153,8 +153,21 @@ export async function markLessonComplete(
     existing = await startLesson(lessonId)
   }
 
+  // Completion (and its points/XP/rating) is only ever granted once — replaying
+  // an already-completed lesson still plays through fine, it just doesn't
+  // re-award (see gamificationService.onPuzzleBlockSolved for the per-puzzle
+  // enforcement of that during the replay itself). `alreadyCompleted` lets
+  // the UI say so instead of rendering a blank "—" with no explanation.
+  // `attempts` still bumps — it's the "how many times completed" counter
+  // shown on the lessons list, and a replay is a real completion of it.
   if (existing.status === 'completed') {
-    return { progress: existing, gamification: null }
+    const { data: bumped } = await supabase
+      .from('lesson_progress')
+      .update({ attempts: existing.attempts + 1, last_accessed_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single()
+    return { progress: bumped ?? existing, gamification: null, alreadyCompleted: true }
   }
 
   const { data, error } = await supabase
@@ -188,7 +201,7 @@ export async function markLessonComplete(
 
   revalidatePath('/academy/lessons')
   revalidatePath('/academy/reports')
-  return { progress: data, gamification }
+  return { progress: data, gamification, alreadyCompleted: false }
 }
 
 /**
@@ -268,10 +281,12 @@ export async function trackPuzzleBlockOutcome(
   outcome:      PuzzleOutcome,
   blockKey:     string,
   puzzleRating: number | null,
+  comboStreak?: number,
+  elapsedSeconds?: number,
 ): Promise<{ pointsEarned: number; rating: { before: number; after: number } | null }> {
   const { profile } = await getCurrentUserWithProfile()
   try {
-    return await onPuzzleBlockSolved(profile.id, lessonId, outcome, blockKey, puzzleRating)
+    return await onPuzzleBlockSolved(profile.id, lessonId, outcome, blockKey, puzzleRating, comboStreak, elapsedSeconds)
   } catch (e) {
     console.error('[gamification] trackPuzzleBlockOutcome failed:', e)
     return { pointsEarned: 0, rating: null }

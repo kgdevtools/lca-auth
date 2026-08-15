@@ -24,6 +24,9 @@ interface LessonItem {
   difficulty: string | null
   lessonStatus?: string
   assignedStudents?: Array<{ id: string; full_name: string }>
+  /** Completed-lesson cards only — what this lesson actually earned the student. */
+  sessionStats?: { points: number; ratingDelta: number }
+  attempts?: number
 }
 
 export default async function AcademyLessonsPage() {
@@ -88,12 +91,14 @@ export default async function AcademyLessonsPage() {
 
   // For students: fetch lesson progress + sort To Do first
   let progressMap: Record<string, string> = {}
+  let attemptsMap: Record<string, number> = {}
   if (isStudent && lessonList.length > 0) {
     const { data: progress } = await supabase
       .from('lesson_progress')
-      .select('lesson_id, status')
+      .select('lesson_id, status, attempts')
       .eq('student_id', user.id)
     progressMap = Object.fromEntries(progress?.map(p => [p.lesson_id, p.status]) || [])
+    attemptsMap = Object.fromEntries(progress?.map(p => [p.lesson_id, p.attempts ?? 1]) || [])
 
     lessonList = [...lessonList].sort((a, b) => {
       const aCompleted = progressMap[a.id] === 'completed' ? 1 : 0
@@ -105,10 +110,52 @@ export default async function AcademyLessonsPage() {
   const lessonsWithStatus: LessonItem[] = lessonList.map(l => ({
     ...l,
     lessonStatus: isStudent ? (progressMap[l.id] ?? 'not_started') : undefined,
+    attempts: isStudent ? attemptsMap[l.id] : undefined,
   }))
 
-  const activeLessonsWithStatus    = isStudent ? lessonsWithStatus.filter(l => l.lessonStatus !== 'completed') : lessonsWithStatus
-  const completedLessonsWithStatus = isStudent ? lessonsWithStatus.filter(l => l.lessonStatus === 'completed') : []
+  const activeLessonsWithStatus = isStudent ? lessonsWithStatus.filter(l => l.lessonStatus !== 'completed') : lessonsWithStatus
+  let completedLessonsWithStatus = isStudent ? lessonsWithStatus.filter(l => l.lessonStatus === 'completed') : []
+
+  // Session stats (points earned, net rating change) per completed lesson —
+  // shown on the compact completed-lesson row. Points are ledgered with
+  // reference_id = lessonId directly; rating events use source_ref = lessonId
+  // for a lesson-level (quiz) event, or `${lessonId}:${blockKey}` per puzzle
+  // block — so rating needs a prefix match, not just an id match.
+  if (isStudent && completedLessonsWithStatus.length > 0) {
+    const completedIds = completedLessonsWithStatus.map(l => l.id)
+    const [pointsRes, ratingRes] = await Promise.all([
+      supabase
+        .from('points_transactions')
+        .select('reference_id, points')
+        .eq('student_id', user.id)
+        .in('reference_id', completedIds),
+      supabase
+        .from('student_rating_events')
+        .select('source_ref, rating_before, rating_after')
+        .eq('student_id', user.id)
+        .in('source', ['puzzle', 'lesson'])
+        .not('source_ref', 'is', null),
+    ])
+
+    const pointsByLesson: Record<string, number> = {}
+    for (const row of pointsRes.data ?? []) {
+      if (!row.reference_id) continue
+      pointsByLesson[row.reference_id] = (pointsByLesson[row.reference_id] ?? 0) + row.points
+    }
+
+    const ratingByLesson: Record<string, number> = {}
+    for (const row of ratingRes.data ?? []) {
+      const ref = row.source_ref as string
+      const lessonId = completedIds.find(id => ref === id || ref.startsWith(`${id}:`))
+      if (!lessonId) continue
+      ratingByLesson[lessonId] = (ratingByLesson[lessonId] ?? 0) + (row.rating_after - row.rating_before)
+    }
+
+    completedLessonsWithStatus = completedLessonsWithStatus.map(l => ({
+      ...l,
+      sessionStats: { points: pointsByLesson[l.id] ?? 0, ratingDelta: ratingByLesson[l.id] ?? 0 },
+    }))
+  }
 
   const pageTitle       = isAdmin ? 'All Lessons' : isCoach ? 'My Lessons' : 'My Lessons'
   const pageDescription = isAdmin ? 'All lessons across all coaches'

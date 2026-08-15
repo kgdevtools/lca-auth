@@ -7,7 +7,8 @@ import {
   resetLessonProgress, getCoachesForDropdown, getStudentsAssignedToLesson,
 } from '@/repositories/lesson/lessonRepository'
 import { checkCoachRole, checkAdminRole, getCurrentUserWithProfile } from '@/utils/auth/academyAuth'
-import { parsePgn, injectAnnotationsIntoPgn, type MoveAnnotation } from '@/lib/pgnParser'
+import { parsePgn, injectAnnotationsIntoPgn, toMoveAnnotation } from '@/lib/pgnParser'
+import type { StoredAnnotationSet } from '@/lib/decorations'
 
 export async function fetchStudentsForAssignment() {
   await checkCoachRole()
@@ -82,8 +83,12 @@ interface QaCard {
 
 export async function createPuzzleLesson(
   lessonInfo: PuzzleLessonInfo,
-  puzzles: Array<{ id: string; fen: string; solution: string; description: string; hint?: string; orientation?: 'white' | 'black'; rating?: number | null; timer?: TimerConfig }>,
-  studentIds: string[] = []
+  puzzles: Array<{ id: string; fen: string; solution: string; description: string; hint?: string; orientation?: 'white' | 'black'; rating?: number | null; timer?: TimerConfig; annotations?: Record<string, StoredAnnotationSet> }>,
+  studentIds: string[] = [],
+  /** Whole-set countdown (seconds) — one clock for the entire puzzle set, not
+   *  per-puzzle. 0/undefined = off. Stored on every block so it survives
+   *  reordering/deleting individual puzzles without a schema change. */
+  puzzleSetTimerSeconds?: number
 ) {
   await checkCoachRole()
 
@@ -121,6 +126,8 @@ export async function createPuzzleLesson(
         themes: puzzle.description ? puzzle.description.split(',').map((t) => t.trim()) : [],
         orientation: puzzle.orientation ?? 'white',
         ...(puzzle.timer ? { timer: puzzle.timer } : {}),
+        ...(puzzle.annotations ? { annotations: puzzle.annotations } : {}),
+        ...(puzzleSetTimerSeconds ? { puzzleSetTimer: puzzleSetTimerSeconds } : {}),
       },
     }
   })
@@ -157,7 +164,7 @@ export async function createStudyLesson(
   chapters: StudyChapter[],
   displaySettings: StudyDisplaySettings,
   timer?: TimerConfig,
-  moveAnnotations?: Map<string, MoveAnnotation>,
+  annotations?: Map<string, StoredAnnotationSet>,
   studentIds: string[] = []
 ) {
   await checkCoachRole()
@@ -179,34 +186,7 @@ export async function createStudyLesson(
     throw new Error('User profile not found')
   }
 
-  const parsedChapters = chapters.map((chapter, index) => {
-    let pgn = chapter.pgn
-
-    if (moveAnnotations && moveAnnotations.size > 0) {
-      const chapterAnnotations = new Map<string, MoveAnnotation>()
-      Array.from(moveAnnotations.entries()).forEach(([key, anno]) => {
-        const parts = key.split(':')
-        const chapterIdx = parts[0]
-        if (chapterIdx === String(index)) {
-          chapterAnnotations.set(parts[1], anno)
-        }
-      })
-      if (chapterAnnotations.size > 0) {
-        pgn = injectAnnotationsIntoPgn(pgn, chapterAnnotations)
-      }
-    }
-
-    const parsed = parsePgn(pgn)
-    return {
-      id: chapter.id || `chapter-${index + 1}`,
-      name: chapter.name,
-      orientation: chapter.orientation || 'white',
-      pgn,
-      headers: parsed.headers,
-      moves: parsed.moves,
-      fullPgn: parsed.fullPgn,
-    }
-  })
+  const parsedChapters = parseStudyChapters(chapters, annotations)
 
   const blocks = [
     {
@@ -258,7 +238,7 @@ export async function createInteractiveStudyLesson(
   displaySettings: StudyDisplaySettings,
   timer: TimerConfig | undefined,
   solveMovesByChapterId: Record<string, SolvePoint[]>,
-  moveAnnotations?: Map<string, MoveAnnotation>,
+  annotations?: Map<string, StoredAnnotationSet>,
   studentIds: string[] = []
 ) {
   await checkCoachRole()
@@ -280,36 +260,7 @@ export async function createInteractiveStudyLesson(
     throw new Error('User profile not found')
   }
 
-  const parsedChapters = chapters.map((chapter, index) => {
-    let pgn = chapter.pgn
-
-    if (moveAnnotations && moveAnnotations.size > 0) {
-      const chapterAnnotations = new Map<string, MoveAnnotation>()
-      Array.from(moveAnnotations.entries()).forEach(([key, anno]) => {
-        const parts = key.split(':')
-        if (parts[0] === String(index)) {
-          chapterAnnotations.set(parts[1], anno)
-        }
-      })
-      if (chapterAnnotations.size > 0) {
-        pgn = injectAnnotationsIntoPgn(pgn, chapterAnnotations)
-      }
-    }
-
-    const parsed = parsePgn(pgn)
-    const solveMoves = solveMovesByChapterId[chapter.id] || []
-
-    return {
-      id: chapter.id || `chapter-${index + 1}`,
-      name: chapter.name,
-      orientation: chapter.orientation || 'white',
-      pgn,
-      headers: parsed.headers,
-      moves: parsed.moves,
-      fullPgn: parsed.fullPgn,
-      solveMoves: solveMoves.length > 0 ? solveMoves : undefined,
-    }
-  })
+  const parsedChapters = parseStudyChapters(chapters, annotations, solveMovesByChapterId)
 
   const categoryId = lessonInfo.categoryId && lessonInfo.categoryId.includes('-') ? lessonInfo.categoryId : undefined
 
@@ -567,9 +518,11 @@ async function applyUpdate(
 export async function updatePuzzleLesson(
   lessonId: string,
   lessonInfo: PuzzleLessonInfo,
-  puzzles: Array<{ id: string; fen: string; solution: string; description: string; hint?: string; orientation?: 'white' | 'black'; rating?: number | null; timer?: TimerConfig }>,
+  puzzles: Array<{ id: string; fen: string; solution: string; description: string; hint?: string; orientation?: 'white' | 'black'; rating?: number | null; timer?: TimerConfig; annotations?: Record<string, StoredAnnotationSet> }>,
   studentIds: string[] = [],
-  assignedTo?: string
+  assignedTo?: string,
+  /** Whole-set countdown (seconds) — see createPuzzleLesson. */
+  puzzleSetTimerSeconds?: number
 ) {
   await checkCoachRole()
   const { profile } = await getCurrentUserWithProfile()
@@ -588,6 +541,8 @@ export async function updatePuzzleLesson(
         themes: puzzle.description ? puzzle.description.split(',').map(t => t.trim()) : [],
         orientation: puzzle.orientation ?? 'white',
         ...(puzzle.timer ? { timer: puzzle.timer } : {}),
+        ...(puzzle.annotations ? { annotations: puzzle.annotations } : {}),
+        ...(puzzleSetTimerSeconds ? { puzzleSetTimer: puzzleSetTimerSeconds } : {}),
       },
     }
   })
@@ -602,7 +557,7 @@ export async function updateStudyLesson(
   chapters: StudyChapter[],
   displaySettings: StudyDisplaySettings,
   timer?: TimerConfig,
-  moveAnnotations?: Map<string, MoveAnnotation>,
+  annotations?: Map<string, StoredAnnotationSet>,
   studentIds: string[] = [],
   assignedTo?: string
 ) {
@@ -610,19 +565,7 @@ export async function updateStudyLesson(
   const { profile } = await getCurrentUserWithProfile()
   if (!profile) throw new Error('User profile not found')
 
-  const parsedChapters = chapters.map((chapter, index) => {
-    let pgn = chapter.pgn
-    if (moveAnnotations && moveAnnotations.size > 0) {
-      const chapterAnnotations = new Map<string, MoveAnnotation>()
-      Array.from(moveAnnotations.entries()).forEach(([key, anno]) => {
-        const parts = key.split(':')
-        if (parts[0] === String(index)) chapterAnnotations.set(parts[1], anno)
-      })
-      if (chapterAnnotations.size > 0) pgn = injectAnnotationsIntoPgn(pgn, chapterAnnotations)
-    }
-    const parsed = parsePgn(pgn)
-    return { id: chapter.id || `chapter-${index + 1}`, name: chapter.name, orientation: chapter.orientation || 'white', pgn, headers: parsed.headers, moves: parsed.moves, fullPgn: parsed.fullPgn }
-  })
+  const parsedChapters = parseStudyChapters(chapters, annotations)
 
   const blocks = [{
     id: 'study-main', type: 'study',
@@ -640,7 +583,7 @@ export async function updateInteractiveStudyLesson(
   displaySettings: StudyDisplaySettings,
   timer: TimerConfig | undefined,
   solveMovesByChapterId: Record<string, SolvePoint[]>,
-  moveAnnotations?: Map<string, MoveAnnotation>,
+  annotations?: Map<string, StoredAnnotationSet>,
   studentIds: string[] = [],
   assignedTo?: string
 ) {
@@ -648,20 +591,7 @@ export async function updateInteractiveStudyLesson(
   const { profile } = await getCurrentUserWithProfile()
   if (!profile) throw new Error('User profile not found')
 
-  const parsedChapters = chapters.map((chapter, index) => {
-    let pgn = chapter.pgn
-    if (moveAnnotations && moveAnnotations.size > 0) {
-      const chapterAnnotations = new Map<string, MoveAnnotation>()
-      Array.from(moveAnnotations.entries()).forEach(([key, anno]) => {
-        const parts = key.split(':')
-        if (parts[0] === String(index)) chapterAnnotations.set(parts[1], anno)
-      })
-      if (chapterAnnotations.size > 0) pgn = injectAnnotationsIntoPgn(pgn, chapterAnnotations)
-    }
-    const parsed = parsePgn(pgn)
-    const solveMoves = solveMovesByChapterId[chapter.id] || []
-    return { id: chapter.id || `chapter-${index + 1}`, name: chapter.name, orientation: chapter.orientation || 'white', pgn, headers: parsed.headers, moves: parsed.moves, fullPgn: parsed.fullPgn, solveMoves: solveMoves.length > 0 ? solveMoves : undefined }
-  })
+  const parsedChapters = parseStudyChapters(chapters, annotations, solveMovesByChapterId)
 
   const blocks = [{
     id: 'interactive-study-main', type: 'interactive_study',
@@ -824,5 +754,201 @@ export async function updateQaLesson(
   }))
 
   await applyUpdate(lessonId, lessonInfo, blocks, studentIds, assignedTo, profile)
+  return { success: true }
+}
+
+// ── Combined lessons — a coach-ordered sequence mixing puzzle/mcq/qa blocks.
+// See .claude/plans/combined-lesson-creator.md. The viewer needs nothing new
+// (ViewerBlockRenderer already dispatches per-block on block.type); this is
+// just the authoring-side block-array builder, one case per type, matching
+// exactly what createPuzzleLesson/createMcqLesson/createQaLesson each do.
+
+interface CombinedStudyInput {
+  chapters: StudyChapter[]
+  displaySettings: StudyDisplaySettings
+  timer?: TimerConfig
+  annotations?: Map<string, StoredAnnotationSet>
+}
+
+interface CombinedInteractiveStudyInput extends CombinedStudyInput {
+  solveMovesByChapterId: Record<string, SolvePoint[]>
+}
+
+export type CombinedBlockInput =
+  | { type: 'puzzle'; puzzle: { id: string; fen: string; solution: string[]; description: string; hint?: string; orientation?: 'white' | 'black'; rating?: number | null; annotations?: Record<string, StoredAnnotationSet> } }
+  | { type: 'mcq'; mcq: McqQuestion }
+  | { type: 'qa'; qa: QaCard }
+  | { type: 'study'; study: CombinedStudyInput }
+  | { type: 'interactive_study'; interactiveStudy: CombinedInteractiveStudyInput }
+
+/** Shared chapter-parsing used by both the standalone Study/Interactive
+ *  Study functions and Combined lesson blocks — the single source of truth
+ *  for turning a coach's chapters + decoration annotations into what's
+ *  actually persisted. Annotations are stored two ways: the full
+ *  StoredAnnotationSet as a first-class `annotations` field (round-trips
+ *  ids/colors/GRAY/zones/animations for the editor), AND baked into the
+ *  chapter's PGN as `%cal`/`%csl` comments the way it always has been
+ *  (arrows/highlights only, no ids — the only channel the student-facing
+ *  viewer currently reads). */
+function parseStudyChapters(chapters: StudyChapter[], annotations: Map<string, StoredAnnotationSet> | undefined, withSolveMoves?: Record<string, SolvePoint[]>) {
+  return chapters.map((chapter, index) => {
+    let pgn = chapter.pgn
+    const chapterAnnotations = new Map<string, StoredAnnotationSet>()
+    if (annotations && annotations.size > 0) {
+      Array.from(annotations.entries()).forEach(([key, set]) => {
+        const parts = key.split(':')
+        if (parts[0] === String(index)) chapterAnnotations.set(parts[1], set)
+      })
+      if (chapterAnnotations.size > 0) {
+        const legacyAnnotations = new Map(Array.from(chapterAnnotations.entries()).map(([ply, set]) => [ply, toMoveAnnotation(set)]))
+        pgn = injectAnnotationsIntoPgn(pgn, legacyAnnotations)
+      }
+    }
+    const parsed = parsePgn(pgn)
+    const solveMoves = withSolveMoves?.[chapter.id] || []
+    return {
+      id: chapter.id || `chapter-${index + 1}`,
+      name: chapter.name,
+      orientation: chapter.orientation || 'white',
+      pgn,
+      headers: parsed.headers,
+      moves: parsed.moves,
+      fullPgn: parsed.fullPgn,
+      ...(chapterAnnotations.size > 0 ? { annotations: Object.fromEntries(chapterAnnotations) } : {}),
+      ...(withSolveMoves ? { solveMoves: solveMoves.length > 0 ? solveMoves : undefined } : {}),
+    }
+  })
+}
+
+function combinedBlocksToLessonBlocks(blocks: CombinedBlockInput[], puzzleSetTimerSeconds?: number) {
+  return blocks.map((b, index) => {
+    if (b.type === 'study') {
+      const s = b.study
+      return {
+        id: `combined-${index + 1}`,
+        type: 'study',
+        data: {
+          chapters: parseStudyChapters(s.chapters, s.annotations),
+          displaySettings: s.displaySettings,
+          ...(s.timer?.enabled ? { timer: s.timer } : {}),
+        },
+      }
+    }
+    if (b.type === 'interactive_study') {
+      const s = b.interactiveStudy
+      return {
+        id: `combined-${index + 1}`,
+        type: 'interactive_study',
+        data: {
+          chapters: parseStudyChapters(s.chapters, s.annotations, s.solveMovesByChapterId),
+          displaySettings: s.displaySettings,
+          ...(s.timer?.enabled ? { timer: s.timer } : {}),
+        },
+      }
+    }
+    if (b.type === 'puzzle') {
+      const p = b.puzzle
+      return {
+        id: `combined-${index + 1}`,
+        type: 'puzzle',
+        data: {
+          fen: p.fen,
+          solution: p.solution,
+          hint: p.hint ?? '',
+          rating: p.rating ?? null,
+          themes: p.description ? p.description.split(',').map(t => t.trim()) : [],
+          orientation: p.orientation ?? 'white',
+          ...(p.annotations ? { annotations: p.annotations } : {}),
+          ...(puzzleSetTimerSeconds ? { puzzleSetTimer: puzzleSetTimerSeconds } : {}),
+        },
+      }
+    }
+    if (b.type === 'mcq') {
+      const q = b.mcq
+      return {
+        id: `combined-${index + 1}`,
+        type: 'mcq',
+        data: {
+          question: q.question,
+          options: q.options,
+          explanation: q.explanation,
+          ...(q.media ? { media: q.media } : {}),
+          ...(q.timer?.enabled ? { timer: q.timer } : {}),
+        },
+      }
+    }
+    const c = b.qa
+    return {
+      id: `combined-${index + 1}`,
+      type: 'qa',
+      data: {
+        question: c.question,
+        answer: c.answer,
+        ...(c.media ? { media: c.media } : {}),
+        ...(c.timer?.enabled ? { timer: c.timer } : {}),
+      },
+    }
+  })
+}
+
+export async function createCombinedLesson(
+  lessonInfo: PuzzleLessonInfo,
+  blocks: CombinedBlockInput[],
+  studentIds: string[] = [],
+  /** Whole-set countdown (seconds) — stamped onto every puzzle-type block in
+   *  the sequence, same mechanism as createPuzzleLesson. */
+  puzzleSetTimerSeconds?: number,
+) {
+  await checkCoachRole()
+
+  if (!lessonInfo.title?.trim()) throw new Error('Title is required')
+  if (!lessonInfo.slug?.trim()) throw new Error('Slug is required')
+  if (blocks.length === 0) throw new Error('At least one block is required')
+
+  const { profile } = await getCurrentUserWithProfile()
+  if (!profile) throw new Error('User profile not found')
+
+  const lessonBlocks = combinedBlocksToLessonBlocks(blocks, puzzleSetTimerSeconds)
+  const categoryId = lessonInfo.categoryId && lessonInfo.categoryId.includes('-') ? lessonInfo.categoryId : undefined
+
+  const lesson = await createLesson({
+    title: lessonInfo.title,
+    slug: lessonInfo.slug,
+    description: lessonInfo.description || undefined,
+    category_id: categoryId,
+    content_type: 'combined',
+    blocks: lessonBlocks as any,
+    difficulty: lessonInfo.difficulty || undefined,
+    estimated_duration_minutes: lessonInfo.estimatedDurationMinutes
+      ? parseInt(lessonInfo.estimatedDurationMinutes, 10)
+      : undefined,
+    created_by: profile.id,
+    published: lessonInfo.published ?? true,
+  })
+
+  revalidatePath('/academy/lessons')
+  revalidatePath('/academy')
+
+  if (studentIds.length > 0) {
+    await assignStudentsToLesson(lesson.id, studentIds, profile.id)
+  }
+
+  return lesson.id
+}
+
+export async function updateCombinedLesson(
+  lessonId: string,
+  lessonInfo: PuzzleLessonInfo,
+  blocks: CombinedBlockInput[],
+  studentIds: string[] = [],
+  assignedTo?: string,
+  puzzleSetTimerSeconds?: number,
+) {
+  await checkCoachRole()
+  const { profile } = await getCurrentUserWithProfile()
+  if (!profile) throw new Error('User profile not found')
+
+  const lessonBlocks = combinedBlocksToLessonBlocks(blocks, puzzleSetTimerSeconds)
+  await applyUpdate(lessonId, lessonInfo, lessonBlocks, studentIds, assignedTo, profile)
   return { success: true }
 }

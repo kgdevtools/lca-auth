@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js'
-import type { DecorationColor } from './decorations'
+import type { DecorationColor, StoredAnnotationSet } from './decorations'
 
 export interface ParsedPgnMove {
   moveNumber: number
@@ -452,6 +452,18 @@ function pgnLetterOrDefault(color?: DecorationColor): string {
 export interface MoveAnnotation {
   arrows: Array<{ from: string; to: string; color?: DecorationColor }>
   highlights: Array<{ square: string; color?: DecorationColor; squares?: string[] }>
+}
+
+// The decorations engine's richer StoredAnnotationSet (ids, order,
+// animations — see lib/decorations.ts) down to the narrow shape PGN comments
+// can actually carry: no ids/order (regenerated fresh on parse-back, never
+// needed from PGN), and no animations (PGN has no token for them — they only
+// ever live in the block's own `annotations` field, not baked into the PGN).
+export function toMoveAnnotation(set: StoredAnnotationSet): MoveAnnotation {
+  return {
+    arrows: set.arrows.map(a => ({ from: a.from, to: a.to, color: a.color })),
+    highlights: set.highlights.map(h => ({ square: h.square, color: h.color, squares: h.squares })),
+  }
 }
 
 // Reads a MoveAnnotation from whatever shape happens to be in memory —

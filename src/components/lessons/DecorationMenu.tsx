@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ARROW_COLOR_OPTIONS,
   HIGHLIGHT_COLOR_OPTIONS,
@@ -46,6 +46,8 @@ interface DecorationMenuProps {
 }
 
 const PANEL_WIDTH = 176
+// Kept in sync with the viewport edge — never let the popup touch it exactly.
+const EDGE_MARGIN = 8
 
 const EFFECT_LABEL: Record<AnimationEffect, string> = { bounce: 'Bounce', pulsate: 'Pulsate', shake: 'Shake' }
 
@@ -77,6 +79,15 @@ function MenuButton({ label, onClick, danger }: { label: string; onClick: () => 
 export function DecorationMenu({ x, y, editing, onCommit, onClose }: DecorationMenuProps) {
   const [step, setStep] = useState<Step>('root')
   const [highlightTarget, setHighlightTarget] = useState<'square' | 'zone'>('square')
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Best-guess position for the very first paint (before the panel has a
+  // real measured size) — refined below the instant it's in the DOM, so
+  // there's no visible jump (useLayoutEffect runs before the browser paints).
+  const [pos, setPos] = useState(() => ({
+    left: Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 0) - PANEL_WIDTH - EDGE_MARGIN),
+    top: y,
+  }))
 
   useEffect(() => {
     const close = () => onClose()
@@ -88,8 +99,22 @@ export function DecorationMenu({ x, y, editing, onCommit, onClose }: DecorationM
     }
   }, [onClose])
 
-  const left = Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 0) - PANEL_WIDTH - 8)
-  const top = Math.min(y, (typeof window !== 'undefined' ? window.innerHeight : 0) - 220)
+  // Clamps against the panel's OWN real measured size — not a guessed height
+  // budget — so it's never cropped regardless of viewport size or how tall
+  // the current step's content is (the "editing" root panel with Recolor +
+  // Replay + Delete + Add new is noticeably taller than a plain create step).
+  // Re-measures on every step change, since each step's height differs.
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    const maxLeft = window.innerWidth - width - EDGE_MARGIN
+    const maxTop = window.innerHeight - height - EDGE_MARGIN
+    setPos({
+      left: Math.max(EDGE_MARGIN, Math.min(x, maxLeft)),
+      top: Math.max(EDGE_MARGIN, Math.min(y, maxTop)),
+    })
+  }, [x, y, step, editing])
 
   const commitAndClose = (commit: DecorationCommit) => {
     onCommit(commit)
@@ -98,8 +123,9 @@ export function DecorationMenu({ x, y, editing, onCommit, onClose }: DecorationM
 
   return (
     <div
+      ref={panelRef}
       className="fixed z-[150] bg-popover border border-border rounded-md shadow-xl py-1 text-sm"
-      style={{ left, top, width: PANEL_WIDTH }}
+      style={{ left: pos.left, top: pos.top, width: PANEL_WIDTH }}
       onMouseDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
     >

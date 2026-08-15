@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type LessonType = "puzzle" | "study" | "interactive" | "mcq" | "qa" | "puzzle_storm";
+export type LessonType = "puzzle" | "study" | "interactive" | "mcq" | "qa" | "puzzle_storm" | "combined";
 
 const DISABLED_TYPES: LessonType[] = [];
 
@@ -69,6 +69,13 @@ const lessonTypes: Array<{
     icon: "⚡",
     tagline: "Timed tactical challenge — solve as many puzzles as you can before the clock runs out",
     features: ["Lichess-style storm", "Configurable time limit", "Score & accuracy tracking", "Personal best"],
+  },
+  {
+    id: "combined",
+    label: "Combined",
+    icon: "🧱",
+    tagline: "Mix puzzle, MCQ and Q&A blocks in one coach-ordered sequence",
+    features: ["Any order, any mix", "Each block's own editor", "Puzzle set timer included", "Reorder freely"],
   },
 ];
 

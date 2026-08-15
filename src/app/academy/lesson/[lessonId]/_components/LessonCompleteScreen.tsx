@@ -55,6 +55,10 @@ interface LessonCompleteScreenProps {
   lesson: { id: string; title: string }
   gamification: GamificationResult | null
   gamificationPending: boolean
+  /** true when this lesson was already completed before (so no fresh
+   *  completion bonus/XP/rating was granted this time) — distinguishes
+   *  "nothing to show" from "there was a real problem resolving it". */
+  alreadyCompleted?: boolean
   sessionSummary?: { breakdown: Array<{ label: string; pts: number }>; total: number }
   /** 'quit' = bailed out mid-lesson (no completion bonus/rating was recorded) */
   variant?: 'completed' | 'quit'
@@ -66,6 +70,7 @@ export default function LessonCompleteScreen({
   lesson,
   gamification: g,
   gamificationPending,
+  alreadyCompleted = false,
   sessionSummary,
   variant = 'completed',
 }: LessonCompleteScreenProps) {
@@ -155,6 +160,18 @@ export default function LessonCompleteScreen({
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Points this session</p>
               <p className="text-2xl font-bold tracking-tight tabular-nums">
                 {sessionSummary?.total ? `+${sessionSummary.total}` : '0'}
+              </p>
+            </div>
+          ) : !gamificationPending && !g && alreadyCompleted ? (
+            // This lesson was already completed before — no fresh completion
+            // bonus/XP was granted (each lesson only pays out once), which is
+            // expected, not broken. Per-puzzle points from *this* replay still
+            // show for real in the Breakdown below (those aren't gated).
+            <div className="col-span-2 rounded-lg border border-border bg-card px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Already completed</p>
+              <p className="text-sm text-foreground">
+                No new completion XP this time — you already earned it the first time through.
+                {sessionSummary?.total ? ` Puzzle points from this run (${sessionSummary.total} pts) are shown below.` : ''}
               </p>
             </div>
           ) : (

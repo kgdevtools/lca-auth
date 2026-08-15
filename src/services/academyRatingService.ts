@@ -10,6 +10,10 @@ import {
   consistencyWord,
   trajectoryWord,
   upsetWord,
+  clamp,
+  PERF_MIN,
+  PERF_MAX,
+  applyDailySwingCap,
   type RatingEventLite,
   type RatingAggregates,
 } from '@/lib/academyRating'
@@ -26,6 +30,11 @@ export interface RecordRatingInput {
   opponentR: number
   /** 1 solved / 0.5 partial / 0 failed */
   actual:    number
+  /** Scales the *step* (ratingAfter − ratingBefore) before it's applied —
+   *  e.g. a puzzle combo/speed boost. Leave unset (defaults to 1×, i.e. the
+   *  plain Elo step) for anything that isn't a puzzle win; callers only ever
+   *  pass >1 for a genuine win, never to deepen a loss. */
+  deltaMultiplier?: number
 }
 
 export interface RecordRatingResult {
@@ -86,6 +95,21 @@ async function fetchSeedRating(
   return seedRating(chessa, tier)
 }
 
+/** Sum of today's already-applied rating deltas for this student, across every
+ *  source — the input to the daily swing cap (see applyDailySwingCap). */
+async function fetchTodaysRatingSwing(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  studentId: string,
+): Promise<number> {
+  const today = new Date().toISOString().split('T')[0]
+  const { data } = await supabase
+    .from('student_rating_events')
+    .select('rating_before, rating_after')
+    .eq('student_id', studentId)
+    .eq('day', today)
+  return (data ?? []).reduce((sum, r) => sum + ((r.rating_after ?? 0) - (r.rating_before ?? 0)), 0)
+}
+
 // ── Public: record one rating event ───────────────────────────────────────────
 // Computes the Elo step in TS (single source of truth) and persists via the
 // SECURITY DEFINER record_rating_event RPC. Idempotent per student/source/ref/day.
@@ -109,8 +133,24 @@ export async function recordRatingEvent(
     : (summary?.academy_rating ?? 800)
 
   const expected = expectedScore(ratingBefore, input.opponentR)
-  const perf     = activityPerf(input.opponentR, input.actual)
-  const ratingAfter = nextRating(ratingBefore, input.opponentR, input.actual, ratedCount)
+  // `perf` (the per-activity performance rating feeding the rankings-style
+  // aggregates) is always computed from the *unboosted* actual/expected —
+  // a combo/speed boost inflates the live displayed rating, not the
+  // historical skill ledger.
+  const perf = activityPerf(input.opponentR, input.actual)
+  const plainAfter = nextRating(ratingBefore, input.opponentR, input.actual, ratedCount)
+  const multiplier = input.deltaMultiplier ?? 1
+  const boostedAfter = multiplier === 1
+    ? plainAfter
+    : clamp(Math.round(ratingBefore + (plainAfter - ratingBefore) * multiplier), PERF_MIN, PERF_MAX)
+
+  // Daily swing cap — borrowed from rating-system's K×n≤700 period cap (see
+  // DAILY_RATING_SWING_CAP's doc comment). Only the live rating is capped;
+  // `perf` above already used the uncapped actual/expected, so the skill
+  // ledger stays honest even on a day the display rating got throttled.
+  const todaysSwing = await fetchTodaysRatingSwing(supabase, studentId)
+  const cappedDelta = applyDailySwingCap(boostedAfter - ratingBefore, todaysSwing)
+  const ratingAfter = clamp(ratingBefore + cappedDelta, PERF_MIN, PERF_MAX)
 
   const { data, error } = await supabase.rpc('record_rating_event', {
     p_student_id:    studentId,

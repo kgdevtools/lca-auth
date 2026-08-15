@@ -63,9 +63,11 @@ export default function KnightProgressPath({ total, current, completed, orientat
             })}
           </div>
 
-          {/* Knight glyph leaping node-to-node, top-to-bottom */}
+          {/* Knight glyph leaping node-to-node, top-to-bottom — kept large and
+              on its own: it's the motivator, so it should read at a glance
+              even though the nodes/trail around it stay small. */}
           <motion.div
-            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl leading-none select-none"
+            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl leading-none select-none"
             animate={{ top: `${knightPercent}%` }}
             transition={{ type: 'spring', ...spring }}
           >

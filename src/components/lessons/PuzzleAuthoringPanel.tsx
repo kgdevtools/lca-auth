@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 import { BoardEditor } from "@/components/lessons/BoardEditor";
 import { AnalysisPanel } from "@/components/analysis/AnalysisPanel";
 import { TimerConfigField, DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
+import { PUZZLE_BLOCK_BASE, DIFFICULTY_MULTIPLIER, COMBO_MAX_MULTIPLIER, timerBoostFraction } from "@/lib/academyRating";
+import { useBoardDecorations, type StoredAnnotationSet } from "@/hooks/useBoardDecorations";
 
 export interface PuzzleData {
   id: string;
@@ -43,6 +45,11 @@ export interface PuzzleData {
   themes?: string[];
   rating?: number;
   orientation?: "white" | "black";
+  /** Board decorations (arrows/highlights/zones/animations), keyed by ply —
+   *  '0' is the starting/Setup position, '1'..'N' are positions after each
+   *  solution move. Setup and ply-0-of-Solution share key '0' since it's the
+   *  same physical position. */
+  annotations?: Record<string, StoredAnnotationSet>;
 }
 
 interface PuzzleAuthoringPanelProps {
@@ -55,7 +62,6 @@ interface PuzzleAuthoringPanelProps {
 }
 
 const STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-const EMPTY_BOARD_FEN = "8/8/8/8/8/8/8/8 w - - 0 1";
 const BOARD_MAX = 480;
 
 const BATCH_THEME_PRESETS = [
@@ -77,8 +83,22 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
 }
 
+// Replays a solution's SAN moves onto its starting FEN — used to compute the
+// board position at the end of a saved solution (see handleSelectPuzzle: the
+// board should show wherever the recorded line leaves off, not the starting
+// position, when reopening a puzzle for edit).
+function replayFinalFen(startFen: string, sans: string[]): string {
+  try {
+    const g = new Chess(startFen);
+    for (const san of sans) g.move(san);
+    return g.fen();
+  } catch {
+    return startFen;
+  }
+}
+
 type BoardMode = "setup" | "solution";
-type PanelTab = "puzzles" | "moves" | "edit";
+type PanelTab = "puzzles" | "moves" | "edit" | "gamification";
 
 function ToolBtn({
   onClick,
@@ -148,12 +168,31 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
+  // Single-puzzle import (by Lichess URL) — lives on the Edit tab, only for a
+  // brand-new draft (opened via + New puzzle), as an alternative to hand-
+  // authoring on the board.
+  const [lichessSingleUrl, setLichessSingleUrl] = useState("");
+  const [isSingleImporting, setIsSingleImporting] = useState(false);
+  const [singleImportError, setSingleImportError] = useState<string | null>(null);
+
   const [pgnImportOpen, setPgnImportOpen] = useState(false);
   const [pgnImportText, setPgnImportText] = useState("");
   const [pgnParseError, setPgnParseError] = useState<string | null>(null);
   const [pgnFenHistory, setPgnFenHistory] = useState<string[]>([]);
   const [pgnMoveHistory, setPgnMoveHistory] = useState<string[]>([]);
   const [pgnPlyIndex, setPgnPlyIndex] = useState(0);
+
+  // Board decorations — keyed by ply (solutionMoves.length), shared between
+  // Solution mode's own board here and Setup mode's BoardEditor (ply '0').
+  const [annotations, setAnnotations] = useState<Map<string, StoredAnnotationSet>>(new Map());
+  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const decorations = useBoardDecorations({
+    currentKey: String(solutionMoves.length),
+    annotations,
+    onAnnotationsChange: setAnnotations,
+    boardContainerRef,
+    disabled: boardMode !== "solution",
+  });
 
   const columnRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(0);
@@ -191,6 +230,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     setTypedSolutionOpen(false);
     setTypedSolutionText("");
     setTypedSolutionError(null);
+    setAnnotations(new Map());
   }, []);
 
   const handleNewPuzzle = useCallback(() => {
@@ -210,7 +250,9 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     if (!p) return;
     setEditingIndex(index);
     setStartingFen(p.fen);
-    setBoardFen(p.fen);
+    // Show wherever the recorded solution actually leaves off, not the
+    // starting position — matches what the coach last played on the board.
+    setBoardFen(replayFinalFen(p.fen, p.solution));
     setSetupHistory([p.fen]);
     setSolutionMoves(p.solution);
     setDescription(p.description);
@@ -227,6 +269,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     setTypedSolutionOpen(false);
     setTypedSolutionText("");
     setTypedSolutionError(null);
+    setAnnotations(p.annotations ? new Map(Object.entries(p.annotations)) : new Map());
     setBoardMode("solution");
     setActiveTab("edit");
   }, [puzzles]);
@@ -245,6 +288,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
       rating,
       themes: themes.length > 0 ? themes : undefined,
       orientation: startingFen.split(" ")[1] === "w" ? "white" : "black",
+      annotations: annotations.size > 0 ? Object.fromEntries(annotations) : undefined,
     };
     if (editingIndex != null) {
       const next = [...puzzles];
@@ -254,7 +298,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
       onPuzzlesChange([...puzzles, draft]);
       setEditingIndex(puzzles.length);
     }
-  }, [canSave, editingIndex, puzzles, startingFen, solutionMoves, description, hint, timer, rating, themes, onPuzzlesChange]);
+  }, [canSave, editingIndex, puzzles, startingFen, solutionMoves, description, hint, timer, rating, themes, annotations, onPuzzlesChange]);
 
   const handleDeletePuzzle = useCallback((index: number) => {
     const next = puzzles.filter((_, i) => i !== index);
@@ -361,10 +405,6 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     setSetupHistory([f]);
   }, []);
 
-  const handleSetupClear = useCallback(() => {
-    pushSetupFen(EMPTY_BOARD_FEN);
-  }, [pushSetupFen]);
-
   const toggleErase = useCallback(() => {
     setSelectedPiece((p) => (p === "clear" ? null : "clear"));
   }, []);
@@ -393,14 +433,16 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
       const game = new Chess(boardFen);
       const piece = game.get(square);
       if (piece && piece.color === game.turn()) { setMoveFrom(square); showLegalMoves(square); }
+      else decorations.focusSquare(square);
       return;
     }
     const game = new Chess(boardFen);
     const move = game.move({ from: moveFrom, to: square, promotion: "q" });
     if (move) { setBoardFen(game.fen()); setSolutionMoves((prev) => [...prev, move.san]); }
+    else decorations.focusSquare(square);
     setMoveFrom("");
     setOptionSquares({});
-  }, [moveFrom, boardFen, showLegalMoves]);
+  }, [moveFrom, boardFen, showLegalMoves, decorations]);
 
   const onPieceDrop = useCallback((source: string, target: string) => {
     const game = new Chess(boardFen);
@@ -531,6 +573,38 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     }
   }, [batchTheme, batchDifficulty, batchCount, puzzles, onPuzzlesChange]);
 
+  // ── Single-puzzle import (by Lichess URL) — populates the draft directly,
+  // same as loading an existing puzzle for edit (handleSelectPuzzle), rather
+  // than replaying moves on the board. Only offered on a fresh draft.
+  const handleImportSinglePuzzle = useCallback(async () => {
+    const trimmed = lichessSingleUrl.trim();
+    if (!trimmed) return;
+    const match = trimmed.match(/lichess\.org\/(?:training|puzzle)\/([a-zA-Z0-9]+)/);
+    const id = match ? match[1] : trimmed; // also accept a bare puzzle ID
+    setIsSingleImporting(true);
+    setSingleImportError(null);
+    try {
+      const res = await fetch(`/api/puzzles/lichess/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch puzzle");
+      const data = await res.json();
+      const turn = (data.fen as string)?.split(" ")?.[1];
+      setStartingFen(data.fen);
+      setBoardFen(data.fen);
+      setSetupHistory([data.fen]);
+      setSolutionMoves(data.solution ?? []);
+      setDescription(data.themes?.join(", ") ?? "");
+      setThemes(data.themes ?? []);
+      setRating(typeof data.rating === "number" ? data.rating : undefined);
+      setDraftOrientation(turn === "b" ? "black" : "white");
+      setBoardMode("solution");
+      setLichessSingleUrl("");
+    } catch {
+      setSingleImportError("Couldn't import that puzzle — check the URL and try again.");
+    } finally {
+      setIsSingleImporting(false);
+    }
+  }, [lichessSingleUrl]);
+
   const customSquareStyles: Record<string, React.CSSProperties> = { ...optionSquares };
   const puzzleThumbOrientation = (p: PuzzleData) => p.orientation ?? "white";
 
@@ -541,7 +615,7 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
     <div className="flex flex-col lg:flex-row gap-3 lg:items-start">
       {/* Board column */}
       <div ref={columnRef} className="shrink-0 w-full min-w-0" style={{ width: `min(100%, ${BOARD_MAX}px)`, maxWidth: "100%" }}>
-        {/* Unified control row: Mode toggle + Undo/Reset/Clear/Erase/Flip */}
+        {/* Unified control row: Mode toggle + Undo/Reset/Erase/Flip */}
         <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold mr-0.5">
             <span className={cn(boardMode === "setup" ? "text-foreground" : "text-muted-foreground")}>Setup</span>
@@ -561,9 +635,6 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
           </ToolBtn>
           {boardMode === "setup" && (
             <>
-              <ToolBtn onClick={handleSetupClear}>
-                <Trash2 className="w-3 h-3" /> Clear
-              </ToolBtn>
               <ToolBtn onClick={toggleErase} active={selectedPiece === "clear"}>
                 <Eraser className="w-3 h-3" /> Erase
               </ToolBtn>
@@ -582,10 +653,22 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
             onSelectPiece={setSelectedPiece}
             onSquareClick={handleSetupSquareClick}
             onPieceDrop={handleSetupPieceDrop}
+            annotations={annotations}
+            onAnnotationsChange={setAnnotations}
+            decorationKey="0"
           />
         ) : (
           <div className="flex flex-col gap-1.5">
-            <div className="w-full" style={{ aspectRatio: "1 / 1" }}>
+            <div
+              ref={boardContainerRef}
+              className="relative w-full"
+              style={{ aspectRatio: "1 / 1" }}
+              onPointerDown={decorations.onBoardPointerDown}
+              onContextMenu={decorations.onBoardContextMenu}
+              onTouchStart={decorations.onBoardTouchStart}
+              onTouchEnd={decorations.onBoardTouchEnd}
+              onTouchMove={decorations.onBoardTouchEnd}
+            >
               <Chessboard
                 position={boardFen}
                 onSquareClick={onSquareClick}
@@ -593,7 +676,11 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
                 customSquareStyles={customSquareStyles}
                 boardOrientation={draftOrientation ?? "white"}
                 arePiecesDraggable
+                areArrowsAllowed={false}
+                customArrows={decorations.customArrows.length > 0 ? (decorations.customArrows as any) : undefined}
+                customSquare={decorations.customSquare as any}
               />
+              {decorations.overlay}
             </div>
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setTypedSolutionOpen((o) => !o)}>
               {typedSolutionOpen ? "Hide typed entry" : "Type moves instead"}
@@ -631,6 +718,9 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
           </button>
           <button onClick={() => setActiveTab("edit")} className={cn("flex-1 py-1.5 rounded-sm text-xs font-bold transition-colors", activeTab === "edit" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
             Edit
+          </button>
+          <button onClick={() => setActiveTab("gamification")} className={cn("flex-1 py-1.5 rounded-sm text-xs font-bold transition-colors", activeTab === "gamification" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            Gamification
           </button>
         </div>
 
@@ -781,6 +871,29 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
 
           {activeTab === "edit" && (
             <div className="space-y-3">
+              {editingIndex == null && showLichessImport && (
+                <div className="space-y-1.5 pb-3 border-b border-border">
+                  <Label className="text-xs">Or import from Lichess</Label>
+                  <div className="flex gap-1.5">
+                    <Input
+                      value={lichessSingleUrl}
+                      onChange={(e) => { setLichessSingleUrl(e.target.value); setSingleImportError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleImportSinglePuzzle(); } }}
+                      placeholder="https://lichess.org/training/abc123"
+                      className="h-8 text-xs font-mono flex-1"
+                    />
+                    <Button
+                      type="button" variant="outline" size="sm" className="h-8 text-xs shrink-0"
+                      onClick={handleImportSinglePuzzle}
+                      disabled={!lichessSingleUrl.trim() || isSingleImporting}
+                    >
+                      <Link2 className="w-3.5 h-3.5 mr-1" /> {isSingleImporting ? "Importing…" : "Import"}
+                    </Button>
+                  </div>
+                  {singleImportError && <p className="text-[10px] text-destructive">{singleImportError}</p>}
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label className="text-xs">Starting FEN</Label>
                 <Input
@@ -885,6 +998,58 @@ export function PuzzleAuthoringPanel({ puzzles, onPuzzlesChange, showLichessImpo
               {!canSave && (
                 <p className="text-[10px] text-muted-foreground">Needs a starting position and at least one solution move (record it in Solution mode).</p>
               )}
+            </div>
+          )}
+
+          {activeTab === "gamification" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                What a student can earn on each puzzle in this set, by how they solve it.
+                Same math for every puzzle — this is just a quick reference so it's easy to
+                sanity-check the set without doing the arithmetic yourself.
+              </p>
+              {puzzles.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-xs">
+                  <PuzzleIcon className="w-6 h-6 mx-auto mb-2 opacity-40" />
+                  No puzzles yet — add some to see their gamification breakdown.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-sm border border-border">
+                  <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                      <tr className="bg-muted/60 text-muted-foreground uppercase tracking-wide text-[9px]">
+                        <th className="text-left font-semibold px-2 py-1.5">#</th>
+                        <th className="text-right font-semibold px-2 py-1.5">★ Rating</th>
+                        <th className="text-right font-semibold px-2 py-1.5">Clean</th>
+                        <th className="text-right font-semibold px-2 py-1.5">Wrong-first</th>
+                        <th className="text-right font-semibold px-2 py-1.5">Hint</th>
+                        <th className="text-right font-semibold px-2 py-1.5">Hint+wrong</th>
+                        <th className="text-right font-semibold px-2 py-1.5">Gave up</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {puzzles.map((p, i) => (
+                        <tr key={p.id} className={cn("border-t border-border", i % 2 === 1 && "bg-muted/20")}>
+                          <td className="px-2 py-1.5 text-muted-foreground">{i + 1}</td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums">{p.rating ?? "—"}</td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
+                            +{PUZZLE_BLOCK_BASE.clean}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums">+{PUZZLE_BLOCK_BASE.wrong_first}</td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums">+{PUZZLE_BLOCK_BASE.hint}</td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums">+{PUZZLE_BLOCK_BASE.hint_wrong}</td>
+                          <td className="px-2 py-1.5 text-right font-mono tabular-nums text-muted-foreground">{PUZZLE_BLOCK_BASE.gave_up}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="space-y-1 text-[10px] text-muted-foreground border-t border-border pt-2">
+                <p><strong className="text-foreground">Rating:</strong> a clean solve counts as a win against that puzzle's ★ rating; every other outcome (including gave up/timeout) counts as a loss — no partial credit for eventually finding it.</p>
+                <p><strong className="text-foreground">Difficulty:</strong> points above scale by this lesson's difficulty — easy ×{DIFFICULTY_MULTIPLIER.easy}, medium ×{DIFFICULTY_MULTIPLIER.medium}, hard ×{DIFFICULTY_MULTIPLIER.hard}.</p>
+                <p><strong className="text-foreground">Streak/speed boost:</strong> a clean solve can multiply further — up to ×{COMBO_MAX_MULTIPLIER.toFixed(1)} on a long solve streak, plus up to +{Math.round(timerBoostFraction(0) * 100)}% for a fast solve — capped so it can't run away (also capped at ±150 rating/day, whatever streaks happen).</p>
+              </div>
             </div>
           )}
         </div>

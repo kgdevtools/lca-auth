@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { LessonTypeSelectionModal, type LessonType } from "@/components/lessons/LessonTypeSelectionModal";
-import { TimerConfigField, DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
-import { Chessboard } from "react-chessboard";
+import { DEFAULT_TIMER, type TimerConfig } from "@/components/lessons/TimerConfigField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,33 +16,31 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   X, Plus, RotateCcw,
-  Check, Loader2, ArrowRight, ChevronRight, Pencil, SlidersHorizontal,
+  Check, Loader2, ArrowRight, Pencil, SlidersHorizontal,
 } from "lucide-react";
 import {
   createPuzzleLesson, createStudyLesson, createInteractiveStudyLesson,
   updatePuzzleLesson, updateStudyLesson, updateInteractiveStudyLesson,
   createMcqLesson, updateMcqLesson, createQaLesson, updateQaLesson,
   createPuzzleStormLesson, updatePuzzleStormLesson,
+  createCombinedLesson, updateCombinedLesson, type CombinedBlockInput,
   fetchStudentsForAssignment,
 } from "./actions";
 import { PuzzleAuthoringPanel, type PuzzleData as AuthoredPuzzle } from "@/components/lessons/PuzzleAuthoringPanel";
 import { fetchCategories } from "./categories";
-import { parsePgn, parsePgnStudy, type MoveAnnotation } from "@/lib/pgnParser";
+import { parsePgn, parsePgnStudy } from "@/lib/pgnParser";
+import { type StoredAnnotationSet } from "@/hooks/useBoardDecorations";
 import StudyEditorBoard from "@/components/lessons/StudyEditorBoard";
 import InteractiveStudyEditorBoard, { type SolvePoint } from "@/components/lessons/InteractiveStudyEditorBoard";
 import McqEditorPanel, { type McqQuestionData } from "@/components/lessons/McqEditorPanel";
 import QaEditorPanel, { type QaCardData } from "@/components/lessons/QaEditorPanel";
+import { CombinedLessonCreator, type CombinedBlock } from "@/components/lessons/CombinedLessonCreator";
+import type { StudyBlockData, InteractiveStudyBlockData, StudyChapterData } from "@/components/lessons/CombinedStudyBlockEditor";
+import StudySettingsPanel from "@/components/lessons/StudySettingsPanel";
 import type { LessonWithCategory, LessonBlock } from "@/repositories/lesson/lessonRepository";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface BatchPreview {
-  lichessId: string; fen: string; pgn: string; solution: string[]; themes: string[]
-  rating: number | null; orientation: 'white' | 'black'
-  editSolution: string; editHint: string; editThemes: string
-  editOrientation: 'white' | 'black'; removed: boolean
-}
 
 interface StudyChapter {
   id: string;
@@ -68,72 +65,22 @@ export interface LessonBuilderClientProps {
 
 const DIFFICULTY_LEVELS = ["beginner", "intermediate", "advanced", "expert"];
 
-// No "Openings" group — Lichess's /api/puzzle/batch/{theme} endpoint 404s on opening-name
-// angles (confirmed: tactical motifs work, openings don't); only tactical/mate/endgame/
-// strategy angles are actually supported there.
-const BATCH_THEMES = [
-  { group: 'Tactics', options: [
-    { value: 'fork',             label: 'Fork'             },
-    { value: 'pin',              label: 'Pin'              },
-    { value: 'skewer',           label: 'Skewer'           },
-    { value: 'discoveredAttack', label: 'Discovered Attack'},
-    { value: 'doubleCheck',      label: 'Double Check'     },
-    { value: 'deflection',       label: 'Deflection'       },
-    { value: 'hangingPiece',     label: 'Hanging Piece'    },
-    { value: 'trappedPiece',     label: 'Trapped Piece'    },
-    { value: 'attraction',       label: 'Attraction'       },
-    { value: 'interference',     label: 'Interference'     },
-    { value: 'clearance',        label: 'Clearance'        },
-    { value: 'overloading',      label: 'Overloading'      },
-    { value: 'sacrifice',        label: 'Sacrifice'        },
-    { value: 'quietMove',        label: 'Quiet Move'       },
-  ]},
-  { group: 'Mates', options: [
-    { value: 'mateIn1',        label: 'Mate in 1'       },
-    { value: 'mateIn2',        label: 'Mate in 2'       },
-    { value: 'mateIn3',        label: 'Mate in 3'       },
-    { value: 'mateIn4',        label: 'Mate in 4'       },
-    { value: 'mateIn5',        label: 'Mate in 5'       },
-    { value: 'backRankMate',   label: 'Back Rank Mate'  },
-    { value: 'smotheredMate',  label: 'Smothered Mate'  },
-    { value: 'arabianMate',    label: 'Arabian Mate'    },
-    { value: 'hookMate',       label: 'Hook Mate'       },
-    { value: 'anastasiasMate', label: "Anastasia's Mate"},
-    { value: 'epauletteMate',  label: 'Epaulette Mate'  },
-  ]},
-  { group: 'Endgame', options: [
-    { value: 'endgame',       label: 'Endgame (General)'},
-    { value: 'pawnEndgame',   label: 'Pawn Endgame'    },
-    { value: 'rookEndgame',   label: 'Rook Endgame'    },
-    { value: 'queenEndgame',  label: 'Queen Endgame'   },
-    { value: 'bishopEndgame', label: 'Bishop Endgame'  },
-    { value: 'knightEndgame', label: 'Knight Endgame'  },
-  ]},
-  { group: 'Strategy', options: [
-    { value: 'advancedPawn',       label: 'Advanced Pawn'      },
-    { value: 'attackingF2F7',      label: 'Attack on f2/f7'    },
-    { value: 'capturingDefender',  label: 'Removing Defender'  },
-    { value: 'exposedKing',        label: 'Exposed King'       },
-    { value: 'kingsideAttack',     label: 'Kingside Attack'    },
-    { value: 'queensideAttack',    label: 'Queenside Attack'   },
-    { value: 'crushing',           label: 'Crushing'           },
-    { value: 'defensiveMove',      label: 'Defensive Move'     },
-  ]},
-  { group: 'Special', options: [
-    { value: 'enPassant', label: 'En Passant' },
-    { value: 'promotion', label: 'Promotion'  },
-    { value: 'zugzwang',  label: 'Zugzwang'   },
-    { value: 'xRayAttack',label: 'X-Ray Attack'},
-    { value: 'coercion',  label: 'Coercion'   },
-  ]},
-];
 
-const validTypes: LessonType[] = ["puzzle", "study", "interactive", "mcq", "qa", "puzzle_storm"];
+const validTypes: LessonType[] = ["puzzle", "study", "interactive", "mcq", "qa", "puzzle_storm", "combined"];
 const STORM_TIME_PRESETS = [
   { label: "Off (∞)", value: 0 },
   { label: "3 min", value: 180 },
   { label: "5 min", value: 300 },
   { label: "10 min", value: 600 },
+] as const;
+
+// Whole puzzle-SET countdown (one clock for the whole batch, not per-puzzle).
+const PUZZLE_SET_TIME_PRESETS = [
+  { label: "Off (∞)", value: 0 },
+  { label: "3 min", value: 180 },
+  { label: "5 min", value: 300 },
+  { label: "10 min", value: 600 },
+  { label: "15 min", value: 900 },
 ] as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -169,6 +116,111 @@ function blocksToEditPuzzles(blocks: LessonBlock[]): AuthoredPuzzle[] {
         orientation: (d.orientation as 'white' | 'black') ?? 'white',
         rating: typeof d.rating === 'number' ? d.rating : undefined,
         timer: d.timer as TimerConfig | undefined,
+        annotations: d.annotations as Record<string, StoredAnnotationSet> | undefined,
+      };
+    });
+}
+
+/** Reads a single study/interactive_study block's per-chapter `annotations`
+ *  field back into the compound `${chapterIndex}:${ply}` key format the
+ *  editor boards use — the inverse of parseStudyChapters' persistence in
+ *  actions.ts. */
+function chaptersDataToAnnotations(d: Record<string, any>): Map<string, StoredAnnotationSet> {
+  const out = new Map<string, StoredAnnotationSet>();
+  const chapters = d.chapters;
+  if (!Array.isArray(chapters)) return out;
+  chapters.forEach((c: any, index: number) => {
+    const raw = c.annotations;
+    if (raw && typeof raw === 'object') {
+      for (const [ply, set] of Object.entries(raw)) out.set(`${index}:${ply}`, set as StoredAnnotationSet);
+    }
+  });
+  return out;
+}
+
+/** Same lookup as blocksToEditChapters (either standalone type, at most one
+ *  such block per lesson) — reads its saved decoration annotations back. */
+function blocksToEditAnnotations(blocks: LessonBlock[]): Map<string, StoredAnnotationSet> {
+  const block = blocks.find(b => b.type === 'study' || b.type === 'interactive_study');
+  if (!block) return new Map();
+  return chaptersDataToAnnotations(block.data as Record<string, any>);
+}
+
+/** Whole-set countdown, stored redundantly on every puzzle block's data
+ *  (see createPuzzleLesson) — read it off whichever block has it. */
+function blocksToEditPuzzleSetTimer(blocks: LessonBlock[]): number {
+  const withTimer = blocks.find(b => b.type === 'puzzle' && typeof (b.data as Record<string, any>)?.puzzleSetTimer === 'number');
+  return withTimer ? (withTimer.data as Record<string, any>).puzzleSetTimer : 0;
+}
+
+// Reads a saved combined lesson's heterogeneous blocks back into the
+// creator's CombinedBlock[] shape — one case per supported type, mirroring
+// combinedBlocksToLessonBlocks in actions.ts (the inverse of it).
+/** Reads a saved study/interactive_study block's chapters back into
+ *  StudyChapterData[] — same shape blocksToEditChapters already produces for
+ *  the standalone types. Decoration annotations are hydrated separately, see
+ *  chaptersDataToAnnotations. */
+function blockToStudyChapters(d: Record<string, any>): StudyChapterData[] {
+  const chapters = d.chapters;
+  if (!Array.isArray(chapters)) return [];
+  return chapters.map((c: any) => ({
+    id: String(c.id ?? generateId()),
+    name: String(c.name ?? 'Chapter'),
+    pgn: String(c.pgn ?? c.fullPgn ?? ''),
+    orientation: (c.orientation as 'white' | 'black') ?? 'white',
+  }));
+}
+
+function blocksToEditCombined(blocks: LessonBlock[]): CombinedBlock[] {
+  return blocks
+    .filter(b => b.type === 'puzzle' || b.type === 'mcq' || b.type === 'qa' || b.type === 'study' || b.type === 'interactive_study')
+    .map(b => {
+      const d = b.data as Record<string, any>;
+      if (b.type === 'puzzle') {
+        return {
+          id: b.id, type: 'puzzle' as const,
+          puzzle: {
+            id: b.id,
+            fen: String(d.fen ?? ''),
+            solution: Array.isArray(d.solution) ? d.solution : String(d.solution ?? '').split(/\s+/).filter(Boolean),
+            description: Array.isArray(d.themes) ? d.themes.join(', ') : String(d.themes ?? ''),
+            hint: d.hint ? String(d.hint) : undefined,
+            orientation: (d.orientation as 'white' | 'black') ?? 'white',
+            rating: typeof d.rating === 'number' ? d.rating : undefined,
+            annotations: d.annotations as Record<string, StoredAnnotationSet> | undefined,
+          },
+        };
+      }
+      if (b.type === 'mcq') {
+        return {
+          id: b.id, type: 'mcq' as const,
+          mcq: { id: b.id, question: String(d.question ?? ''), options: Array.isArray(d.options) ? d.options : [], explanation: d.explanation, media: d.media, timer: d.timer },
+        };
+      }
+      if (b.type === 'qa') {
+        return {
+          id: b.id, type: 'qa' as const,
+          qa: { id: b.id, question: String(d.question ?? ''), answer: String(d.answer ?? ''), media: d.media, timer: d.timer },
+        };
+      }
+      const studyChapters = blockToStudyChapters(d);
+      const displaySettings = d.displaySettings
+        ? { showEval: !!d.displaySettings.showEval, showClocks: !!d.displaySettings.showClocks, showArrows: !!d.displaySettings.showArrows, showHighlights: !!d.displaySettings.showHighlights }
+        : { showEval: true, showClocks: true, showArrows: true, showHighlights: true };
+      const timer = readTimer(d) ?? DEFAULT_TIMER;
+      if (b.type === 'study') {
+        return {
+          id: b.id, type: 'study' as const,
+          study: { chapters: studyChapters, displaySettings, timer, annotations: chaptersDataToAnnotations(d) } satisfies StudyBlockData,
+        };
+      }
+      const solveMovesByChapterId: Record<string, any> = {};
+      for (const c of Array.isArray(d.chapters) ? d.chapters : []) {
+        if (Array.isArray(c.solveMoves) && c.solveMoves.length > 0) solveMovesByChapterId[String(c.id)] = c.solveMoves;
+      }
+      return {
+        id: b.id, type: 'interactive_study' as const,
+        interactiveStudy: { chapters: studyChapters, displaySettings, timer, annotations: chaptersDataToAnnotations(d), solveMovesByChapterId } satisfies InteractiveStudyBlockData,
       };
     });
 }
@@ -257,40 +309,6 @@ function blocksToEditQa(blocks: LessonBlock[]): QaCardData[] {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function StudySettingsPanel({
-  displaySettings, onDisplaySettingsChange, timer, onTimerChange,
-}: {
-  displaySettings: { showEval: boolean; showClocks: boolean; showArrows: boolean; showHighlights: boolean };
-  onDisplaySettingsChange: (next: { showEval: boolean; showClocks: boolean; showArrows: boolean; showHighlights: boolean }) => void;
-  timer: TimerConfig;
-  onTimerChange: (next: TimerConfig) => void;
-}) {
-  const TOGGLES: Array<{ key: keyof typeof displaySettings; label: string }> = [
-    { key: 'showEval', label: 'Engine evaluation' },
-    { key: 'showClocks', label: 'Move clocks' },
-    { key: 'showArrows', label: 'Annotation arrows' },
-    { key: 'showHighlights', label: 'Square highlights' },
-  ];
-  return (
-    <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Display settings</p>
-      <div className="grid grid-cols-2 gap-2.5">
-        {TOGGLES.map(t => (
-          <div key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-border px-3 py-2">
-            <Label htmlFor={`ds-${t.key}`} className="text-xs">{t.label}</Label>
-            <Switch
-              id={`ds-${t.key}`}
-              checked={displaySettings[t.key]}
-              onCheckedChange={v => onDisplaySettingsChange({ ...displaySettings, [t.key]: v })}
-            />
-          </div>
-        ))}
-      </div>
-      <TimerConfigField value={timer} onChange={onTimerChange} />
-    </div>
-  );
-}
 
 function StudentMultiSelect({
   students, selectedIds, onToggle,
@@ -604,24 +622,22 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [puzzles, setPuzzles] = useState<AuthoredPuzzle[]>(() =>
     isEdit && editData ? blocksToEditPuzzles(editData.lesson.blocks) : []
   );
-  const [lichessUrl, setLichessUrl] = useState("");
-  const [isLichessImportOpen, setIsLichessImportOpen] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importTab, setImportTab] = useState<'single' | 'batch'>('single');
-  const [batchThemes, setBatchThemes] = useState<string[]>(['fork']);
-  const [batchMixed, setBatchMixed] = useState(false);
-  const [batchDifficulty, setBatchDifficulty] = useState('normal');
-  const [collapsedBatchGroups, setCollapsedBatchGroups] = useState<Set<string>>(new Set());
-  const [batchNb, setBatchNb] = useState(10);
-  const [batchPreviews, setBatchPreviews] = useState<BatchPreview[]>([]);
-  const [isBatchFetching, setIsBatchFetching] = useState(false);
-
+  // Whole-set countdown for the "puzzle" lesson type — one clock for the
+  // entire batch (replaces the old per-puzzle timer for this lesson type).
+  const [puzzleSetTimeLimit, setPuzzleSetTimeLimit] = useState<number>(() =>
+    isEdit && editData ? blocksToEditPuzzleSetTimer(editData.lesson.blocks) : 0
+  );
   // Puzzle Storm state — shares the PuzzleAuthoringPanel core, adds a time limit
   const [stormPuzzles, setStormPuzzles] = useState<AuthoredPuzzle[]>(() =>
     isEdit && editData ? blocksToEditStorm(editData.lesson.blocks).puzzles : []
   );
   const [stormTimeLimit, setStormTimeLimit] = useState<number>(() =>
     isEdit && editData ? blocksToEditStorm(editData.lesson.blocks).timeLimit : 180
+  );
+
+  // Combined lesson state — reuses the puzzle set timer above (puzzleSetTimeLimit)
+  const [combinedBlocks, setCombinedBlocks] = useState<CombinedBlock[]>(() =>
+    isEdit && editData ? blocksToEditCombined(editData.lesson.blocks) : []
   );
 
   // Study state
@@ -632,7 +648,9 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
   const [pgnInput, setPgnInput] = useState("");
   const [selectedChapterIndex, setSelectedChapterIndex] = useState<number | null>(null);
   const [chapterOrientation, setChapterOrientation] = useState<"white" | "black">("white");
-  const [moveAnnotations, setMoveAnnotations] = useState<Map<string, MoveAnnotation>>(new Map());
+  const [annotations, setAnnotations] = useState<Map<string, StoredAnnotationSet>>(() =>
+    isEdit && editData ? blocksToEditAnnotations(editData.lesson.blocks) : new Map()
+  );
   const [isLichessStudyImportOpen, setIsLichessStudyImportOpen] = useState(false);
   const [lichessStudyUrl, setLichessStudyUrl] = useState("");
   const [isLichessImporting, setIsLichessImporting] = useState(false);
@@ -758,64 +776,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setSelectedStudentIds(prev => prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]);
   };
 
-  const closeImportModal = () => {
-    setIsLichessImportOpen(false); setImportTab('single'); setBatchPreviews([]); setLichessUrl("");
-  };
-
-  const handleImportFromLichess = async () => {
-    if (!lichessUrl.trim()) return;
-    setIsImporting(true);
-    try {
-      const match = lichessUrl.match(/lichess\.org\/(?:training|puzzle)\/([a-zA-Z0-9]+)/);
-      if (!match) { alert("Invalid Lichess puzzle URL"); return; }
-      const res = await fetch(`/api/puzzles/lichess/${match[1]}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      const importedTurn = (data.fen as string)?.split(' ')?.[1];
-      setPuzzles(prev => [...prev, {
-        id: generateId(), fen: data.fen,
-        solution: data.solution || [],
-        description: data.themes?.join(", ") || "",
-        orientation: importedTurn === 'b' ? 'black' : 'white',
-        rating: typeof data.rating === 'number' ? data.rating : undefined,
-      }]);
-    } catch { alert("Failed to import puzzle"); }
-    finally { setIsImporting(false); closeImportModal(); }
-  };
-
-  const handleBatchFetch = async () => {
-    setIsBatchFetching(true); setBatchPreviews([]);
-    try {
-      const themesParam = batchMixed ? 'mixed' : batchThemes.join(',');
-      const res = await fetch(`/api/puzzles/lichess/batch?themes=${themesParam}&nb=${batchNb}&difficulty=${batchDifficulty}`);
-      if (!res.ok) {
-        let reason = `HTTP ${res.status}`;
-        try { const j = await res.json(); if (j?.error) reason = j.error; } catch {}
-        throw new Error(reason);
-      }
-      const data = await res.json();
-      setBatchPreviews((data.puzzles ?? []).map((p: any) => ({
-        ...p, editSolution: (p.solution as string[]).join(' '), editHint: '',
-        editThemes: (p.themes as string[]).join(', '), editOrientation: p.orientation, removed: false,
-      })));
-    } catch (err) { alert(`Failed to fetch batch puzzles: ${err instanceof Error ? err.message : 'Unknown error'}`); }
-    finally { setIsBatchFetching(false); }
-  };
-
-  const handleBatchImport = () => {
-    const toAdd: AuthoredPuzzle[] = batchPreviews.filter(p => !p.removed).map(p => ({
-      id: generateId(),
-      fen: p.fen,
-      solution: p.editSolution.trim().split(/\s+/).filter(Boolean),
-      description: p.editThemes,
-      hint: p.editHint.trim() || undefined,
-      orientation: p.editOrientation,
-      rating: p.rating ?? undefined,
-    }));
-    setPuzzles(prev => [...prev, ...toAdd]);
-    closeImportModal();
-  };
-
   const handleDeleteChapter = (index: number) => {
     setChapters(prev => prev.filter((_, i) => i !== index));
     setSelectedChapterIndex(prev => {
@@ -916,13 +876,14 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
       orientation: p.orientation,
       rating: p.rating ?? null,
       timer: p.timer,
+      annotations: p.annotations,
     }));
     try {
       if (isEdit && editData) {
-        await updatePuzzleLesson(editData.lesson.id, lessonInfo, puzzlesPayload, selectedStudentIds, assignedTo || undefined);
+        await updatePuzzleLesson(editData.lesson.id, lessonInfo, puzzlesPayload, selectedStudentIds, assignedTo || undefined, puzzleSetTimeLimit);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createPuzzleLesson(lessonInfo, puzzlesPayload, selectedStudentIds);
+        const id = await createPuzzleLesson(lessonInfo, puzzlesPayload, selectedStudentIds, puzzleSetTimeLimit);
         setSavedLessonId(id); setIsCompleted(true);
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
@@ -933,6 +894,10 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     if (!validateLesson()) return;
     if (stormPuzzles.length === 0) { alert("At least one puzzle is required"); return; }
     setIsSubmitting(true);
+    // Puzzle Storm deliberately doesn't forward `annotations` — its own
+    // persistence path (createPuzzleStormLesson/mapStormPuzzle) is out of
+    // the decorations-engine rollout's scope, see .claude/plans/
+    // glistening-stirring-locket.md.
     const puzzlesPayload = stormPuzzles.map(p => ({
       id: p.id,
       fen: p.fen,
@@ -959,12 +924,12 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setIsSubmitting(true);
     try {
       if (isEdit && editData) {
-        await updateStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, moveAnnotations, selectedStudentIds, assignedTo || undefined);
+        await updateStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, annotations, selectedStudentIds, assignedTo || undefined);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, moveAnnotations, selectedStudentIds);
+        const id = await createStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, annotations, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
-        setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null); setMoveAnnotations(new Map());
+        setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null); setAnnotations(new Map());
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
     finally { setIsSubmitting(false); }
@@ -976,13 +941,13 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     setIsSubmitting(true);
     try {
       if (isEdit && editData) {
-        await updateInteractiveStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, moveAnnotations, selectedStudentIds, assignedTo || undefined);
+        await updateInteractiveStudyLesson(editData.lesson.id, lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, annotations, selectedStudentIds, assignedTo || undefined);
         setSavedLessonId(editData.lesson.id); setIsCompleted(true);
       } else {
-        const id = await createInteractiveStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, moveAnnotations, selectedStudentIds);
+        const id = await createInteractiveStudyLesson(lessonInfo, chapters, studyDisplaySettings, studyTimer, interactiveSolveMoves, annotations, selectedStudentIds);
         setSavedLessonId(id); setIsCompleted(true);
         setChapters([]); setChapterNameInput(""); setPgnInput(""); setSelectedChapterIndex(null);
-        setMoveAnnotations(new Map()); setInteractiveSolveMoves({});
+        setAnnotations(new Map()); setInteractiveSolveMoves({});
       }
     } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
     finally { setIsSubmitting(false); }
@@ -1022,21 +987,45 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
     finally { setIsSubmitting(false); }
   };
 
+  const handleCombinedSubmit = async () => {
+    if (!validateLesson()) return;
+    if (combinedBlocks.length === 0) { alert("Please add at least one block"); return; }
+    setIsSubmitting(true);
+    const blocksPayload: CombinedBlockInput[] = combinedBlocks.map(b =>
+      b.type === "puzzle"
+        ? { type: "puzzle" as const, puzzle: b.puzzle! }
+        : b.type === "mcq"
+          ? { type: "mcq" as const, mcq: b.mcq! }
+          : b.type === "qa"
+            ? { type: "qa" as const, qa: b.qa! }
+            : b.type === "study"
+              ? { type: "study" as const, study: b.study! }
+              : { type: "interactive_study" as const, interactiveStudy: b.interactiveStudy! }
+    );
+    try {
+      if (isEdit && editData) {
+        await updateCombinedLesson(editData.lesson.id, lessonInfo, blocksPayload, selectedStudentIds, assignedTo || undefined, puzzleSetTimeLimit);
+        setSavedLessonId(editData.lesson.id); setIsCompleted(true);
+      } else {
+        const id = await createCombinedLesson(lessonInfo, blocksPayload, selectedStudentIds, puzzleSetTimeLimit);
+        setSavedLessonId(id); setIsCompleted(true);
+        setCombinedBlocks([]);
+      }
+    } catch (err) { alert(err instanceof Error ? err.message : "Failed to save lesson"); }
+    finally { setIsSubmitting(false); }
+  };
+
   const submitLabel = isEdit ? "Save changes" : "Create lesson";
 
   // ── Puzzle editor ──────────────────────────────────────────────────────────
 
   const renderPuzzleEditor = () => (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => setIsLichessImportOpen(true)}>
-          <LichessKnightIcon size={16} />
-          <span className="ml-1.5">Import from Lichess</span>
-        </Button>
-      </div>
-
-      {/* showLichessImport=false: the button above already covers single + batch import */}
-      <PuzzleAuthoringPanel puzzles={puzzles} onPuzzlesChange={setPuzzles} showLichessImport={false} />
+      {/* Lichess import now lives inside the panel itself: batch fetch on the
+          Puzzles tab, single-URL import on the Edit tab (opened via + New puzzle).
+          showTimer=false: this lesson type now uses one whole-set countdown (Lesson
+          details → Puzzle set timer) instead of a per-puzzle timer. */}
+      <PuzzleAuthoringPanel puzzles={puzzles} onPuzzlesChange={setPuzzles} showTimer={false} />
 
       {puzzles.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
@@ -1059,212 +1048,6 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         </div>
       )}
 
-      {isLichessImportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.45)" }}>
-          <div className="w-full max-w-lg rounded-md border border-border bg-card shadow-xl mx-4 flex flex-col max-h-[90vh]">
-
-            {/* Tab switcher — fixed header */}
-            <div className="px-6 pt-5 pb-3 flex-shrink-0">
-              <div className="flex gap-1 p-1 bg-muted rounded-sm">
-                {(['single', 'batch'] as const).map(tab => (
-                  <button key={tab} onClick={() => setImportTab(tab)}
-                    className={`flex-1 text-xs py-1.5 rounded-sm font-medium transition-colors ${importTab === tab ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                    {tab === 'single' ? 'Single URL' : 'Batch Import'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto min-h-0 px-6 space-y-4 pb-2">
-
-              {importTab === 'single' && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="lichess-url" className="text-xs text-muted-foreground">Lichess puzzle URL</Label>
-                  <Input id="lichess-url" value={lichessUrl} onChange={e => setLichessUrl(e.target.value)} placeholder="https://lichess.org/training/abc123" autoFocus />
-                </div>
-              )}
-
-              {importTab === 'batch' && (
-                <>
-                  {/* Theme chip grid */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs text-muted-foreground">Themes</Label>
-                      <div className="flex items-center gap-2">
-                        {!batchMixed && batchThemes.length > 0 && (
-                          <button type="button" onClick={() => setBatchThemes([])}
-                            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                            Clear
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setBatchMixed(v => !v)}
-                          className={cn(
-                            'text-xs px-2 py-0.5 rounded-sm border transition-colors',
-                            batchMixed ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:border-foreground'
-                          )}
-                        >
-                          Mixed
-                        </button>
-                      </div>
-                    </div>
-                    <div className={cn('space-y-1', batchMixed && 'opacity-40 pointer-events-none')}>
-                      {BATCH_THEMES.map(g => {
-                        const isCollapsed = collapsedBatchGroups.has(g.group);
-                        const activeInGroup = g.options.filter(o => batchThemes.includes(o.value)).length;
-                        return (
-                          <div key={g.group} className="border border-border rounded-sm overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => setCollapsedBatchGroups(prev => {
-                                const next = new Set(prev);
-                                if (next.has(g.group)) next.delete(g.group); else next.add(g.group);
-                                return next;
-                              })}
-                              className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-muted/40 transition-colors"
-                            >
-                              <span className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/70">{g.group}</span>
-                              <div className="flex items-center gap-2">
-                                {activeInGroup > 0 && (
-                                  <span className="text-[10px] font-medium text-foreground/60">{activeInGroup} selected</span>
-                                )}
-                                <ChevronRight className={cn('w-3 h-3 text-muted-foreground transition-transform', !isCollapsed && 'rotate-90')} />
-                              </div>
-                            </button>
-                            {!isCollapsed && (
-                              <div className="flex flex-wrap gap-1 px-2.5 pb-2.5">
-                                {g.options.map(o => {
-                                  const isActive = batchThemes.includes(o.value);
-                                  return (
-                                    <button
-                                      key={o.value}
-                                      type="button"
-                                      onClick={() => setBatchThemes(prev =>
-                                        prev.includes(o.value) ? prev.filter(t => t !== o.value) : [...prev, o.value]
-                                      )}
-                                      className={cn(
-                                        'text-xs px-2 py-0.5 rounded-sm border transition-colors',
-                                        isActive ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:border-foreground/50'
-                                      )}
-                                    >
-                                      {o.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Difficulty pill row + Count */}
-                  <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Difficulty</Label>
-                      <div className="flex flex-wrap gap-1">
-                        {(['easiest', 'easier', 'normal', 'harder', 'hardest', 'mixed'] as const).map(d => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => setBatchDifficulty(d)}
-                            className={cn(
-                              'text-xs px-2 py-0.5 rounded-sm border capitalize transition-colors',
-                              batchDifficulty === d ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:border-foreground/50'
-                            )}
-                          >
-                            {d.charAt(0).toUpperCase() + d.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Count</Label>
-                      <Input type="number" min={1} max={50} value={batchNb}
-                        onChange={e => setBatchNb(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-                        className="h-9 w-20" />
-                    </div>
-                  </div>
-
-                  <Button size="sm" className="w-full" onClick={handleBatchFetch}
-                    disabled={isBatchFetching || (!batchMixed && batchThemes.length === 0)}>
-                    {isBatchFetching ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Fetching…</> : 'Fetch Puzzles'}
-                  </Button>
-
-                  {batchPreviews.length > 0 && (
-                    <div className="space-y-2">
-                      {batchPreviews.map((p, i) => p.removed ? null : (
-                        <div key={p.lichessId} className="border border-border rounded-sm p-3">
-                          <div className="flex gap-3">
-                            <div className="w-[65%] space-y-2 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-mono font-semibold">#{p.lichessId}</span>
-                                  {p.rating && <span className="text-xs text-muted-foreground">★ {p.rating}</span>}
-                                </div>
-                                <button onClick={() => setBatchPreviews(prev => prev.map((x, j) => j === i ? { ...x, removed: true } : x))} className="text-muted-foreground hover:text-destructive transition-colors">
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Solution</Label>
-                                <Input value={p.editSolution} onChange={e => setBatchPreviews(prev => prev.map((x, j) => j === i ? { ...x, editSolution: e.target.value } : x))} className="h-7 text-xs font-mono" />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Hint</Label>
-                                <Input value={p.editHint} onChange={e => setBatchPreviews(prev => prev.map((x, j) => j === i ? { ...x, editHint: e.target.value } : x))} placeholder="Optional" className="h-7 text-xs" />
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Themes</Label>
-                                  <Input value={p.editThemes} onChange={e => setBatchPreviews(prev => prev.map((x, j) => j === i ? { ...x, editThemes: e.target.value } : x))} className="h-7 text-xs" />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Plays as</Label>
-                                  <div className="flex gap-1 h-7 items-center">
-                                    {(['white', 'black'] as const).map(side => (
-                                      <button key={side} onClick={() => setBatchPreviews(prev => prev.map((x, j) => j === i ? { ...x, editOrientation: side } : x))}
-                                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${p.editOrientation === side ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:border-foreground'}`}>
-                                        {side.charAt(0).toUpperCase() + side.slice(1)}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="w-[35%] flex-shrink-0">
-                              <Chessboard position={p.fen} boardOrientation={p.editOrientation} arePiecesDraggable={false} areArrowsAllowed={false} customBoardStyle={{ borderRadius: '4px' }} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Sticky footer — always visible */}
-            <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-border">
-              <Button variant="outline" size="sm" onClick={closeImportModal}>Cancel</Button>
-              {importTab === 'single' && (
-                <Button size="sm" onClick={handleImportFromLichess} disabled={isImporting || !lichessUrl.trim()}>
-                  {isImporting ? "Importing…" : "Import"}
-                </Button>
-              )}
-              {importTab === 'batch' && batchPreviews.filter(p => !p.removed).length > 0 && (
-                <Button size="sm" onClick={handleBatchImport}>
-                  Add {batchPreviews.filter(p => !p.removed).length} puzzle{batchPreviews.filter(p => !p.removed).length !== 1 ? 's' : ''}
-                </Button>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -1295,8 +1078,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         pgnInput={pgnInput}
         setPgnInput={setPgnInput}
         onAddChapter={handleAddChapter}
-        moveAnnotations={moveAnnotations}
-        onAnnotationsChange={setMoveAnnotations}
+        annotations={annotations}
+        onAnnotationsChange={setAnnotations}
         onChapterPgnChange={(index, pgn) =>
           setChapters(prev => prev.map((ch, i) => i === index ? { ...ch, pgn } : ch))
         }
@@ -1347,8 +1130,8 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         pgnInput={pgnInput}
         setPgnInput={setPgnInput}
         onAddChapter={handleAddChapter}
-        moveAnnotations={moveAnnotations}
-        onAnnotationsChange={setMoveAnnotations}
+        annotations={annotations}
+        onAnnotationsChange={setAnnotations}
         solveMovesByChapterId={interactiveSolveMoves}
         onSolveMovesByChapterIdChange={setInteractiveSolveMoves}
         onChapterPgnChange={(index, pgn) =>
@@ -1411,6 +1194,26 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         ) : (
           <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleQaSubmit} />
         )
+      )}
+    </div>
+  );
+
+  // ── Combined lesson editor ────────────────────────────────────────────────────
+  // A coach-ordered sequence mixing puzzle/mcq/qa blocks — each authored with
+  // its own existing editor (CombinedLessonCreator bridges each to a single
+  // sequence slot). See .claude/plans/combined-lesson-creator.md.
+
+  const renderCombinedEditor = () => (
+    <div className="space-y-4">
+      <CombinedLessonCreator blocks={combinedBlocks} onBlocksChange={setCombinedBlocks} />
+      {combinedBlocks.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          {isCompleted && savedLessonId ? (
+            <SuccessBanner lessonId={savedLessonId} label="Combined lesson" mode={mode} onCreateAnother={handleCreateAnother} />
+          ) : (
+            <SubmitButton isSubmitting={isSubmitting} label={submitLabel} onClick={handleCombinedSubmit} />
+          )}
+        </div>
       )}
     </div>
   );
@@ -1541,6 +1344,31 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
                 </div>
               </div>
             )}
+            {(selectedType === "puzzle" || selectedType === "combined") && (
+              <div className="pt-3 border-t border-border space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puzzle set timer</p>
+                <p className="text-[11px] text-muted-foreground">
+                  One countdown for the whole set — not per puzzle. When it hits 0, the
+                  session ends; only puzzles already solved keep their points/rating.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PUZZLE_SET_TIME_PRESETS.map(preset => (
+                    <button
+                      key={preset.value}
+                      onClick={() => setPuzzleSetTimeLimit(preset.value)}
+                      className={cn(
+                        'text-xs px-2.5 py-1 rounded-sm border transition-colors',
+                        puzzleSetTimeLimit === preset.value
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
@@ -1551,6 +1379,7 @@ export default function LessonBuilderClient({ mode = 'create', editData }: Lesso
         {selectedType === "mcq"         && renderMcqEditor()}
         {selectedType === "qa"          && renderQaEditor()}
         {selectedType === "puzzle_storm" && renderStormEditor()}
+        {selectedType === "combined"     && renderCombinedEditor()}
       </div>
     </>
   );

@@ -1,10 +1,11 @@
 'use client'
 
-import { useReducer, useCallback, useEffect, useTransition, useRef, useState } from 'react'
+import { useReducer, useCallback, useEffect, useTransition, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
 import { Zap, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { getBlockDefinition, type BlockType } from '@/lib/blockRegistry'
 import { useMotionProfile } from '@/components/microinteractions/MotionProfileProvider'
 import { successAnimation } from '@/components/microinteractions/presets'
@@ -24,6 +25,7 @@ import {
   updateTimeSpent,
 } from '@/services/progressService'
 import { lessonStorageKey, readWithTtl, clearLessonStorage } from './lessonProgressStorage'
+import { COMBO_RESET_STREAK } from '@/lib/academyRating'
 import type { GamificationResult, StudentGamificationSummary } from '@/services/gamificationService'
 
 interface LessonBlock {
@@ -44,6 +46,10 @@ interface LessonViewerShellProps {
   gamificationSummary: StudentGamificationSummary | null
   academyRating: number | null
   ratedCount: number
+  /** True when this lesson was already completed before this page load —
+   *  the whole session is a replay, and puzzle blocks must not grant any
+   *  points/rating (server-side enforced too, see onPuzzleBlockSolved). */
+  alreadyCompletedBeforeSession?: boolean
 }
 
 type ViewerState = {
@@ -60,6 +66,9 @@ interface SavedShellProgress {
   sessionPoints?: number
   sessionBreakdown?: Array<{ label: string; pts: number }>
   puzzleStreak?: number
+  /** epoch ms the whole-set puzzle timer started — persisted so a refresh
+   *  mid-session resumes the real remaining time instead of a fresh clock. */
+  setTimerStartedAt?: number
 }
 
 type ViewerAction =
@@ -124,15 +133,16 @@ function ViewerBlockRenderer({
   canPrev,
   lessonId,
   onBlockComplete,
-  sessionPoints,
   puzzleStreak,
-  studentLevel,
-  studentLevelName,
-  currentStreak,
   academyRating,
   ratedCount,
   onRatingPreview,
   onRatingCommit,
+  setSecondsLeft,
+  setSecondsTotal,
+  replayLocked,
+  sessionPoints,
+  mobileControlsHost,
 }: {
   block: LessonBlock
   onSolved: () => void
@@ -140,26 +150,50 @@ function ViewerBlockRenderer({
   canPrev?: boolean
   lessonId: string
   onBlockComplete: (pts: number, label: string) => void
-  sessionPoints: number
   puzzleStreak: number
-  studentLevel: number
-  studentLevelName: string
-  currentStreak: number
   academyRating: number | null
   ratedCount: number
   onRatingPreview: (rating: number) => void
   onRatingCommit: (rating: number) => void
+  /** Whole puzzle-SET countdown (one clock for the entire batch) — null when
+   *  this lesson has none configured. See Lesson details → Puzzle set timer. */
+  setSecondsLeft: number | null
+  setSecondsTotal: number | null
+  /** This whole session is a replay of an already-completed lesson — no
+   *  points/rating anywhere in it (see PuzzleViewerBlock's own doc comment). */
+  replayLocked: boolean
+  sessionPoints: number
+  /** Mobile-only portal target, rendered on the same line as the lesson
+   *  description in the page header (see LessonViewerShell's header JSX) —
+   *  lets a block's own compact controls (currently just Puzzle's Next/End/⋮)
+   *  render up there instead of stacking below the board. Null until mounted
+   *  client-side and null entirely on lg+ (desktop keeps its own full bars). */
+  mobileControlsHost: HTMLDivElement | null
 }) {
   const blockType = block.type as BlockType
+  const blockIcon = getBlockDefinition(blockType)?.icon
 
   // Per-block gameplay timer — opt-in, disclosed via a corner chip on the block
   // itself. Expiry auto-advances with a not-solved outcome (same as an
   // explicit skip/give-up), never a hard lockout. See BlockTimer.tsx.
+  //
+  // Puzzle blocks are special-cased: they score themselves (points + rating)
+  // internally, so a timeout has to route through the block's own scoring
+  // path — not straight to `onSolved` — or it advances with zero points/
+  // rating consequence, defeating the point of the penalty system.
+  //
+  // Puzzle blocks never use this per-block timer at all (even if legacy data
+  // still carries one) — they're driven by the whole-SET timer above instead.
   const timerConfig = (block.data as Record<string, unknown> | undefined)?.timer as
     | { enabled?: boolean; seconds?: number }
     | undefined
-  const timerEnabled = !!timerConfig?.enabled && (timerConfig.seconds ?? 0) > 0
-  const secondsLeft = useBlockCountdown(timerConfig?.seconds ?? 0, timerEnabled, onSolved)
+  const timerEnabled = blockType !== 'puzzle' && !!timerConfig?.enabled && (timerConfig.seconds ?? 0) > 0
+  const [puzzleTimedOut, setPuzzleTimedOut] = useState(false)
+  const handleTimerExpire = useCallback(() => {
+    if (blockType === 'puzzle') setPuzzleTimedOut(true)
+    else onSolved()
+  }, [blockType, onSolved])
+  const secondsLeft = useBlockCountdown(timerConfig?.seconds ?? 0, timerEnabled, handleTimerExpire)
 
   let content: React.ReactNode
 
@@ -173,15 +207,18 @@ function ViewerBlockRenderer({
         lessonId={lessonId}
         blockKey={block.id}
         onBlockComplete={onBlockComplete}
-        sessionPoints={sessionPoints}
         puzzleStreak={puzzleStreak}
-        studentLevel={studentLevel}
-        studentLevelName={studentLevelName}
-        currentStreak={currentStreak}
         academyRating={academyRating}
         ratedCount={ratedCount}
         onRatingPreview={onRatingPreview}
         onRatingCommit={onRatingCommit}
+        timedOut={puzzleTimedOut}
+        setSecondsLeft={setSecondsLeft}
+        setSecondsTotal={setSecondsTotal}
+        replayLocked={replayLocked}
+        sessionPoints={sessionPoints}
+        mobileControlsHost={mobileControlsHost}
+        blockIcon={blockIcon}
       />
     )
   } else if (blockType === 'mcq') {
@@ -233,18 +270,48 @@ function ViewerBlockRenderer({
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function LessonViewerShell({ lesson, gamificationSummary, academyRating: initialAcademyRating, ratedCount: initialRatedCount }: LessonViewerShellProps) {
+export default function LessonViewerShell({ lesson, gamificationSummary, academyRating: initialAcademyRating, ratedCount: initialRatedCount, alreadyCompletedBeforeSession = false }: LessonViewerShellProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [gamification, setGamification] = useState<GamificationResult | null>(null)
   const [gamificationPending, setGamificationPending] = useState(false)
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false)
   const [sessionPoints, setSessionPoints] = useState(0)
   const [sessionBreakdown, setSessionBreakdown] = useState<Array<{ label: string; pts: number }>>([])
   const [puzzleStreak, setPuzzleStreak] = useState(0)
   const [academyRating, setAcademyRating] = useState(initialAcademyRating)
   const [ratedCount, setRatedCount] = useState(initialRatedCount)
   const [hasQuit, setHasQuit] = useState(false)
-  const blockHadPts = useRef(false)
+  // Lesson description: collapsed to a narrow, ellipsized single line by
+  // default (it was stretching the full header width); click to expand to
+  // full wrapped text instead.
+  const [descExpanded, setDescExpanded] = useState(false)
+  // Mobile-only portal target for a block's compact controls (currently just
+  // Puzzle's Next/End/⋮) — rendered on the same line as the description
+  // instead of the block stacking its own controls below the board. A
+  // callback ref so the portal only ever targets a real, mounted node —
+  // null during SSR/first paint and null again above the lg breakpoint.
+  const [mobileControlsHost, setMobileControlsHost] = useState<HTMLDivElement | null>(null)
+  // Tracks *clean* solves specifically (not just "earned some points") —
+  // this drives the combo streak (puzzleStreak), which only builds on a
+  // genuine clean solve, matching PuzzleViewerBlock's combo/rating boost.
+  const blockWasClean = useRef(false)
+
+  // ── Whole-set puzzle timer — ONE clock for the entire puzzle set, not
+  // per-puzzle (see Lesson details → Puzzle set timer). Stored redundantly
+  // on every puzzle block's data so it survives reordering; read off
+  // whichever block has it. 0 = no timer configured for this lesson.
+  const puzzleSetTimerSeconds = useMemo(() => {
+    const withTimer = lesson.blocks.find(
+      b => b.type === 'puzzle' && typeof (b.data as Record<string, unknown>)?.puzzleSetTimer === 'number'
+    )
+    return withTimer ? ((withTimer.data as Record<string, unknown>).puzzleSetTimer as number) : 0
+  }, [lesson.blocks])
+  const setTimerStartRef = useRef<number | null>(null)
+  const setTimerExpiredRef = useRef(false)
+  const [setSecondsLeft, setSetSecondsLeft] = useState<number | null>(
+    puzzleSetTimerSeconds > 0 ? puzzleSetTimerSeconds : null
+  )
 
   // Called twice per solved puzzle: once optimistically (client-computed preview,
   // before the server round-trip resolves) and once to reconcile with the real
@@ -272,8 +339,8 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
   const handleBlockComplete = useCallback((pts: number, label: string) => {
     setSessionPoints(prev => prev + pts)
     setSessionBreakdown(prev => [...prev, { label, pts }])
-    if (pts > 0 && label.startsWith('Puzzle')) {
-      blockHadPts.current = true
+    if (label === 'Puzzle — clean') {
+      blockWasClean.current = true
     }
   }, [])
 
@@ -329,9 +396,56 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
       if (typeof parsed.puzzleStreak === 'number') {
         setPuzzleStreak(parsed.puzzleStreak)
       }
+      if (typeof parsed.setTimerStartedAt === 'number') {
+        setTimerStartRef.current = parsed.setTimerStartedAt
+      }
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.id])
+
+  // Ends the session (lesson-complete screen + gamification resolution) —
+  // shared by reaching the last block normally and by the whole-set timer
+  // running out. Already-solved puzzles keep the points/rating they earned
+  // in real time as each was solved; nothing further is granted or docked
+  // here for whatever puzzle was still in progress.
+  const completeLesson = useCallback(() => {
+    clearLessonStorage(lesson.id)
+    dispatch({ type: 'LESSON_COMPLETE' })
+    setGamificationPending(true)
+    markLessonComplete(lesson.id)
+      .then(r => {
+        setGamification(r.gamification)
+        setAlreadyCompleted(r.alreadyCompleted)
+      })
+      .catch(() => {})
+      .finally(() => setGamificationPending(false))
+  }, [lesson.id])
+
+  // ── Whole-set puzzle timer: start the clock (fresh, or resumed from the
+  // restore effect above) and tick it down once a second. Runs independently
+  // of block transitions — it's one clock for the whole set. Expiry ends the
+  // session; already-solved puzzles keep the points/rating they already
+  // earned in real time, the in-progress one (if any) simply never scores.
+  useEffect(() => {
+    if (puzzleSetTimerSeconds <= 0) return
+    if (setTimerStartRef.current == null) setTimerStartRef.current = Date.now()
+
+    const tick = () => {
+      const startedAt = setTimerStartRef.current
+      if (startedAt == null) return
+      const remaining = Math.max(0, puzzleSetTimerSeconds - Math.floor((Date.now() - startedAt) / 1000))
+      setSetSecondsLeft(remaining)
+      if (remaining <= 0 && !setTimerExpiredRef.current) {
+        setTimerExpiredRef.current = true
+        clearInterval(interval)
+        completeLesson()
+      }
+    }
+    tick() // resolve immediately (handles resuming after the clock already ran out)
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzleSetTimerSeconds])
 
   // ── Persist position to localStorage on every navigation/solve ────────────
   useEffect(() => {
@@ -344,9 +458,10 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
         sessionPoints,
         sessionBreakdown,
         puzzleStreak,
+        ...(setTimerStartRef.current != null ? { setTimerStartedAt: setTimerStartRef.current } : {}),
       }))
     } catch {}
-  }, [state.currentIndex, state.completedIds, state.isComplete, lesson.id, sessionPoints, sessionBreakdown, puzzleStreak])
+  }, [state.currentIndex, state.completedIds, state.isComplete, lesson.id, sessionPoints, sessionBreakdown, puzzleStreak, setSecondsLeft])
 
   // ── Flush time spent when the user leaves (tab close / navigate away) ──────
   useEffect(() => {
@@ -373,9 +488,11 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
 
     // Update puzzle streak for puzzle blocks
     if (lesson.blocks[state.currentIndex]?.type === 'puzzle') {
-      if (blockHadPts.current) setPuzzleStreak(prev => prev + 1)
+      // Combo reset: one grand-finale swing at COMBO_RESET_STREAK, then back
+      // to zero — mirrors PuzzleViewerBlock/gamificationService's combo cap.
+      if (blockWasClean.current) setPuzzleStreak(prev => (prev + 1 >= COMBO_RESET_STREAK ? 0 : prev + 1))
       else setPuzzleStreak(0)
-      blockHadPts.current = false
+      blockWasClean.current = false
     }
 
     // Flush time spent on this block before advancing
@@ -387,21 +504,13 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
     }
 
     if (isLastBlock) {
-      // ── Lesson complete — dispatch immediately for instant feedback,
-      // then resolve gamification data asynchronously.
-      clearLessonStorage(lesson.id)
-      dispatch({ type: 'LESSON_COMPLETE' })
-      setGamificationPending(true)
-      markLessonComplete(lesson.id)
-        .then(r => setGamification(r.gamification))
-        .catch(() => {})
-        .finally(() => setGamificationPending(false))
+      completeLesson()
     } else {
       // ── Advance to next block ──
       dispatch({ type: 'SOLVE_BLOCK', id: lesson.blocks[state.currentIndex].id })
       dispatch({ type: 'NEXT_BLOCK' })
     }
-  }, [state.currentIndex, state.completedIds, lesson.blocks, lesson.id])
+  }, [state.currentIndex, state.completedIds, lesson.blocks, lesson.id, completeLesson])
 
   const handlePrev = () => {
     if (state.currentIndex > 0) {
@@ -429,6 +538,7 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
         lesson={lesson}
         gamification={hasQuit ? null : gamification}
         gamificationPending={hasQuit ? false : gamificationPending}
+        alreadyCompleted={hasQuit ? false : alreadyCompleted}
         sessionSummary={{ breakdown: sessionBreakdown, total: sessionPoints }}
         variant={hasQuit ? 'quit' : 'completed'}
       />
@@ -455,18 +565,50 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
             moves/data column, instead of the header spanning the full page
             width while the content narrows to lg:max-w-4xl underneath it. */}
         <div className="flex-1 min-w-0">
-          <div className="lg:max-w-4xl lg:mx-auto mb-3 flex items-start justify-between gap-4">
+          {/* flex-col on mobile: heading + description get their own full-width
+              line up top, ahead of the icon/streak/rating/points cluster below
+              — the cluster used to sit on the same crowded row and squeeze the
+              title/description down to near-invisible. Row layout returns at lg. */}
+          <div className="lg:max-w-4xl lg:mx-auto mb-3 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-1.5 lg:gap-4">
             <div className="min-w-0">
               <h1 className="text-2xl font-bold truncate">{lesson.title}</h1>
-              {lesson.description && (
-                <p className="text-gray-600 dark:text-gray-400 truncate">{lesson.description}</p>
-              )}
+              <div className="flex items-center gap-2 min-w-0">
+                {lesson.description && (
+                  <p
+                    onClick={() => setDescExpanded(v => !v)}
+                    title={descExpanded ? 'Click to collapse' : 'Click to expand'}
+                    className={cn(
+                      'text-gray-600 dark:text-gray-400 cursor-pointer max-w-md min-w-0',
+                      descExpanded ? 'whitespace-normal' : 'truncate'
+                    )}
+                  >
+                    {lesson.description}
+                  </p>
+                )}
+                {/* Active block's compact mobile controls portal in here — see
+                    ViewerBlockRenderer's mobileControlsHost prop. Empty (and
+                    invisible) for block types that don't use it yet. */}
+                <div ref={setMobileControlsHost} className="lg:hidden flex items-center gap-1 shrink-0" />
+              </div>
             </div>
             <div className="shrink-0 flex items-center gap-1.5 select-none">
               {currentBlockDef?.icon && (
                 <span className="text-lg leading-none select-none" title={currentBlockDef.label}>
                   {currentBlockDef.icon}
                 </span>
+              )}
+              {/* Streak/combo — moved up here from the per-puzzle panel (now removed) */}
+              {(gamificationSummary?.currentStreak ?? 0) > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1.5" title={`${gamificationSummary?.currentStreak}-day streak`}>
+                  <span className="text-sm leading-none">🔥</span>
+                  <span className="text-xs font-bold text-orange-500">{gamificationSummary?.currentStreak}</span>
+                </div>
+              )}
+              {puzzleStreak > 1 && (
+                <div className="flex items-center gap-1 px-2 py-1.5" title={`${puzzleStreak} puzzles in a row`}>
+                  <span className="text-sm leading-none">🎯</span>
+                  <span className="text-xs font-bold text-amber-500">{puzzleStreak}</span>
+                </div>
               )}
               <MotionButton
                 variant="ghost"
@@ -478,7 +620,17 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
                 <LogOut className="w-3.5 h-3.5" />
               </MotionButton>
               {academyRating !== null && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg" title="Academy rating">
+                // Puzzle blocks show this same rating inside their own mobile
+                // Session chip (next to the clock) — hidden here on mobile for
+                // that block type only, so it isn't shown twice; still the only
+                // place it appears for every other block type / on desktop.
+                <div
+                  className={cn(
+                    'items-center gap-1.5 px-3 py-1.5 bg-foreground text-background border border-transparent rounded-sm text-sm font-black shadow-lg',
+                    currentBlock.type === 'puzzle' ? 'hidden lg:flex' : 'flex',
+                  )}
+                  title="Academy rating"
+                >
                   <span className="text-amber-400 text-xs leading-none">★</span>
                   {academyRating}
                 </div>
@@ -494,6 +646,12 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
               )}
             </div>
           </div>
+
+          {alreadyCompletedBeforeSession && !hasQuit && !state.isComplete && (
+            <div className="lg:max-w-4xl lg:mx-auto mb-3 px-3 py-2 rounded-sm border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium">
+              Replay — you already completed this lesson, so no points or rating will be earned this time.
+            </div>
+          )}
 
           <div className="w-full">
             {/* perspective lives on this non-transformed ancestor — CSS perspective has
@@ -517,15 +675,16 @@ export default function LessonViewerShell({ lesson, gamificationSummary, academy
                     canPrev={state.currentIndex > 0}
                     lessonId={lesson.id}
                     onBlockComplete={handleBlockComplete}
-                    sessionPoints={sessionPoints}
                     puzzleStreak={puzzleStreak}
-                    studentLevel={gamificationSummary?.level ?? 1}
-                    studentLevelName={gamificationSummary?.levelName ?? 'Pawn'}
-                    currentStreak={gamificationSummary?.currentStreak ?? 0}
                     academyRating={academyRating}
                     ratedCount={ratedCount}
                     onRatingPreview={handleRatingPreview}
                     onRatingCommit={handleRatingCommit}
+                    setSecondsLeft={setSecondsLeft}
+                    setSecondsTotal={puzzleSetTimerSeconds > 0 ? puzzleSetTimerSeconds : null}
+                    replayLocked={alreadyCompletedBeforeSession}
+                    sessionPoints={sessionPoints}
+                    mobileControlsHost={mobileControlsHost}
                   />
                 </motion.div>
               </AnimatePresence>

@@ -43,9 +43,6 @@ export async function signInWithGoogle() {
         }
       },
     })
-    // Debug: log Supabase OAuth response for diagnosis
-    // eslint-disable-next-line no-console
-    console.log('signInWithOAuth result:', { url: data?.url, error: error?.message })
 
     if (error) {
       // eslint-disable-next-line no-console
@@ -62,8 +59,6 @@ export async function signInWithGoogle() {
     // Return the external URL to the client so the browser can navigate there.
     // The server-action already wrote the PKCE cookie via `createClientForServerAction()`.
     // We avoid calling `redirect()` to prevent server-action external-redirect issues.
-    // eslint-disable-next-line no-console
-    console.log('Returning Google OAuth URL to client')
     return { url: data.url }
   } catch (error) {
     // eslint-disable-next-line no-console

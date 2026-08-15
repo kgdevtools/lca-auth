@@ -28,13 +28,15 @@ export default function KnightPathRail({ total, current, completed }: KnightPath
 
   return (
     <>
-      {/* Mobile trigger */}
+      {/* Mobile trigger — a knight glyph, not Menu/hamburger: the sidebar
+          already owns that icon, and reusing it here reads as "open the
+          sidebar" instead of "show lesson progress". */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="sm:hidden fixed top-20 right-4 z-40 p-2 rounded-sm bg-background shadow-lg border border-border"
+        className="sm:hidden fixed top-20 right-4 z-40 h-9 w-9 flex items-center justify-center rounded-sm bg-background shadow-lg border border-border"
         aria-label="Show lesson progress"
       >
-        <Menu className="w-5 h-5 text-muted-foreground" />
+        <span className="text-lg leading-none text-muted-foreground select-none" aria-hidden="true">♞</span>
       </button>
 
       {/* Mobile overlay */}
