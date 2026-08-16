@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { Download, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { StudentWithProgress, StudentLessonProgress, CoachFeedbackRow } from '@/repositories/lesson/studentRepository'
 import type { ClassroomSessionReport } from '@/services/classroomService'
@@ -90,13 +91,35 @@ export default function ReportsClient({
 
   return (
     <div className="max-w-5xl mx-auto px-5 py-7">
-      <div className="mb-7">
-        <h1 className="text-xl font-bold tracking-tight text-foreground leading-tight">
-          Reports
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {isAdmin ? 'All students across all coaches' : 'Students assigned to you'}
-        </p>
+      <div className="mb-7 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground leading-tight">
+            Reports
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {isAdmin ? 'All students across all coaches' : 'Students assigned to you'}
+          </p>
+        </div>
+
+        {/* Export/Import for the Performance Sheet — coming soon */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            disabled
+            title="Export a Performance Sheet — coming soon"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
+          <button
+            disabled
+            title="Upload/import a Performance Sheet — coming soon. Accepts .xls, .xlsx, .doc, .docx, .pdf, .ods, .odt (LibreOffice) — max 5MB."
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

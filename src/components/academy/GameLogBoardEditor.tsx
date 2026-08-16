@@ -492,21 +492,23 @@ export default function GameLogBoardEditor({ studentId, studentName, open, onClo
                 onTouchEnd={decorations.onBoardTouchEnd}
                 onTouchMove={decorations.onBoardTouchEnd}
               >
-                {boardPx > 0 && (
-                  <Chessboard
-                    position={activePosition}
-                    boardWidth={boardPx}
-                    onPieceDrop={handlePieceDrop}
-                    onSquareClick={handleSquareClick}
-                    arePiecesDraggable
-                    boardOrientation={boardOrientation}
-                    areArrowsAllowed={false}
-                    customArrows={decorations.customArrows.length > 0 ? (decorations.customArrows as unknown as [Square, Square, string?][]) : undefined}
-                    customSquare={decorations.customSquare as any}
-                    customSquareStyles={customSquareStyles}
-                    customBoardStyle={{ borderRadius: '5px' }}
-                  />
-                )}
+                {/* No explicit boardWidth — react-chessboard measures its own
+                    container (same pattern PuzzleViewerBlock.tsx already
+                    relies on in production). The board's render no longer
+                    depends on the boardPx measurement below at all; boardPx
+                    is now only used to match the side panel's height. */}
+                <Chessboard
+                  position={activePosition}
+                  onPieceDrop={handlePieceDrop}
+                  onSquareClick={handleSquareClick}
+                  arePiecesDraggable
+                  boardOrientation={boardOrientation}
+                  areArrowsAllowed={false}
+                  customArrows={decorations.customArrows.length > 0 ? (decorations.customArrows as unknown as [Square, Square, string?][]) : undefined}
+                  customSquare={decorations.customSquare as any}
+                  customSquareStyles={customSquareStyles}
+                  customBoardStyle={{ borderRadius: '5px' }}
+                />
                 {decorations.overlay}
               </div>
 
