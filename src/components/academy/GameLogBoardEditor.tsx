@@ -351,6 +351,12 @@ export default function GameLogBoardEditor({ studentId, studentName, open, onClo
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+  // Depends on `loadingExisting`, not just `[]`: in edit mode the board div
+  // doesn't exist in the DOM at all until the fetch resolves (it's behind
+  // the loadingExisting ? spinner : board ternary below), so a mount-only
+  // effect would find boardOuterRef.current still null and never attach the
+  // observer — leaving boardPx stuck at 0 and the board permanently blank.
+  // Re-running once loading flips to false re-attempts against the real node.
   useEffect(() => {
     const el = boardOuterRef.current
     if (!el) return
@@ -360,7 +366,7 @@ export default function GameLogBoardEditor({ studentId, studentName, open, onClo
     const ro = new ResizeObserver(entries => apply(entries[0]?.contentRect.width ?? 0))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [loadingExisting])
 
   // ── Entry mode switching — mutually exclusive PGN sources; switching
   // resets the board/moves. ─────────────────────────────────────────────────
