@@ -8,6 +8,7 @@ import type { ClassroomSessionReport } from '@/services/classroomService'
 import FeedbackForm from '@/components/academy/FeedbackForm'
 import StudentProgressTable from '@/components/academy/StudentProgressTable'
 import LessonCentricReport from '@/components/academy/LessonCentricReport'
+import GamePerformancePanel from '@/components/academy/GamePerformancePanel'
 
 interface LessonOption {
   id: string
@@ -220,6 +221,15 @@ function StudentCentricView({
             <p className="text-2xl font-bold tracking-tight">{selectedStudent.points}</p>
           </div>
         </div>
+      )}
+
+      {/* Game Performance — Game Log, scoring, dashboard/charts (coach's
+          manual Excel workflow, ported) */}
+      {selectedStudent && (
+        <GamePerformancePanel
+          studentId={selectedStudentId}
+          studentName={selectedStudent.full_name ?? 'Student'}
+        />
       )}
 
       {/* Feedback form */}
