@@ -77,6 +77,8 @@ nul
 /docs/player-profile-metrics.md
 /rankings-prompt/
 /STYLING_PROFILE_PAGE_FILES
+/DYNAMIC_BOARD_DECORATIONS.md
+/TOURNAMENT_UPLOAD_RANKINGS_UPDATE_PIPELINE.md
 
 # Planning / execution / implementation docs — NEVER commit (any new ones too)
 *_PLAN.md
