@@ -197,6 +197,37 @@ export async function getLichessGameById(
   return response.json() as Promise<LichessGameJson>
 }
 
+/**
+ * Fetch a single game's full PGN text (not JSON) — clocks/evals/opening
+ * requested explicitly so Lichess actually embeds [%clk]/[%eval] comment
+ * tokens in the movetext, which lib/pgnParser.ts's parsePgn() then reads
+ * directly. Used by the Game Log board editor's "Pick from Lichess" mode —
+ * called once, only for the specific game a coach picks (not the whole
+ * candidate list).
+ * No auth required for public games.
+ * Endpoint: GET /game/export/{gameId} with Accept: application/x-chess-pgn
+ */
+export async function getLichessGamePgn(gameId: string, accessToken?: string): Promise<string> {
+  const url = new URL(`${LICHESS_API}/game/export/${encodeURIComponent(gameId)}`)
+  url.searchParams.set('clocks', 'true')
+  url.searchParams.set('evals', 'true')
+  url.searchParams.set('opening', 'true')
+
+  const headers: Record<string, string> = { Accept: 'application/x-chess-pgn' }
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(url.toString(), { headers })
+
+  if (!response.ok) {
+    console.error('[lichess.service] getLichessGamePgn failed:', response.status)
+    throw new Error(`Failed to fetch PGN for game '${gameId}': ${response.status}`)
+  }
+
+  return response.text()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rating History
 // ─────────────────────────────────────────────────────────────────────────────
