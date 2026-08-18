@@ -902,13 +902,6 @@
     "method": "location-exact",
     "matchedOn": "duiwelskloof"
   },
-  "ad392b58-e709-4bf1-96df-ab2d0fb18747": {
-    "province": "Limpopo",
-    "district": "Capricorn",
-    "confidence": 0.97,
-    "method": "location-exact",
-    "matchedOn": "polokwane"
-  },
   "b4bca419-a8c5-4e96-97ed-eb7a6628feca": {
     "province": "Limpopo",
     "district": "Capricorn",
@@ -936,13 +929,6 @@
     "confidence": 0.97,
     "method": "location-exact",
     "matchedOn": "johannesburg"
-  },
-  "baf11473-a21e-46a2-9396-05f64b7ef23d": {
-    "province": "Limpopo",
-    "district": "Capricorn",
-    "confidence": 0.97,
-    "method": "location-exact",
-    "matchedOn": "northern academy"
   },
   "bbb5ea8d-a855-4d0c-a843-950bbdbe9bf8": {
     "province": "Limpopo",
@@ -1160,13 +1146,6 @@
     "confidence": 0.82,
     "method": "organizer",
     "matchedOn": "capricorn district"
-  },
-  "ebeb31ae-c442-48c4-90bf-318a1093c6ac": {
-    "province": "Limpopo",
-    "district": "Capricorn",
-    "confidence": 0.97,
-    "method": "location-exact",
-    "matchedOn": "northern academy"
   },
   "ec0a5bc5-1647-4eb6-8787-721338b699c7": {
     "province": "Limpopo",
@@ -1636,5 +1615,208 @@
     "confidence": 0.82,
     "method": "name",
     "matchedOn": "capricorn"
+  },
+  "ca96712c-b67b-4b97-9efa-ee4189952b9f": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "9afb1ee8-1341-4cd9-986c-b67297b9f3a0": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "2e003f91-7069-49c9-9c89-cb94b238f0dc": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "2482c352-16ca-45fb-9278-4e767286453e": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "7fe02b28-9959-4a32-85bd-c07161188420": {
+    "province": null,
+    "district": null,
+    "confidence": 0,
+    "method": "unmatched",
+    "matchedOn": null
+  },
+  "6a1c02c6-6388-45dc-85ab-f9340249a569": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "6fb885a4-68e7-45b6-b188-a4f8e72e83ef": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "11881803-2c44-4c68-85f9-1de89541bd30": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "f5dae6bb-1cef-4038-bb1f-7a1432324d30": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "e1e3bc1f-0402-4e8c-8e1a-f8a90d903f9f": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "e36aa067-2ed2-4e6b-adcb-2d6741b34b84": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "17f58de7-5503-4e71-9fe9-b7aff56347c7": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "6aa0033a-1506-415e-a185-1c3480f36ec6": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "f861b70b-619f-4527-a005-b943ea5e9062": {
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "kgaswane country lodge"
+  },
+  "5010f9a0-e5c4-4cb6-a7ff-71bd5455500a": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "80bc0253-4399-44b2-898e-ffcf274e9127": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "da987b5e-7f26-4db7-a02f-441649caed09": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "5ddd4c43-d9a3-4189-b466-a165788b4441": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "9b62709a-88cc-4dcc-89de-cb7e86552a01": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "cb7ff536-4b3b-4c86-afde-48ff5113a81b": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "58ec5d86-92ec-48ef-866d-735c0d8cc891": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "befcef55-7b34-4474-8a62-9e8df3384ff7": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "8335e464-0e67-48f5-8339-cd1011643bbc": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "5f16f5f8-7ba4-4e70-9414-fe205b7fbfc4": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "d77bcff3-f5f0-45ac-bc95-3f772d1712b3": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "6d3626b1-7cb6-4f9a-b952-0af6fc108abc": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "57e58d3c-f28f-4788-a532-df207343805f": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "3961b244-557e-4113-975a-94bad54787dc": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
+  },
+  "a52c8cb1-6839-4d7c-99b9-ef1d40beb6cf": {
+    "province": "Eastern Cape",
+    "district": "Nelson Mandela Bay",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "gqeberha"
   }
 }
