@@ -182,7 +182,6 @@ export default async function RootLayout({
                     groupIcon="database"
                     items={[
                       { href: "/chess-games",            label: "View Games", icon: "gamepad"   },
-                      { href: "/player-rankings", label: "Rankings",   icon: "trending"  },
                     ]}
                   />
                   <NavGroup
