@@ -1,8 +1,8 @@
 import Link from "next/link"
-import { Coffee, Mail, ShieldCheck } from "lucide-react"
+import { Mail, ShieldCheck } from "lucide-react"
 
-const coffeeMessage = encodeURIComponent(
-  "Hello Limpopo Chess Academy. I would like to buy you a coffee and support the website initiative.",
+const dataRequestMessage = encodeURIComponent(
+  "Hello Limpopo Chess Academy. I would like to request access to my data.",
 )
 
 export default function FundingPausePage() {
@@ -21,23 +21,25 @@ export default function FundingPausePage() {
         <div className="px-6 py-10 sm:px-10 sm:py-14">
           <p className="mb-4 text-sm font-medium text-primary">Website temporarily unavailable</p>
           <h1 className="max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            We need a little help to bring the site back.
+            We&rsquo;re resolving technical issues and improving the site.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Unfortunately, we have run out of the funds needed to maintain this website and the
-            services that keep it running. If this initiative matters to you, please consider
-            buying us a coffee or getting in touch to discuss another way to support it.
+            We&rsquo;re currently addressing technical challenges while refining and enhancing the
+            services offered through this website. All user data remains securely stored and
+            protected. If you need access to your data, you may request it and we will provide it.
+            We apologize for the inconvenience and appreciate your patience while our development
+            team works hard to restore the site.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a
-              href={`https://wa.me/27615419367?text=${coffeeMessage}`}
+              href={`https://wa.me/27615419367?text=${dataRequestMessage}`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex min-h-11 items-center justify-center gap-2 bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Coffee className="h-4 w-4" aria-hidden="true" />
-              Buy us a coffee
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Request data access
             </a>
             <Link
               href="/forms/contact-us"
@@ -51,7 +53,12 @@ export default function FundingPausePage() {
 
         <div className="flex items-start gap-3 border-t border-border bg-muted/30 px-6 py-5 text-sm text-muted-foreground sm:px-10">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <p>Player and tournament records remain protected while public access is paused.</p>
+          <div>
+            <p>Player and tournament records remain secure while public access is temporarily paused.</p>
+            <p className="mt-2 text-xs">
+              If you would like to support the site, please get in touch with us.
+            </p>
+          </div>
         </div>
       </section>
     </main>
