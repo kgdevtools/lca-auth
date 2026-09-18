@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-const OPEN_PATHS = ["/funding-pause", "/forms/contact-us"]
+const OPEN_PATHS = ["/funding-pause", "/forms/contact-us", "/forms/register-player"]
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
