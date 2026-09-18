@@ -347,7 +347,12 @@
 }
 .dim { color: var(--rk-muted); }
 .faint { color: var(--rk-faint); }
-.hero { color: var(--rk-accent); font-weight: 600; font-size: 14px; }
+.hero {
+  color: var(--rk-accent);
+  background: color-mix(in srgb, var(--rk-accent) 12%, transparent);
+  font-size: 14.5px;
+  font-weight: 700;
+}
 .delta { font-weight: 500; }
 .delta[data-sign="pos"] { color: var(--rk-pos); }
 .delta[data-sign="neg"] { color: var(--rk-neg); }
