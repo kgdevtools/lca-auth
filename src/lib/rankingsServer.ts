@@ -10,6 +10,7 @@
  * a client component.
  */
 import { fetchRankingData, ratings } from "./ratingsClient";
+import { fetchShadowRankingData } from "./shadowRankingsClient";
 import {
   rankPlayers,
   type Appearance,
@@ -36,15 +37,17 @@ const cache = new Map<string, { at: number; pool: Promise<RankedPlayer[]> }>();
  * category, min-events, search, sort, limit — can run client-side over the
  * result without ever re-aggregating.
  */
-function getRanked(period?: number): Promise<RankedPlayer[]> {
-  const key = String(period ?? "all");
+function getRanked(period?: number, source: "current" | "shadow" = "current"): Promise<RankedPlayer[]> {
+  const key = `${source}:${String(period ?? "all")}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.pool;
 
   // Store the promise (not the resolved value) so concurrent requests share one
   // in-flight aggregation rather than each kicking off their own.
   const pool = (async () => {
-    const { appearances, tournaments } = await fetchRankingData();
+    const { appearances, tournaments } = source === "shadow"
+      ? await fetchShadowRankingData()
+      : await fetchRankingData();
     return rankPlayers(appearances, tournaments, regions, {
       minTournaments: 1,
       limit: Number.MAX_SAFE_INTEGER,
@@ -72,6 +75,19 @@ export async function getPlayerAppearances(
 ): Promise<Appearance[]> {
   const ranked = await getRanked(period);
   return ranked.find((p) => p.key === key)?.appearances ?? [];
+}
+
+export async function getShadowSummaries(period?: number): Promise<RankedSummary[]> {
+  const ranked = await getRanked(period, "shadow");
+  return ranked.map(({ appearances: _drop, ...rest }) => rest);
+}
+
+export async function getShadowPlayerAppearances(
+  key: string,
+  period?: number,
+): Promise<Appearance[]> {
+  const ranked = await getRanked(period, "shadow");
+  return ranked.find((player) => player.key === key)?.appearances ?? [];
 }
 
 /**

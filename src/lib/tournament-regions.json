@@ -1,4 +1,32 @@
 {
+  "81766a5a-96cf-4ed8-9567-a10d6d70fcb3": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 1,
+    "method": "manual",
+    "matchedOn": "Mopani Open & Qualifying Tournament NO3"
+  },
+  "9edde203-a126-4044-93bd-5f2e605cdae0": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "59b4f0a7-ef53-4185-a5dc-dd893ad07106": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "870b4bc9-8a67-4458-a45d-0dafcd2445a7": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
   "02cb022f-8812-4033-bb68-72c19fa73830": {
     "province": "Limpopo",
     "district": "Mopani",

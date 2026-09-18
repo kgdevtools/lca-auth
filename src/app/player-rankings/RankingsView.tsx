@@ -26,6 +26,10 @@ interface RankingsViewProps {
   initialPlayers: RankedSummary[]
   /** Period the initial pool was aggregated for; matches FILTER_DEFAULTS.period. */
   initialPeriod?: number
+  /** Endpoint used for period changes and expanded histories. */
+  dataPath?: string
+  /** Player-profile route. Shadow previews deliberately retain current profiles. */
+  profileBasePath?: string
 }
 
 type SortField =
@@ -184,6 +188,7 @@ function PlayerRow({
   cohort,
   colSpan,
   onToggle,
+  profileBasePath,
 }: {
   p: RankedSummary
   rank: number
@@ -199,6 +204,7 @@ function PlayerRow({
   /** Full-width column span for the expanded panel (max columns for the mode). */
   colSpan: number
   onToggle: () => void
+  profileBasePath: string
 }) {
   const age = ageGroupOf(p.birthYear)
   return (
@@ -271,14 +277,19 @@ function PlayerRow({
       </tr>
       {open && (
         <tr>
-          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} cohort={cohort} colSpan={colSpan} />
+          <ExpandedPanel p={p} appearances={appearances} verdict={verdict} cohort={cohort} colSpan={colSpan} profileBasePath={profileBasePath} />
         </tr>
       )}
     </Fragment>
   )
 }
 
-export default function RankingsView({ initialPlayers, initialPeriod }: RankingsViewProps) {
+export default function RankingsView({
+  initialPlayers,
+  initialPeriod,
+  dataPath = "/player-rankings/data",
+  profileBasePath = "/player-rankings",
+}: RankingsViewProps) {
   const [filters, setFilters] = useState<UiFilters>(FILTER_DEFAULTS)
   const [sort, setSort] = useState<Sort>({ field: "avgPerf", dir: "desc" })
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -340,7 +351,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
     let cancelled = false
     setLoadingPool(true)
     setPoolError(false)
-    fetch(`/player-rankings/data?period=${periodKey}`)
+    fetch(`${dataPath}?period=${periodKey}`)
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status))
         return r.json()
@@ -357,14 +368,14 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
     return () => {
       cancelled = true
     }
-  }, [periodKey, pools, retryTick])
+  }, [periodKey, pools, retryTick, dataPath])
 
   // Fetch the open player's appearance history on demand.
   const historyKey = openKey ? `${periodKey}:${openKey}` : null
   useEffect(() => {
     if (!openKey || !historyKey || history[historyKey]) return
     let cancelled = false
-    fetch(`/player-rankings/data?period=${periodKey}&key=${encodeURIComponent(openKey)}`)
+    fetch(`${dataPath}?period=${periodKey}&key=${encodeURIComponent(openKey)}`)
       .then((r) => r.json())
       .then((d: { appearances: Appearance[] }) => {
         if (!cancelled) setHistory((prev) => ({ ...prev, [historyKey]: d.appearances }))
@@ -373,7 +384,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
     return () => {
       cancelled = true
     }
-  }, [openKey, periodKey, historyKey, history])
+  }, [openKey, periodKey, historyKey, history, dataPath])
 
   // CDC selection columns are only meaningful within a single cycle (the 2025
   // period). The all-players view judges each player against their own cohort.
@@ -604,6 +615,7 @@ export default function RankingsView({ initialPlayers, initialPeriod }: Rankings
                     cohort={selectionMode ? (selectionMode === "all" ? cohortFor(p) : selectionMode) : undefined}
                     colSpan={selectionMode ? 12 : 9}
                     onToggle={() => setOpenKey((k) => (k === p.key ? null : p.key))}
+                    profileBasePath={profileBasePath}
                   />
                 ))}
               </tbody>

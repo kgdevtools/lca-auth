@@ -11,6 +11,12 @@
 
 export type TournamentType = 'junior' | 'open' | 'other';
 
+// Explicit Open events whose names also contain selection-like wording. Keep
+// these ahead of junior keyword checks so their classification cannot drift.
+const OPEN_KEYWORDS = [
+  'mopani open & qualifying tournament no3',
+];
+
 // Junior-qualifying tournament name keywords. Ported from the admin
 // tournament-selection module so both surfaces classify identically.
 const JUNIOR_KEYWORDS = [
@@ -38,6 +44,7 @@ const JUNIOR_KEYWORDS = [
 export function classifyTournament(name: string | null | undefined): TournamentType {
   const n = (name ?? '').toLowerCase().trim();
   if (!n) return 'other';
+  if (OPEN_KEYWORDS.some((kw) => n.includes(kw))) return 'open';
   if (JUNIOR_KEYWORDS.some((kw) => n.includes(kw))) return 'junior';
   if (n.includes('team')) return 'other';
   return 'open';

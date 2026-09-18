@@ -14,6 +14,7 @@ export default function ExpandedPanel({
   verdict,
   cohort,
   colSpan = 8,
+  profileBasePath = "/player-rankings",
 }: {
   p: RankedSummary
   /** Lazily fetched on expand; null while the request is in flight. */
@@ -24,6 +25,7 @@ export default function ExpandedPanel({
   cohort?: "junior" | "senior"
   /** Columns to span so the panel fills the full table width (see RankingsView). */
   colSpan?: number
+  profileBasePath?: string
 }) {
   const loading = appearances === null
   const shown = appearances ?? []
@@ -47,7 +49,7 @@ export default function ExpandedPanel({
         {/* profile / summary */}
         <aside className={styles.profile}>
           <Link
-            href={`/player-rankings/${encodeURIComponent(p.key)}`}
+            href={`${profileBasePath}/${encodeURIComponent(p.key)}`}
             className={styles.profileName}
             target="_blank"
             rel="noopener noreferrer"
