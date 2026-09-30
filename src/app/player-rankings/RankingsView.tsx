@@ -71,7 +71,11 @@ interface Sort {
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ")
 
 // Limpopo grouping — "LIM" matches any of its sub-union federation codes.
-const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWT"])
+const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWT", "LWM"])
+
+// Limpopo district filters — like LIM, a player counts if they have EVER played
+// under that district's code.
+const DISTRICT_CODES = new Set(["LVT", "LCP", "LSG", "LMG", "LWM"])
 
 // Player-federation "region" filter. Matches against the full federations array
 // so a player who has EVER played under a local union counts as local — RSA only
@@ -81,6 +85,7 @@ function passesRegion(p: RankedSummary, region: string): boolean {
   if (region === "all") return true
   // Federation-based.
   if (region === "LIM") return p.federations.some((c) => LIM_CODES.has(c.toUpperCase()))
+  if (DISTRICT_CODES.has(region)) return p.federations.some((c) => c.toUpperCase() === region)
   // Location-based: who actually PLAYED in Capricorn / Limpopo, regardless of (or
   // missing) a federation code. Catches RSA/GTP/uncoded players at local events.
   if (region === "PLAYED_CAP") return p.playedCapricorn
@@ -584,7 +589,7 @@ export default function RankingsView({
                   <th className={cx(styles.ageHead, styles.hideMobile)}>Age</th>
                   <SortTh field="currentRating" label="Chess SA" sort={sort} onSort={onSort} className={styles.hideMobile} />
                   <SortTh field="fideRating" label="FIDE" sort={sort} onSort={onSort} className={styles.hideMobile} />
-                  <SortTh field="avgPerf" label="Avg" sort={sort} onSort={onSort} />
+                  <SortTh field="avgPerf" label="Avg" sort={sort} onSort={onSort} className={styles.heroTh} />
                   <SortTh field="bestPerf" label="Best" sort={sort} onSort={onSort} />
                   {selectionMode ? (
                     <>

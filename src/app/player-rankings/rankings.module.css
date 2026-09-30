@@ -347,12 +347,14 @@
 }
 .dim { color: var(--rk-muted); }
 .faint { color: var(--rk-faint); }
+/* Avg performance — the headline figure, so it gets a light-blue band. */
 .hero {
   color: var(--rk-accent);
-  background: color-mix(in srgb, var(--rk-accent) 12%, transparent);
-  font-size: 14.5px;
-  font-weight: 700;
+  background: color-mix(in srgb, #38bdf8 16%, transparent);
+  font-size: 16px;
+  font-weight: 800;
 }
+.heroTh { background: color-mix(in srgb, #38bdf8 16%, transparent); }
 .delta { font-weight: 500; }
 .delta[data-sign="pos"] { color: var(--rk-pos); }
 .delta[data-sign="neg"] { color: var(--rk-neg); }

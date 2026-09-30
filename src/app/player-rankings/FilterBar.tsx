@@ -10,7 +10,7 @@ export interface UiFilters {
   search?: string
   category: Category
   ageGroup?: string
-  /** Player-federation grouping: "all" | "LIM" | "RSA". */
+  /** Player-federation grouping: "all" | "LIM" | a Limpopo district code | "RSA". */
   region?: string
   /** Registry sex. */
   sex?: "M" | "F"
@@ -69,6 +69,11 @@ interface FilterBarProps {
 
 const REGION_LABEL: Record<string, string> = {
   LIM: "Limpopo",
+  LVT: "Vhembe (LVT)",
+  LCP: "Capricorn (LCP)",
+  LSG: "Sekhukhune (LSG)",
+  LMG: "Mopani (LMG)",
+  LWM: "Waterberg (LWM)",
   RSA: "RSA",
   PLAYED_CAP: "Played in Capricorn",
   PLAYED_LIM: "Played in Limpopo",
@@ -274,6 +279,13 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
                 <optgroup label="By federation">
                   <option value="LIM">Limpopo (LIM)</option>
                   <option value="RSA">RSA</option>
+                </optgroup>
+                <optgroup label="Limpopo districts">
+                  <option value="LVT">Vhembe (LVT)</option>
+                  <option value="LCP">Capricorn (LCP)</option>
+                  <option value="LSG">Sekhukhune (LSG)</option>
+                  <option value="LMG">Mopani (LMG)</option>
+                  <option value="LWM">Waterberg (LWM)</option>
                 </optgroup>
                 <optgroup label="By tournaments played">
                   <option value="PLAYED_CAP">Played in Capricorn</option>
