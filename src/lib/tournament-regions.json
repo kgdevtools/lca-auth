@@ -1846,5 +1846,75 @@
     "confidence": 0.97,
     "method": "location-exact",
     "matchedOn": "gqeberha"
+  },
+  "8693c0d5-abcd-4456-8d1e-0511c43cbf6e": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "bbe2c796-8637-41d3-88d3-54cd7419190f": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "cfa5337a-0151-4356-95b8-dfe1e75c3c9c": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "85275778-7880-4c92-9743-b1baed13d9b6": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "d2063e77-c681-47d0-baca-7a5987262888": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "87c1d0e6-4ac7-454b-98dc-0ca5052e4a53": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "a3856881-34e9-4004-8aee-3b7f0c93cde5": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "3885ada9-85e7-4d51-83b0-76aeb70ac181": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 1,
+    "method": "manual",
+    "matchedOn": "Heritage Day Open 2026 (Mopani)"
+  },
+  "0107e11e-b407-4bd8-86b5-1ff8f527171a": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 1,
+    "method": "manual",
+    "matchedOn": "Heritage Day Open 2026 (Mopani)"
+  },
+  "118185da-f7de-4d7e-ae35-aa306bb47203": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 1,
+    "method": "manual",
+    "matchedOn": "Heritage Day Open 2026 (Mopani)"
   }
 }
