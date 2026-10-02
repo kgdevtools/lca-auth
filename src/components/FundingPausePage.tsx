@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { CalendarDays, Mail, ShieldCheck, Trophy } from "lucide-react"
+import { CalendarDays, Mail, ShieldCheck } from "lucide-react"
+import RankingsLink from "@/components/RankingsLink"
 
 const dataRequestMessage = encodeURIComponent(
   "Hello Limpopo Chess Academy. I would like to request access to my data.",
@@ -23,13 +24,7 @@ export default function FundingPausePage() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link
-              href="/rankings"
-              className="inline-flex min-h-11 items-center justify-center gap-2 bg-amber-500 px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
-            >
-              <Trophy className="h-4 w-4" aria-hidden="true" />
-              View rankings
-            </Link>
+            <RankingsLink />
             <a
               href={`https://wa.me/27615419367?text=${dataRequestMessage}`}
               target="_blank"
