@@ -15,6 +15,8 @@ export type TournamentType = 'junior' | 'open' | 'other';
 // these ahead of junior keyword checks so their classification cannot drift.
 const OPEN_KEYWORDS = [
   'mopani open & qualifying tournament no3',
+  // Otherwise caught by the 'mopani open junior' junior keyword below.
+  'mopani open junior & open tournament',
 ];
 
 // Junior-qualifying tournament name keywords. Ported from the admin
