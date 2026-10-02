@@ -6,6 +6,7 @@ import type { Appearance, RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
 import styles from "./rankings.module.css"
 import PerfChart, { monthOf, yearOf } from "./PerfChart"
+import { ageGroupOf, isSeniorGroup } from "./FilterBar"
 
 const f1 = (n: number | null) => (n == null ? "0.0" : n.toFixed(1))
 
@@ -43,6 +44,7 @@ export default function ExpandedPanel({
 }) {
   const [listAll, setListAll] = useState(false)
   const loading = appearances === null
+  const age = ageGroupOf(p.birthYear)
   const all = appearances ?? []
   const regionEvents = tournamentRegion ? all.filter((a) => inTournamentRegion(a, tournamentRegion)) : []
   const shown = tournamentRegion && !listAll ? regionEvents : all
@@ -96,7 +98,7 @@ export default function ExpandedPanel({
             {p.title && <span className={styles.pfTag} style={{ color: "var(--primary)" }}>{p.title}</span>}
             <span className={styles.pfTag}>{p.federation ?? "N/A"}</span>
             <span className={styles.pfTag}>{p.sex ?? "N/A"}</span>
-            <span className={styles.pfTag}>b. {p.birthYear ?? "N/A"}</span>
+            {age !== "—" && <span className={styles.ageBadge} data-sen={isSeniorGroup(age)}>{age}</span>}
           </div>
 
           <div className={styles.profileBig}>
