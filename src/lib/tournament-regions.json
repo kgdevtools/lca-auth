@@ -1673,11 +1673,11 @@
     "matchedOn": "kgaswane country lodge"
   },
   "7fe02b28-9959-4a32-85bd-c07161188420": {
-    "province": null,
-    "district": null,
-    "confidence": 0,
-    "method": "unmatched",
-    "matchedOn": null
+    "province": "North West",
+    "district": "Bojanala",
+    "confidence": 1,
+    "method": "manual",
+    "matchedOn": "SA Junior Closed 2026 (Kgaswane Country Lodge, as sibling sections)"
   },
   "6a1c02c6-6388-45dc-85ab-f9340249a569": {
     "province": "North West",
@@ -1916,5 +1916,362 @@
     "confidence": 1,
     "method": "manual",
     "matchedOn": "Heritage Day Open 2026 (Mopani)"
+  },
+  "9eb1e7d0-6e86-45e9-a3d1-5d4defaab9ae": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "4e458ec9-4dbe-4469-8700-a68a362d4cdb": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "594e0196-8233-4ccb-89f1-c17caf935eb0": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "2b251946-9fff-4741-872f-98ef73ecba26": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "1cf6334c-267c-40ab-8bc1-5d560baa445d": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "938eb2e4-b40f-41b8-9a0b-753da0494a0f": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "48eee40f-f9bb-4c21-84fb-0cbbf78bd0b8": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "681b73b0-92b9-4166-a6c8-f5594bda5fba": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "a3592f61-6be4-414d-be53-bc87dd9dd482": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn"
+  },
+  "82770c89-5e31-4b8e-b943-063cf30685aa": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mopani"
+  },
+  "370fa6f7-c056-4941-bd8a-9fd453f15978": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mopani"
+  },
+  "fcc429ed-1da1-4c4a-be82-bd09d8f25ad8": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mopani"
+  },
+  "6d790751-0da5-47ff-99e9-07c68e5a3b43": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mopani"
+  },
+  "9b662d2f-0a6f-4e13-ad77-75c6aea1db42": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "capricorn district"
+  },
+  "0885d45b-2201-4191-8de3-1c16363b76e1": {
+    "province": "Limpopo",
+    "district": "Waterberg",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "lephalale"
+  },
+  "f5398d59-71b7-48bd-a24b-2bf2679c4b2c": {
+    "province": "Limpopo",
+    "district": "Waterberg",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "lephalale"
+  },
+  "6864e2e8-588b-4eea-b4da-28481f8c8bce": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "university of limpopo"
+  },
+  "7fc98646-6893-4f57-94ed-e7592d5d47ea": {
+    "province": "Limpopo",
+    "district": "Waterberg",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mokopane"
+  },
+  "b4438d21-503d-403e-bfb0-38bb58cff3d2": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "senwabarwana"
+  },
+  "0a6e316b-a0fa-46cf-b663-6b7812afa718": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "turfloop"
+  },
+  "bc25c526-6764-499c-81f4-296e24b8073f": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "nkowankowa"
+  },
+  "11f00225-a883-41e8-9cc4-25d49444fd3b": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "nkowankowa"
+  },
+  "1ff57756-7735-4d42-b1d8-5fc10ac10082": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "name",
+    "matchedOn": "polokwane"
+  },
+  "de0a66b5-7d5f-4a5c-942a-39aebac46336": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "phalaborwa"
+  },
+  "ec1beefb-75fb-4ea4-b09a-0f929cf81b57": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "phalaborwa"
+  },
+  "ecc0340c-e8be-4459-8b60-306ac9a6faad": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "phalaborwa"
+  },
+  "ab089366-dd42-488c-9e04-c74fd76cf836": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "phalaborwa"
+  },
+  "878df47a-3876-4f65-897f-f9cceb84feab": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "phalaborwa"
+  },
+  "eba4c0b5-14dc-4549-9497-08d96101bb24": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.88,
+    "method": "location-fuzzy",
+    "matchedOn": "polokwane"
+  },
+  "100165a4-fecb-4e40-a7c4-d2dbd7dd8faf": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "polokwane"
+  },
+  "0ea44c4e-d015-400d-8bc4-e8e1687b3a4d": {
+    "province": "Limpopo",
+    "district": "Waterberg",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "sekgakgapeng"
+  },
+  "ee45e4fc-8f5e-49d1-a5d4-8891aa72eea8": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "university of limpopo"
+  },
+  "5aec7986-23ef-4323-86c3-e9f2f075e3c7": {
+    "province": "Limpopo",
+    "district": "Waterberg",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "mokopane"
+  },
+  "2dc3bb3c-31e7-55b5-93df-4b2637f2fae6": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "28f8c1fd-bc87-5695-beff-7c3ea6da39e2": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "e7b6b3d9-fa85-53f1-93f3-fb858aa64192": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "57d13e1c-2a26-5a69-9e5c-18f66b824470": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "c830dc4b-b20d-5d00-9104-8253d516fe0d": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "8d85acc7-ae6f-5f91-8f4c-59bc7c06011b": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "b5aef5e3-40ef-536d-b575-7d40159554df": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "limpopo chess"
+  },
+  "c269768c-ba28-5c61-9dff-c861a104c56d": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "dd976c6c-5f1f-41a1-bb4e-4596720f1b71": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "e8ba671e-3101-4e71-a48b-74ff3cb8bb39": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "45c378ea-c403-4a80-a8ec-72ac5d80889e": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "e35f5990-d580-4169-a481-3970cf82e81b": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "06484f6c-7337-5476-bc7a-8b878fca3447": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "6cfd9d28-a374-4915-b4cf-596d172f59ec": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "aa4ddef3-eece-4736-bc8e-3d4be21cae07": {
+    "province": "Limpopo",
+    "district": "Mopani",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "mopani"
+  },
+  "a80afa2d-bfd3-59a3-909f-cada32e5c979": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
+  },
+  "da81a735-9d94-41f4-a18b-f8d624802963": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.82,
+    "method": "organizer",
+    "matchedOn": "capricorn district"
+  },
+  "e0ebeef7-2283-5124-932a-aed69adcc7cb": {
+    "province": "Limpopo",
+    "district": "Capricorn",
+    "confidence": 0.97,
+    "method": "location-exact",
+    "matchedOn": "northern academy"
   }
 }

@@ -12,6 +12,9 @@ export interface UiFilters {
   ageGroup?: string
   /** Player-federation grouping: "all" | "LIM" | a Limpopo district code | "RSA". */
   region?: string
+  /** Tournament-location filter: "LIMPOPO" (any Limpopo district) or a district
+   *  name. Keeps players who have played ≥1 event there; stats are unchanged. */
+  tournamentRegion?: string
   /** Registry sex. */
   sex?: "M" | "F"
   /** Chess season START year: 2024 = Oct 2024–Sep 2025, 2025 = Oct 2025–Sep 2026. */
@@ -65,7 +68,15 @@ interface FilterBarProps {
   /** Download the current view; the menu offers Excel and PDF. */
   onExport?: (format: "xlsx" | "pdf") => void
   exportDisabled?: boolean
+  /** Show the "Tournament region" dropdown (replaces the Region dropdown's
+   *  "By tournaments played" group). */
+  showTournamentRegion?: boolean
 }
+
+/** Limpopo districts a tournament can be mapped to (tournament-regions.json). */
+export const TOURNAMENT_DISTRICTS = ["Capricorn", "Mopani", "Sekhukhune", "Vhembe", "Waterberg"] as const
+
+const tournamentRegionLabel = (r: string) => `Played in ${r === "LIMPOPO" ? "Limpopo" : r}`
 
 const REGION_LABEL: Record<string, string> = {
   LIM: "Limpopo",
@@ -88,6 +99,9 @@ function scopeChips(filters: UiFilters, set: (patch: Partial<UiFilters>) => void
   const chips: { label: string; clear: () => void }[] = []
   const region = filters.region ?? "all"
   if (region !== "all") chips.push({ label: REGION_LABEL[region] ?? region, clear: () => set({ region: "all" }) })
+  if (filters.tournamentRegion) {
+    chips.push({ label: tournamentRegionLabel(filters.tournamentRegion), clear: () => set({ tournamentRegion: undefined }) })
+  }
   if (filters.period != null) {
     const p = filters.period
     chips.push({ label: periodLabel(p), clear: () => set({ period: undefined }) })
@@ -116,7 +130,7 @@ export function scopeLabels(filters: UiFilters): string[] {
 
 const MIN_EVENT_PRESETS = [1, 3, 4, 5, 6]
 
-export default function FilterBar({ filters, onChange, onExport, exportDisabled }: FilterBarProps) {
+export default function FilterBar({ filters, onChange, onExport, exportDisabled, showTournamentRegion }: FilterBarProps) {
   const [open, setOpen] = useState(false)
   const [dlOpen, setDlOpen] = useState(false)
   const set = (patch: Partial<UiFilters>) => onChange({ ...filters, ...patch })
@@ -148,7 +162,7 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
     (filters.region ?? "all") === FILTER_DEFAULTS.region &&
     filters.period === FILTER_DEFAULTS.period &&
     (filters.minTournaments ?? 1) === FILTER_DEFAULTS.minTournaments &&
-    !filters.sex && !filters.qualifiedOnly && (!filters.ageGroup || filters.ageGroup === "all")
+    !filters.sex && !filters.qualifiedOnly && !filters.tournamentRegion && (!filters.ageGroup || filters.ageGroup === "all")
 
   return (
     <div className={styles.filters}>
@@ -287,12 +301,34 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled 
                   <option value="LMG">Mopani (LMG)</option>
                   <option value="LWM">Waterberg (LWM)</option>
                 </optgroup>
-                <optgroup label="By tournaments played">
-                  <option value="PLAYED_CAP">Played in Capricorn</option>
-                  <option value="PLAYED_LIM">Played in Limpopo</option>
-                </optgroup>
+                {!showTournamentRegion && (
+                  <optgroup label="By tournaments played">
+                    <option value="PLAYED_CAP">Played in Capricorn</option>
+                    <option value="PLAYED_LIM">Played in Limpopo</option>
+                  </optgroup>
+                )}
               </select>
             </label>
+
+            {showTournamentRegion && (
+              <label className={styles.field}>
+                <span>Tournament region</span>
+                <select
+                  className={styles.sel}
+                  data-active={!!filters.tournamentRegion}
+                  value={filters.tournamentRegion ?? "all"}
+                  onChange={(e) => set({ tournamentRegion: e.target.value === "all" ? undefined : e.target.value })}
+                >
+                  <option value="all">All tournaments</option>
+                  <option value="LIMPOPO">Anywhere in Limpopo</option>
+                  <optgroup label="Limpopo districts">
+                    {TOURNAMENT_DISTRICTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </label>
+            )}
 
             <label className={styles.field}>
               <span>Gender</span>

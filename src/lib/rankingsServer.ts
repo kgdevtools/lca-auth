@@ -19,8 +19,15 @@ import {
   type RegionMap,
 } from "./rankings";
 import regionsData from "./tournament-regions.json";
+import duplicatesData from "./tournament-duplicates.json";
 
 const regions = regionsData as unknown as RegionMap;
+
+// Discarded copies of tournaments that were loaded twice (see the json's
+// _comment). Dropped from the shadow pool so their players aren't counted twice.
+const discardedTournamentIds = new Set(
+  Object.keys(duplicatesData).filter((k) => !k.startsWith("_")),
+);
 
 const TTL_MS = 3600_000; // 1 hour — mirrors the page's `revalidate`.
 
@@ -37,6 +44,16 @@ const cache = new Map<string, { at: number; pool: Promise<RankedPlayer[]> }>();
  * category, min-events, search, sort, limit — can run client-side over the
  * result without ever re-aggregating.
  */
+function dropDiscardedTournaments<T extends { appearances: { tournament_id: string }[]; tournaments: { id: string }[] }>(
+  data: T,
+): T {
+  return {
+    ...data,
+    appearances: data.appearances.filter((a) => !discardedTournamentIds.has(a.tournament_id)),
+    tournaments: data.tournaments.filter((t) => !discardedTournamentIds.has(t.id)),
+  };
+}
+
 function getRanked(period?: number, source: "current" | "shadow" = "current"): Promise<RankedPlayer[]> {
   const key = `${source}:${String(period ?? "all")}`;
   const hit = cache.get(key);
@@ -46,7 +63,7 @@ function getRanked(period?: number, source: "current" | "shadow" = "current"): P
   // in-flight aggregation rather than each kicking off their own.
   const pool = (async () => {
     const { appearances, tournaments } = source === "shadow"
-      ? await fetchShadowRankingData()
+      ? dropDiscardedTournaments(await fetchShadowRankingData())
       : await fetchRankingData();
     return rankPlayers(appearances, tournaments, regions, {
       minTournaments: 1,

@@ -30,6 +30,8 @@ interface RankingsViewProps {
   dataPath?: string
   /** Player-profile route. Shadow previews deliberately retain current profiles. */
   profileBasePath?: string
+  /** Enable the "Tournament region" filter (where the player has played). */
+  showTournamentRegion?: boolean
 }
 
 type SortField =
@@ -91,6 +93,14 @@ function passesRegion(p: RankedSummary, region: string): boolean {
   if (region === "PLAYED_CAP") return p.playedCapricorn
   if (region === "PLAYED_LIM") return p.playedLimpopo
   return (p.federation ?? "").toUpperCase() === region
+}
+
+// Tournament-location filter: keep players with ≥1 event in that district (or
+// anywhere in Limpopo). Their stats still cover every event they played.
+function passesTournamentRegion(p: RankedSummary, tournamentRegion: string | undefined): boolean {
+  if (!tournamentRegion) return true
+  if (tournamentRegion === "LIMPOPO") return p.playedLimpopo
+  return p.playedDistricts.includes(tournamentRegion)
 }
 
 // Category is a player-level include/exclude on birth year (it doesn't change a
@@ -294,6 +304,7 @@ export default function RankingsView({
   initialPeriod,
   dataPath = "/player-rankings/data",
   profileBasePath = "/player-rankings",
+  showTournamentRegion = false,
 }: RankingsViewProps) {
   const [filters, setFilters] = useState<UiFilters>(FILTER_DEFAULTS)
   const [sort, setSort] = useState<Sort>({ field: "avgPerf", dir: "desc" })
@@ -311,6 +322,7 @@ export default function RankingsView({
     if (cat === "juniors" || cat === "seniors") patch.category = cat as Category
     if (q.get("age")) patch.ageGroup = q.get("age")!
     if (q.get("region")) patch.region = q.get("region")!
+    if (showTournamentRegion && q.get("treg")) patch.tournamentRegion = q.get("treg")!
     const sex = q.get("sex")
     if (sex === "M" || sex === "F") patch.sex = sex
     if (q.has("period")) {
@@ -329,6 +341,7 @@ export default function RankingsView({
     if (filters.category !== "all") q.set("category", filters.category)
     if (filters.ageGroup && filters.ageGroup !== "all") q.set("age", filters.ageGroup)
     if ((filters.region ?? "all") !== FILTER_DEFAULTS.region) q.set("region", filters.region ?? "all")
+    if (filters.tournamentRegion) q.set("treg", filters.tournamentRegion)
     if (filters.sex) q.set("sex", filters.sex)
     if (filters.period !== FILTER_DEFAULTS.period) q.set("period", String(filters.period ?? "all"))
     if ((filters.minTournaments ?? 1) !== FILTER_DEFAULTS.minTournaments) q.set("min", String(filters.minTournaments ?? 1))
@@ -418,6 +431,7 @@ export default function RankingsView({
     let list = pool.filter(
       (p) =>
         passesRegion(p, region) &&
+        passesTournamentRegion(p, filters.tournamentRegion) &&
         passesCategory(p, filters) &&
         (!sex || (p.sex ?? "").toUpperCase() === sex) &&
         p.ratedTournaments >= minT &&
@@ -473,6 +487,7 @@ export default function RankingsView({
         onChange={setFilters}
         onExport={handleExport}
         exportDisabled={exporting || loadingPool || !pools[periodKey] || allPlayers.length === 0}
+        showTournamentRegion={showTournamentRegion}
       />
 
       {/* One quiet line — the legal scope, always visible, no ceremony. */}

@@ -174,6 +174,9 @@ export interface RankedPlayer {
    *  up at local tournaments are still rankable. */
   playedCapricorn: boolean;
   playedLimpopo: boolean;
+  /** Every district (any province) the player has played ≥1 event in, any
+   *  tournament type, sorted. Drives the "Tournament region" filter. */
+  playedDistricts: string[];
   /** Newest first. */
   appearances: Appearance[];
 }
@@ -410,6 +413,9 @@ export function rankPlayers(
     // Location-based participation across ALL appearances (any tournament type).
     const playedCapricorn = p.appearances.some((a) => a.district === 'Capricorn');
     const playedLimpopo = p.appearances.some((a) => a.province === 'Limpopo');
+    const playedDistricts = [
+      ...new Set(p.appearances.map((a) => a.district).filter((d): d is string => !!d)),
+    ].sort();
     const wins = p.appearances.filter((a) => a.rank === 1).length;
 
     ranked.push({
@@ -441,6 +447,7 @@ export function rankPlayers(
       hasCapricornOpen,
       playedCapricorn,
       playedLimpopo,
+      playedDistricts,
       appearances: [...p.appearances].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
     });
   }
