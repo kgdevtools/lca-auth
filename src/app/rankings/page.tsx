@@ -46,7 +46,7 @@ export default async function IncrementalRankingsPreviewPage() {
         initialPlayers={initialPlayers}
         initialPeriod={DEFAULT_PERIOD}
         dataPath="/rankings/data"
-        profileBasePath="/player-rankings"
+        profileBasePath="/rankings"
         showTournamentRegion
       />
     </>

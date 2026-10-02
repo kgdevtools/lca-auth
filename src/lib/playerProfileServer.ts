@@ -11,7 +11,8 @@
  * is a profile-only query and never weighs down the rankings table.
  */
 import { fetchTournamentMeta, fetchTournamentPlayers } from './ratingsClient';
-import { getPlayer } from './rankingsServer';
+import { getPlayer, type RankingSource } from './rankingsServer';
+import { fetchShadowTournamentPlayers } from './shadowRankingsClient';
 import { fetchTeamGamesForPlayer } from './teamGamesServer';
 import type { Appearance, RankedPlayer, RawRosterRow, RoundToken } from './rankings';
 
@@ -268,8 +269,9 @@ function normaliseRound(raw: RoundToken | null | undefined): RoundToken | null {
 export async function getPlayerProfile(
   key: string,
   period?: number,
+  source: RankingSource = 'current',
 ): Promise<PlayerProfile | null> {
-  const player = await getPlayer(key, period);
+  const player = await getPlayer(key, period, source);
   if (!player) return null;
 
   const tournamentIds = player.appearances.map((a) => a.tournamentId);
@@ -280,7 +282,7 @@ export async function getPlayerProfile(
   let metaMap = new Map<string, { location: string | null; arbiter: string | null }>();
   try {
     const [roster, meta] = await Promise.all([
-      fetchTournamentPlayers(tournamentIds),
+      source === 'shadow' ? fetchShadowTournamentPlayers(tournamentIds) : fetchTournamentPlayers(tournamentIds),
       fetchTournamentMeta(tournamentIds).catch((err) => {
         console.error('[playerProfile] tournament meta fetch failed:', err);
         return [];

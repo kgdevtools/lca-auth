@@ -406,8 +406,11 @@ function FiltersMenu({
 
 export default function ProfileView({
   profile,
+  source = "current",
 }: {
   profile: PlayerProfile
+  /** "shadow" when rendered under /rankings (the cached shadow pool). */
+  source?: "current" | "shadow"
 }) {
   const { player: p, byEvent } = profile
   const [tab, setTab] = useState<Tab>("tournaments")
@@ -452,7 +455,7 @@ export default function ProfileView({
 
   return (
     <div className={styles.page}>
-      <Link href="/player-rankings" className={styles.back}>‹ Back to rankings</Link>
+      <Link href={source === "shadow" ? "/rankings" : "/player-rankings"} className={styles.back}>‹ Back to rankings</Link>
 
       {/* Header */}
       <header className={styles.header}>
@@ -614,7 +617,7 @@ export default function ProfileView({
       {tab === "games" && (
         <>
           {filterActive && <p className={styles.note}>Showing all recorded games — the filters above don&apos;t apply here.</p>}
-          <GamesTab playerKey={p.key} />
+          <GamesTab playerKey={p.key} source={source} />
         </>
       )}
     </div>

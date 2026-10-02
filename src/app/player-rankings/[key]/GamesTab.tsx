@@ -19,7 +19,7 @@ function pgnTag(pgn: string, tag: string): string | null {
 
 const RESULT_LABEL: Record<string, string> = { "1-0": "1–0", "0-1": "0–1", "1/2-1/2": "½–½", "*": "*" }
 
-export default function GamesTab({ playerKey }: { playerKey: string }) {
+export default function GamesTab({ playerKey, source = "current" }: { playerKey: string; source?: "current" | "shadow" }) {
   const [games, setGames] = useState<LinkedGame[] | null>(null)
   const [sel, setSel] = useState(0)
   // Bumped on a preview click so the board remounts and loads that game; in-board
@@ -29,12 +29,12 @@ export default function GamesTab({ playerKey }: { playerKey: string }) {
   useEffect(() => {
     let alive = true
     setGames(null)
-    fetch(`/api/players/games?key=${encodeURIComponent(playerKey)}`)
+    fetch(`/api/players/games?key=${encodeURIComponent(playerKey)}&source=${source}`)
       .then((r) => (r.ok ? r.json() : { games: [] }))
       .then((d: { games?: LinkedGame[] }) => { if (alive) setGames(d.games ?? []) })
       .catch(() => { if (alive) setGames([]) })
     return () => { alive = false }
-  }, [playerKey])
+  }, [playerKey, source])
 
   if (games === null) {
     return (

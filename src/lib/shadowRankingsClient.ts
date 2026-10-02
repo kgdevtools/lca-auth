@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createClient } from "@supabase/supabase-js"
-import type { RawTournament, RawViewRow } from "./rankings"
+import type { RawRosterRow, RawTournament, RawViewRow } from "./rankings"
 
 const url = process.env.NEXT_PUBLIC_RATINGS_SUPABASE_URL
 const serviceKey = process.env.RATINGS_SUPABASE_SERVICE_ROLE_KEY
@@ -47,4 +47,25 @@ export async function fetchShadowRankingData(): Promise<{
     fetchAll<RawTournament>("sd_tournaments", "id, tournament_name, date"),
   ])
   return { appearances, tournaments }
+}
+
+/** Shadow counterpart of ratingsClient.fetchTournamentPlayers, for the /rankings profile. */
+export async function fetchShadowTournamentPlayers(tournamentIds: string[]): Promise<RawRosterRow[]> {
+  const ids = [...new Set(tournamentIds)].filter(Boolean)
+  const rows: RawRosterRow[] = []
+  if (ids.length === 0) return rows
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await ratingsServer
+      .from("rs_local_active_players_cached_shadow")
+      .select("tournament_id, rank, name, federation, tournament_rating, points, rounds")
+      .in("tournament_id", ids)
+      .order("tournament_id", { ascending: true })
+      .order("rank", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw new Error(`rs_local_active_players_cached_shadow roster: ${error.message}`)
+    if (!data?.length) break
+    rows.push(...(data as unknown as RawRosterRow[]))
+    if (data.length < PAGE_SIZE) break
+  }
+  return rows
 }

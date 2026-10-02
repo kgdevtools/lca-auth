@@ -5,6 +5,9 @@ const OPEN_PATHS = [
   "/forms/contact-us",
   "/forms/register-player",
   "/rankings",
+  // Games tab of the /rankings player profile, and its analysis engine.
+  "/api/players/games",
+  "/engine",
 ]
 
 export function proxy(request: NextRequest) {

@@ -44,6 +44,8 @@ const cache = new Map<string, { at: number; pool: Promise<RankedPlayer[]> }>();
  * category, min-events, search, sort, limit — can run client-side over the
  * result without ever re-aggregating.
  */
+export type RankingSource = "current" | "shadow";
+
 function dropDiscardedTournaments<T extends { appearances: { tournament_id: string }[]; tournaments: { id: string }[] }>(
   data: T,
 ): T {
@@ -54,7 +56,7 @@ function dropDiscardedTournaments<T extends { appearances: { tournament_id: stri
   };
 }
 
-function getRanked(period?: number, source: "current" | "shadow" = "current"): Promise<RankedPlayer[]> {
+function getRanked(period?: number, source: RankingSource = "current"): Promise<RankedPlayer[]> {
   const key = `${source}:${String(period ?? "all")}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.pool;
@@ -115,8 +117,9 @@ export async function getShadowPlayerAppearances(
 export async function getPlayer(
   key: string,
   period?: number,
+  source: RankingSource = "current",
 ): Promise<RankedPlayer | null> {
-  const ranked = await getRanked(period);
+  const ranked = await getRanked(period, source);
   return ranked.find((p) => p.key === key) ?? null;
 }
 

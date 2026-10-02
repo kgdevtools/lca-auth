@@ -8,10 +8,11 @@ import { findPlayerGames } from '@/lib/playerGames'
 // cached rankings pool (cheap), not the per-profile roster fetch.
 export async function GET(request: NextRequest) {
   try {
-    const key = new URL(request.url).searchParams.get('key')
+    const params = new URL(request.url).searchParams
+    const key = params.get('key')
     if (!key) return NextResponse.json({ games: [] })
 
-    const player = await getPlayer(key)
+    const player = await getPlayer(key, undefined, params.get('source') === 'shadow' ? 'shadow' : 'current')
     if (!player) return NextResponse.json({ games: [] })
 
     const tournamentNames = player.appearances.map((a) => a.tournamentName)
