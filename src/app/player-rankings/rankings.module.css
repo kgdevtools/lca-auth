@@ -824,3 +824,91 @@
 }
 .showMore:hover { color: var(--rk-accent); border-color: var(--rk-accent); }
 .showMoreC { color: var(--rk-faint); font-weight: 500; }
+
+/* ── Player modal (/rankings) ─────────────────────────── */
+/* Native <dialog> in the top layer; still a DOM child of .page, so the --rk-*
+   tokens inherit. ::backdrop does NOT inherit custom properties in every
+   browser, hence the literal colour there. */
+.modal {
+  width: min(1100px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--rk-border);
+  border-radius: 8px;
+  background: var(--rk-surface);
+  color: var(--rk-text);
+  box-shadow: 0 24px 60px rgb(2 6 23 / 0.35);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.modal[open] { animation: rk-modal-in .18s ease-out; }
+.modal:focus { outline: none; }
+.modal::backdrop {
+  background: rgb(2 6 23 / 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: rk-fade-in .18s ease-out;
+}
+@keyframes rk-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rk-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .modal[open], .modal::backdrop { animation: none; }
+}
+.modalInner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.modalBar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rk-border);
+  background: var(--rk-surface);
+}
+.modalNav { display: flex; align-items: center; gap: 6px; }
+.modalPos { font-family: var(--rk-mono); font-size: 12px; color: var(--rk-muted); margin-left: 4px; }
+.modalBtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border: 1px solid var(--rk-border); border-radius: 2px;
+  background: transparent; color: var(--rk-text); cursor: pointer;
+}
+.modalBtn:hover:not(:disabled) { color: var(--rk-accent); border-color: var(--rk-accent); }
+.modalBtn:disabled { opacity: .35; cursor: default; }
+.modalBtn:focus-visible { outline: 2px solid var(--rk-accent); outline-offset: 1px; }
+/* Inside the modal the panel gets room: no reveal animation (the dialog
+   animates), and a taller event list than the inline 300px cap. */
+.modal .expandPad { animation: none; padding: 16px 18px 22px; }
+.modal .histScroll { max-height: min(56dvh, 560px); }
+@media (max-width: 767px) {
+  /* Phones: full-screen sheet; the content scrolls as one column. */
+  .modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .modalInner { max-height: 100dvh; height: 100%; }
+  .modal .histScroll { max-height: none; overflow: visible; }
+  .modal .hist th { position: static; }
+  .modalBtn { width: 40px; height: 40px; }
+}
+
+/* Tournament-region extras inside the player panel. */
+.regionFig { margin-top: 6px; width: 100%; text-align: right; font-size: 11.5px; color: var(--rk-muted); }
+.regionFig strong { font-family: var(--rk-mono); font-weight: 600; color: var(--rk-text); }
+.histHead {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 8px; font-size: 12px; color: var(--rk-muted);
+}
+.listAll { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--rk-text); font-size: 12px; user-select: none; }
+.listAll input { accent-color: var(--rk-accent); width: 15px; height: 15px; cursor: pointer; }
+.histEmpty { text-align: center !important; color: var(--rk-muted); padding: 18px 10px !important; }

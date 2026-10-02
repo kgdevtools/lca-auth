@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import type { Appearance, RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
@@ -8,6 +9,12 @@ import PerfChart, { monthOf, yearOf } from "./PerfChart"
 
 const f1 = (n: number | null) => (n == null ? "0.0" : n.toFixed(1))
 
+/** Does an appearance fall in the Tournament-region filter ("LIMPOPO" or a district)? */
+function inTournamentRegion(a: Appearance, region: string): boolean {
+  return region === "LIMPOPO" ? a.province === "Limpopo" : a.district === region
+}
+const regionName = (region: string) => (region === "LIMPOPO" ? "Limpopo" : region)
+
 export default function ExpandedPanel({
   p,
   appearances,
@@ -15,6 +22,8 @@ export default function ExpandedPanel({
   cohort,
   colSpan = 8,
   profileBasePath = "/player-rankings",
+  as = "cell",
+  tournamentRegion,
 }: {
   p: RankedSummary
   /** Lazily fetched on expand; null while the request is in flight. */
@@ -26,9 +35,21 @@ export default function ExpandedPanel({
   /** Columns to span so the panel fills the full table width (see RankingsView). */
   colSpan?: number
   profileBasePath?: string
+  /** "cell" renders inside the table row (inline expand); "block" for the modal. */
+  as?: "cell" | "block"
+  /** Active Tournament-region filter: narrows the event list + chart to that
+   *  region's events, with a "List all" escape hatch. Stats stay all-events. */
+  tournamentRegion?: string
 }) {
+  const [listAll, setListAll] = useState(false)
   const loading = appearances === null
-  const shown = appearances ?? []
+  const all = appearances ?? []
+  const regionEvents = tournamentRegion ? all.filter((a) => inTournamentRegion(a, tournamentRegion)) : []
+  const shown = tournamentRegion && !listAll ? regionEvents : all
+  const regionPerfs = regionEvents.map((a) => a.perf).filter((v): v is number => v !== null)
+  const regionAvg = regionPerfs.length
+    ? Math.round(regionPerfs.reduce((sum, v) => sum + v, 0) / regionPerfs.length)
+    : null
   // appearances are newest-first; chart wants oldest-first
   const chartPoints = [...shown]
     .reverse()
@@ -43,8 +64,7 @@ export default function ExpandedPanel({
         ? "Matched · FIDE"
         : "Unverified"
 
-  return (
-    <td className={styles.expandCell} colSpan={colSpan}>
+  const body = (
       <div className={styles.expandPad}>
         {/* profile / summary */}
         <aside className={styles.profile}>
@@ -83,6 +103,13 @@ export default function ExpandedPanel({
             <span className={styles.val}>{p.avgPerf}</span>
             <span className={styles.lab}>avg<br />performance</span>
           </div>
+          {tournamentRegion && !loading && (
+            <div className={styles.regionFig}>
+              {regionName(tournamentRegion)} only:{" "}
+              {regionAvg != null ? <strong>{regionAvg}</strong> : <strong>—</strong>} avg ·{" "}
+              {regionEvents.length} {regionEvents.length === 1 ? "event" : "events"}
+            </div>
+          )}
 
           <div className={styles.profileStats}>
             <div className={styles.ps}><span className={styles.l}>Best</span><span className={styles.v}>{p.bestPerf}</span></div>
@@ -132,6 +159,19 @@ export default function ExpandedPanel({
               ))}
             </div>
           )}
+          {!loading && tournamentRegion && (
+            <div className={styles.histHead}>
+              <span>
+                {listAll
+                  ? `All ${all.length} events`
+                  : `${regionEvents.length} of ${all.length} events · ${regionName(tournamentRegion)}`}
+              </span>
+              <label className={styles.listAll}>
+                <input type="checkbox" checked={listAll} onChange={(e) => setListAll(e.target.checked)} />
+                List all
+              </label>
+            </div>
+          )}
           {!loading && <PerfChart points={chartPoints} />}
 
           {!loading && (
@@ -156,6 +196,13 @@ export default function ExpandedPanel({
                 </tr>
               </thead>
               <tbody>
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className={styles.histEmpty}>
+                      No {tournamentRegion ? regionName(tournamentRegion) : ""} events in this period.
+                    </td>
+                  </tr>
+                )}
                 {shown.map((a) => (
                   <tr key={a.tournamentId}>
                     <td className={`${styles.l} ${styles.evDateCell}`}>
@@ -180,6 +227,9 @@ export default function ExpandedPanel({
           )}
         </div>
       </div>
-    </td>
+  )
+
+  return as === "block" ? body : (
+    <td className={styles.expandCell} colSpan={colSpan}>{body}</td>
   )
 }

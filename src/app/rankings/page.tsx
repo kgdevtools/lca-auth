@@ -48,6 +48,7 @@ export default async function IncrementalRankingsPreviewPage() {
         dataPath="/rankings/data"
         profileBasePath="/rankings"
         showTournamentRegion
+        playerModal
       />
     </>
   )

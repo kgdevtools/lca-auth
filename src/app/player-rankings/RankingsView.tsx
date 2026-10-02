@@ -19,6 +19,7 @@ import FilterBar, {
 import { juniorBandBirthYears } from "@/lib/ageGroups"
 import type { ExportFormat } from "./exportRankings"
 import ExpandedPanel from "./ExpandedPanel"
+import PlayerModal from "./PlayerModal"
 import styles from "./rankings.module.css"
 
 interface RankingsViewProps {
@@ -32,6 +33,9 @@ interface RankingsViewProps {
   profileBasePath?: string
   /** Enable the "Tournament region" filter (where the player has played). */
   showTournamentRegion?: boolean
+  /** Open player details in a modal (with ?player= in the URL) instead of
+   *  expanding the row inline. */
+  playerModal?: boolean
 }
 
 type SortField =
@@ -204,6 +208,7 @@ function PlayerRow({
   colSpan,
   onToggle,
   profileBasePath,
+  modal = false,
 }: {
   p: RankedSummary
   rank: number
@@ -220,6 +225,8 @@ function PlayerRow({
   colSpan: number
   onToggle: () => void
   profileBasePath: string
+  /** Details open in a modal; the row only highlights. */
+  modal?: boolean
 }) {
   const age = ageGroupOf(p.birthYear)
   return (
@@ -290,7 +297,7 @@ function PlayerRow({
           </>
         )}
       </tr>
-      {open && (
+      {open && !modal && (
         <tr>
           <ExpandedPanel p={p} appearances={appearances} verdict={verdict} cohort={cohort} colSpan={colSpan} profileBasePath={profileBasePath} />
         </tr>
@@ -305,6 +312,7 @@ export default function RankingsView({
   dataPath = "/player-rankings/data",
   profileBasePath = "/player-rankings",
   showTournamentRegion = false,
+  playerModal = false,
 }: RankingsViewProps) {
   const [filters, setFilters] = useState<UiFilters>(FILTER_DEFAULTS)
   const [sort, setSort] = useState<Sort>({ field: "avgPerf", dir: "desc" })
@@ -332,6 +340,7 @@ export default function RankingsView({
     const min = Number(q.get("min"))
     if (Number.isFinite(min) && min > 0) patch.minTournaments = min
     if (q.get("qf") === "1") patch.qualifiedOnly = true
+    if (playerModal && q.get("player")) setOpenKey(q.get("player"))
     if (Object.keys(patch).length) setFilters((f) => ({ ...f, ...patch }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -346,9 +355,34 @@ export default function RankingsView({
     if (filters.period !== FILTER_DEFAULTS.period) q.set("period", String(filters.period ?? "all"))
     if ((filters.minTournaments ?? 1) !== FILTER_DEFAULTS.minTournaments) q.set("min", String(filters.minTournaments ?? 1))
     if (filters.qualifiedOnly) q.set("qf", "1")
+    if (playerModal && openKey) q.set("player", openKey)
     const qs = q.toString()
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
-  }, [filters])
+    // Keep history.state: it marks the entry pushed when the modal opened.
+    window.history.replaceState(window.history.state, "", qs ? `?${qs}` : window.location.pathname)
+  }, [filters, playerModal, openKey])
+
+  // Modal ↔ history: opening pushes an entry so Back (or a phone's back gesture)
+  // closes the modal instead of leaving the page; Back/Forward re-sync openKey.
+  useEffect(() => {
+    if (!playerModal) return
+    const onPop = () => setOpenKey(new URLSearchParams(window.location.search).get("player"))
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [playerModal])
+  const openPlayer = (key: string) => {
+    if (!openKey) {
+      // Push the final URL (with ?player=) — Next re-syncs its router to the pushed
+      // URL, so pushing the bare URL and adding the param afterwards gets undone.
+      const url = new URL(window.location.href)
+      url.searchParams.set("player", key)
+      window.history.pushState({ rkModal: true }, "", url)
+    }
+    setOpenKey(key)
+  }
+  const closePlayer = () => {
+    if (window.history.state?.rkModal) window.history.back()
+    else setOpenKey(null)
+  }
 
   // Server-aggregated summary pools, cached per period (the only filter that
   // changes the stats). Seeded with the DEFAULT-period pool from the initial
@@ -456,6 +490,13 @@ export default function RankingsView({
     )
 
   const regionActive = (filters.region ?? "all") !== "all"
+
+  // Modal player: looked up in the whole period pool (a shared ?player= link may
+  // point outside the current filters); prev/next walk the filtered, sorted list.
+  const modalPlayer = playerModal && openKey ? (pools[periodKey] ?? []).find((p) => p.key === openKey) ?? null : null
+  const modalIndex = modalPlayer ? allPlayers.findIndex((p) => p.key === modalPlayer.key) : -1
+  const modalVerdict =
+    modalPlayer && selectionMode ? verdicts.get(modalPlayer.key) ?? verdictFor(modalPlayer, selectionMode) : null
   const searching = !!deferredSearch.trim()
 
   // Export downloads the FULL filtered list (not the visible-50 cap). Generators
@@ -634,8 +675,11 @@ export default function RankingsView({
                     verdict={selectionMode ? verdicts.get(p.key) ?? null : null}
                     cohort={selectionMode ? (selectionMode === "all" ? cohortFor(p) : selectionMode) : undefined}
                     colSpan={selectionMode ? 12 : 9}
-                    onToggle={() => setOpenKey((k) => (k === p.key ? null : p.key))}
+                    onToggle={() =>
+                      playerModal ? openPlayer(p.key) : setOpenKey((k) => (k === p.key ? null : p.key))
+                    }
                     profileBasePath={profileBasePath}
+                    modal={playerModal}
                   />
                 ))}
               </tbody>
@@ -651,6 +695,30 @@ export default function RankingsView({
             </button>
           )}
         </div>
+      )}
+
+      {modalPlayer && (
+        <PlayerModal
+          title={modalPlayer.name}
+          position={modalIndex >= 0 ? `${modalIndex + 1} of ${allPlayers.length}` : undefined}
+          onPrev={modalIndex > 0 ? () => setOpenKey(allPlayers[modalIndex - 1].key) : undefined}
+          onNext={
+            modalIndex >= 0 && modalIndex < allPlayers.length - 1
+              ? () => setOpenKey(allPlayers[modalIndex + 1].key)
+              : undefined
+          }
+          onClose={closePlayer}
+        >
+          <ExpandedPanel
+            as="block"
+            p={modalPlayer}
+            appearances={history[`${periodKey}:${modalPlayer.key}`] ?? null}
+            verdict={modalVerdict}
+            cohort={selectionMode ? (selectionMode === "all" ? cohortFor(modalPlayer) : selectionMode) : undefined}
+            profileBasePath={profileBasePath}
+            tournamentRegion={filters.tournamentRegion}
+          />
+        </PlayerModal>
       )}
     </div>
   )
