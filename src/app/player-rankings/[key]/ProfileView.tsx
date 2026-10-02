@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import type { PlayerProfile, EventGames, HeadToHead } from "@/lib/playerProfileServer"
-import { ageGroupOf, isSeniorGroup } from "../FilterBar"
+import { isSeniorGroup } from "../FilterBar"
 import TrendChart from "./TrendChart"
 import { TournamentsTab, OpponentsTab } from "./ProfileTabs"
 import styles from "./profile.module.css"
@@ -423,7 +423,7 @@ export default function ProfileView({
   )
   const view = useMemo(() => deriveView(byEvent, period, loc), [byEvent, period, loc])
   const filterActive = period !== null || loc !== "all"
-  const category = ageGroupOf(p.birthYear)
+  const category = p.ageGroup
 
   // Restore tab + filters from the URL on mount; keep the URL in sync after, so
   // profile views are shareable and refresh-safe. replaceState avoids history spam.

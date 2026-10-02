@@ -1,6 +1,6 @@
 import type { RankedSummary } from "@/lib/rankings";
 import { juniorCriteria, seniorCriteria } from "@/lib/cdcSelection";
-import { JUNIOR_MIN_BIRTH } from "@/lib/ageGroups";
+import { isJuniorGroup } from "@/lib/ageGroups";
 
 // Chess-season start year for the home page: 2025 = Oct 2025–Sep 2026.
 export const SEASON = 2025;
@@ -11,8 +11,7 @@ const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWM", "LWB", "LCA
 
 // Junior = turns at most 19 this calendar year (shared convention: U20 is the
 // top junior band, covering players turning 18/19).
-export const isJunior = (p: RankedSummary) =>
-  p.birthYear != null && p.birthYear >= JUNIOR_MIN_BIRTH;
+export const isJunior = (p: RankedSummary) => isJuniorGroup(p.ageGroup);
 
 // "Local" = played a Limpopo event OR ever held a local federation code, so
 // non-Limpopo-coded players who turned up at our tournaments are included.

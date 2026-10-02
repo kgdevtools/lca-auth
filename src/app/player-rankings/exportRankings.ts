@@ -6,7 +6,6 @@
 
 import type { RankedSummary } from "@/lib/rankings"
 import type { SelectionVerdict } from "@/lib/cdcSelection"
-import { ageGroupOf } from "./FilterBar"
 
 export type ExportFormat = "xlsx" | "pdf"
 
@@ -30,8 +29,7 @@ interface ExportRow {
   v: SelectionVerdict | null
 }
 
-/** One column definition drives both formats. `pdf: false` columns (IDs, birth
- *  year, title) are Excel-only so the landscape PDF stays readable. */
+/** One column definition drives both formats. `pdf: false` columns (IDs, title) are Excel-only so the landscape PDF stays readable. */
 interface Col {
   label: string
   pdf: boolean
@@ -55,8 +53,7 @@ const COLS: Col[] = [
   { label: "Title", pdf: false, value: (r) => dash(r.p.title) },
   { label: "Gender", pdf: true, value: (r) => dash(r.p.sex) },
   { label: "Fed", pdf: true, value: (r) => dash(r.p.federation) },
-  { label: "Age", pdf: true, value: (r) => ageGroupOf(r.p.birthYear).replace("—", "") },
-  { label: "Birth year", pdf: false, num: true, value: (r) => dash(r.p.birthYear) },
+  { label: "Age", pdf: true, value: (r) => r.p.ageGroup.replace("—", "") },
   { label: "Chess SA ID", pdf: false, value: (r) => dash(r.p.uniqueNo) },
   { label: "FIDE ID", pdf: false, value: (r) => dash(r.p.fideId) },
   { label: "Chess SA", pdf: true, num: true, value: (r) => dash(r.p.currentRating) },

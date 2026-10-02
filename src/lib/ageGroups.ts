@@ -35,6 +35,11 @@ export function ageGroupOf(birthYear: number | null | undefined): string {
   return `U${String(nn).padStart(2, "0")}`
 }
 
+/** Is `g` a junior UNN band (vs ADT/SNR/VET or unknown "—")? */
+export function isJuniorGroup(g: string): boolean {
+  return g.startsWith("U")
+}
+
 /**
  * Inclusive birth-year range for a junior band: UNN = born
  * REF_YEAR-(NN-1) .. REF_YEAR-(NN-2). Used for exact band filtering so age

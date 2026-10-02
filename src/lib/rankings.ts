@@ -7,6 +7,7 @@
  */
 
 import { classifyTournament, type TournamentType } from "./cdcSelection";
+import { ageGroupOf } from "./ageGroups";
 
 // ── Raw shapes (as returned by Supabase / the regions json) ───────────────────
 
@@ -150,7 +151,9 @@ export interface RankedPlayer {
   fideId: string | null;
   fideRating: number | null;
   currentRating: number | null;
-  birthYear: number | null;
+  /** Age group from ageGroupOf ("—" if unknown). The birth year itself never
+   *  leaves the server: it is a minor's personal information under POPIA. */
+  ageGroup: string;
   avgPerf: number;
   bestPerf: number;
   worstPerf: number;
@@ -430,7 +433,7 @@ export function rankPlayers(
       fideId: p.fideId,
       fideRating: p.fideRating,
       currentRating: p.currentRating,
-      birthYear: p.birthYear,
+      ageGroup: ageGroupOf(p.birthYear),
       avgPerf: Math.round(mean(perfs)!),
       bestPerf: Math.max(...perfs),
       worstPerf: Math.min(...perfs),

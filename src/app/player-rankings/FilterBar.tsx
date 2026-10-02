@@ -47,12 +47,6 @@ export function isSeniorGroup(g: string): boolean {
   return g === "ADT" || g === "SNR" || g === "VET"
 }
 
-// Age-group convention lives in @/lib/ageGroups (shared with the home card and
-// admin tournament-selection): UNN = turning NN-2 or NN-1 in REF_YEAR, e.g.
-// U16 = born REF_YEAR-15..REF_YEAR-14. Re-exported for existing importers
-// (RankingsView, exportRankings, ProfileView).
-export { REF_YEAR, JUNIOR_MIN_BIRTH, ageGroupOf } from "@/lib/ageGroups"
-
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

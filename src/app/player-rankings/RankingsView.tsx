@@ -9,14 +9,12 @@ import {
 } from "@/lib/cdcSelection"
 import FilterBar, {
   FILTER_DEFAULTS,
-  JUNIOR_MIN_BIRTH,
-  ageGroupOf,
   isSeniorGroup,
   scopeLabels,
   type Category,
   type UiFilters,
 } from "./FilterBar"
-import { juniorBandBirthYears } from "@/lib/ageGroups"
+import { isJuniorGroup } from "@/lib/ageGroups"
 import type { ExportFormat } from "./exportRankings"
 import ExpandedPanel from "./ExpandedPanel"
 import PlayerModal from "./PlayerModal"
@@ -53,9 +51,9 @@ type SortField =
 type SelectionMode = "junior" | "senior" | "all" | null
 
 /** In the all-players view each player is judged against their own cohort:
- *  juniors by birth year, everyone else (incl. unknown) as senior. */
+ *  juniors by age group, everyone else (incl. unknown) as senior. */
 function cohortFor(p: RankedSummary): "junior" | "senior" {
-  return p.birthYear != null && p.birthYear >= JUNIOR_MIN_BIRTH ? "junior" : "senior"
+  return isJuniorGroup(p.ageGroup) ? "junior" : "senior"
 }
 
 function verdictFor(p: RankedSummary, mode: Exclude<SelectionMode, null>): SelectionVerdict {
@@ -124,33 +122,20 @@ function passesTournamentRegion(p: RankedSummary, tournamentRegion: string | und
   return p.playedDistricts.includes(tournamentRegion)
 }
 
-// Category is a player-level include/exclude on birth year (it doesn't change a
+// Category is a player-level include/exclude on age group (it doesn't change a
 // player's stats), so it runs client-side over the aggregated pool. The period
 // filter, which DOES change the averages, is applied server-side instead.
 function passesCategory(p: RankedSummary, f: UiFilters): boolean {
   if (f.category === "juniors") {
-    if (p.birthYear == null || p.birthYear < JUNIOR_MIN_BIRTH) return false
-    if (f.ageGroup && f.ageGroup !== "all") {
-      const n = Number(f.ageGroup.replace(/\D/g, ""))
-      // Exact 2-year band so age groups never overlap: UNN = turning NN-2 or
-      // NN-1 in REF_YEAR, so a U16 player (born REF_YEAR-15..REF_YEAR-14) is
-      // excluded from U14, U18, … and vice-versa.
-      if (Number.isFinite(n)) {
-        const { min, max } = juniorBandBirthYears(n)
-        return p.birthYear >= min && p.birthYear <= max
-      }
-    }
-    return true
+    if (!isJuniorGroup(p.ageGroup)) return false
+    // Bands are exact 2-year groups (see ageGroups.ts), so they never overlap.
+    return !f.ageGroup || f.ageGroup === "all" || p.ageGroup === f.ageGroup
   }
-  // Senior = any non-junior player (unknown birth year counts as senior). An
-  // optional age band (ADT/SNR/VET) narrows further, and needs a known birth year.
+  // Senior = any non-junior player (unknown age counts as senior). An optional
+  // age band (ADT/SNR/VET) narrows further, and needs a known age.
   if (f.category === "seniors") {
-    const isSenior = p.birthYear == null || p.birthYear < JUNIOR_MIN_BIRTH
-    if (!isSenior) return false
-    if (f.ageGroup && f.ageGroup !== "all") {
-      return p.birthYear != null && ageGroupOf(p.birthYear) === f.ageGroup
-    }
-    return true
+    if (isJuniorGroup(p.ageGroup)) return false
+    return !f.ageGroup || f.ageGroup === "all" || p.ageGroup === f.ageGroup
   }
   return true
 }
@@ -245,7 +230,7 @@ function PlayerRow({
   /** Details open in a modal; the row only highlights. */
   modal?: boolean
 }) {
-  const age = ageGroupOf(p.birthYear)
+  const age = p.ageGroup
   return (
     <Fragment>
       <tr
