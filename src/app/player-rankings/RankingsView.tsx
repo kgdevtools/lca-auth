@@ -77,21 +77,38 @@ interface Sort {
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ")
 
 // Limpopo grouping — "LIM" matches any of its sub-union federation codes.
-const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWT", "LWM"])
+const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWM", "LWB", "LCA"])
 
 // Limpopo district filters — like LIM, a player counts if they have EVER played
-// under that district's code.
-const DISTRICT_CODES = new Set(["LVT", "LCP", "LSG", "LMG", "LWM"])
+// under that district's code. Mapped to the district name used by
+// tournament-regions.json for the "or played there" match below.
+const DISTRICT_BY_CODE: Record<string, string> = {
+  LCP: "Capricorn",
+  LMG: "Mopani",
+  LSG: "Sekhukhune",
+  LVT: "Vhembe",
+  LWM: "Waterberg",
+}
 
 // Player-federation "region" filter. Matches against the full federations array
 // so a player who has EVER played under a local union counts as local — RSA only
 // matches players with no local code (their derived p.federation falls back to
 // RSA). See pickFederation.
-function passesRegion(p: RankedSummary, region: string): boolean {
+//
+// With `districtByPlay`, a district option also matches players who played a
+// tournament in that district: organisers outside Capricorn mostly enter players
+// as RSA, so the district code alone misses nearly everyone at Mopani/Sekhukhune.
+function passesRegion(p: RankedSummary, region: string, districtByPlay = false): boolean {
   if (region === "all") return true
   // Federation-based.
   if (region === "LIM") return p.federations.some((c) => LIM_CODES.has(c.toUpperCase()))
-  if (DISTRICT_CODES.has(region)) return p.federations.some((c) => c.toUpperCase() === region)
+  const district = DISTRICT_BY_CODE[region]
+  if (district) {
+    return (
+      p.federations.some((c) => c.toUpperCase() === region) ||
+      (districtByPlay && p.playedDistricts.includes(district))
+    )
+  }
   // Location-based: who actually PLAYED in Capricorn / Limpopo, regardless of (or
   // missing) a federation code. Catches RSA/GTP/uncoded players at local events.
   if (region === "PLAYED_CAP") return p.playedCapricorn
@@ -464,7 +481,7 @@ export default function RankingsView({
     const verdicts = new Map<string, SelectionVerdict>()
     let list = pool.filter(
       (p) =>
-        passesRegion(p, region) &&
+        passesRegion(p, region, showTournamentRegion) &&
         passesTournamentRegion(p, filters.tournamentRegion) &&
         passesCategory(p, filters) &&
         (!sex || (p.sex ?? "").toUpperCase() === sex) &&
@@ -478,7 +495,7 @@ export default function RankingsView({
     }
     list = sortPlayers(list, sort)
     return { players: list.slice(0, filters.limit ?? 50), allPlayers: list, totalMatches: list.length, verdicts }
-  }, [pools, periodKey, filters, deferredSearch, sort, selectionMode])
+  }, [pools, periodKey, filters, deferredSearch, sort, selectionMode, showTournamentRegion])
 
   const remaining = totalMatches - players.length
 

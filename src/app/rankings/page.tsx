@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ChevronDown } from "lucide-react"
 import { getShadowSummaries } from "@/lib/rankingsServer"
@@ -6,11 +7,64 @@ import { DEFAULT_PERIOD } from "../player-rankings/constants"
 
 export const revalidate = 3600
 
+const PAGE_URL = "https://limpopochessacademy.co.za/rankings"
+const TITLE = "Limpopo & Capricorn Chess Rankings – Junior & Open"
+const DESCRIPTION =
+  "Chess player rankings for Limpopo: Capricorn District (Polokwane), Mopani, Vhembe, Waterberg " +
+  "and Sekhukhune. Junior age groups and open players, CDC junior qualifiers and Capricorn " +
+  "selection progress, updated after each tournament."
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: PAGE_URL },
+  openGraph: { title: `${TITLE} | Limpopo Chess Academy`, description: DESCRIPTION, url: PAGE_URL },
+  twitter: { title: `${TITLE} | Limpopo Chess Academy`, description: DESCRIPTION },
+}
+
+// Structured data: who publishes the page and what it is.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SportsOrganization",
+      "@id": "https://limpopochessacademy.co.za/#org",
+      name: "Limpopo Chess Academy",
+      alternateName: "LCA",
+      url: "https://limpopochessacademy.co.za",
+      sport: "Chess",
+      areaServed: ["Limpopo", "Capricorn District", "Polokwane"],
+      address: { "@type": "PostalAddress", addressLocality: "Polokwane", addressRegion: "Limpopo", addressCountry: "ZA" },
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${PAGE_URL}#page`,
+      url: PAGE_URL,
+      name: TITLE,
+      description: DESCRIPTION,
+      inLanguage: "en-ZA",
+      publisher: { "@id": "https://limpopochessacademy.co.za/#org" },
+    },
+  ],
+}
+
 export default async function IncrementalRankingsPreviewPage() {
   const initialPlayers = await getShadowSummaries(DEFAULT_PERIOD)
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <header className="mx-auto max-w-[1200px] px-4 pt-6 xl:px-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          Limpopo Chess Rankings
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+          Performance rankings for chess players across Limpopo — Capricorn District (Polokwane),
+          Mopani, Vhembe, Waterberg and Sekhukhune — from junior qualifying tournaments, including
+          the CDC junior qualifiers, and open events. Filter by junior age group, district or season,
+          and check each player&apos;s progress toward Capricorn junior selection.
+        </p>
+      </header>
       <details className="group mx-auto mt-5 max-w-[1200px] border border-amber-500/40 bg-amber-500/10 text-sm leading-6 text-foreground">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 [&::-webkit-details-marker]:hidden">
           <span>Can&apos;t find your name?</span>
@@ -26,7 +80,7 @@ export default async function IncrementalRankingsPreviewPage() {
           <p>One of the following may apply:</p>
           <ol className="mt-1 list-decimal space-y-1 pl-5 text-muted-foreground">
             <li>You have played fewer than three events in the selected period.</li>
-            <li>Your federation code is not registered under Limpopo: LCP, LVT, LWM, LSG or LMG.</li>
+            <li>Your federation code is not registered under Limpopo: LCP, LVT, LWM, LSG, LMG, LWB or LCA.</li>
             <li>
               We may not yet have captured eligible Open tournaments you played outside Limpopo or
               Capricorn.

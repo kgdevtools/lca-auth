@@ -5,6 +5,9 @@ const OPEN_PATHS = [
   "/forms/contact-us",
   "/forms/register-player",
   "/rankings",
+  // Crawler files, so search engines can index /rankings during the pause.
+  "/robots.txt",
+  "/sitemap.xml",
   // Games tab of the /rankings player profile, and its analysis engine.
   "/api/players/games",
   "/engine",

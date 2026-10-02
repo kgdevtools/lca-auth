@@ -7,7 +7,7 @@ export const SEASON = 2025;
 export const SEASON_LABEL = "2025–2026";
 
 // Limpopo grouping — any of the local-union federation codes.
-const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWT", "LIM"]);
+const LIM_CODES = new Set(["LCP", "LMG", "LSG", "LVT", "CSA", "LWM", "LWB", "LCA", "LIM"]);
 
 // Junior = turns at most 19 this calendar year (shared convention: U20 is the
 // top junior band, covering players turning 18/19).

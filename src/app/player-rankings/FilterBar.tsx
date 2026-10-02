@@ -294,7 +294,7 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled,
                   <option value="LIM">Limpopo (LIM)</option>
                   <option value="RSA">RSA</option>
                 </optgroup>
-                <optgroup label="Limpopo districts">
+                <optgroup label={showTournamentRegion ? "Limpopo districts (code or played there)" : "Limpopo districts"}>
                   <option value="LVT">Vhembe (LVT)</option>
                   <option value="LCP">Capricorn (LCP)</option>
                   <option value="LSG">Sekhukhune (LSG)</option>
@@ -317,7 +317,12 @@ export default function FilterBar({ filters, onChange, onExport, exportDisabled,
                   className={styles.sel}
                   data-active={!!filters.tournamentRegion}
                   value={filters.tournamentRegion ?? "all"}
-                  onChange={(e) => set({ tournamentRegion: e.target.value === "all" ? undefined : e.target.value })}
+                  onChange={(e) => {
+                    const tournamentRegion = e.target.value === "all" ? undefined : e.target.value
+                    // "Played in X" would otherwise be cut down to Limpopo-coded
+                    // players by the Region default; an explicit district pick stays.
+                    set(tournamentRegion && filters.region === "LIM" ? { tournamentRegion, region: "all" } : { tournamentRegion })
+                  }}
                 >
                   <option value="all">All tournaments</option>
                   <option value="LIMPOPO">Anywhere in Limpopo</option>
