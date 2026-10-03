@@ -152,22 +152,22 @@ export default async function RootLayout({
                   className="inline-flex items-center h-full px-1 flex-shrink-0"
                   aria-label="Limpopo Chess Academy"
                 >
-                  <div className="relative h-[68px] w-[84px] transition-all duration-300 ease-in-out hover:scale-105">
+                  <div className="relative h-[64px] w-[117px] transition-all duration-300 ease-in-out hover:scale-105">
                     <Image
-                      src="/lca_pawn_light_bg.png"
+                      src="/lca_logo_light_bg.png"
                       alt="Limpopo Chess Academy"
                       fill
                       priority
                       className="object-contain block dark:hidden"
-                      sizes="84px"
+                      sizes="117px"
                     />
                     <Image
-                      src="/lca_pawn_dark_bg.png"
+                      src="/lca_logo_dark_bg.png"
                       alt="Limpopo Chess Academy"
                       fill
                       priority
                       className="object-contain hidden dark:block"
-                      sizes="84px"
+                      sizes="117px"
                     />
                   </div>
                 </Link>
